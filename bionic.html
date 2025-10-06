@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eBook Reader Gesture Prototype</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            overflow: hidden;
+            touch-action: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        #toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            min-height: 60px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 10px 20px;
+            z-index: 300;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            flex-wrap: wrap;
+        }
+
+        .toolbar-section {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .toolbar-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding-top: 80px;
+        }
+
+        #reader-area {
+            position: relative;
+            background: white;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            transition: all 0.1s ease-out;
+            max-height: calc(90vh - 80px);
+        }
+
+        .margin-handle {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 80px;
+            cursor: ew-resize;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .margin-handle-left {
+            left: 0;
+        }
+
+        .margin-handle-right {
+            right: 0;
+        }
+
+        .margin-indicator {
+            width: 8px;
+            height: 60px;
+            background: #3b82f6;
+            border-radius: 4px;
+            opacity: 0.3;
+            transition: all 0.2s;
+            box-shadow: 0 2px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .margin-handle:hover .margin-indicator {
+            opacity: 0.7;
+            transform: scale(1.1);
+        }
+
+        .margin-handle.active .margin-indicator {
+            opacity: 1;
+            transform: scale(1.15);
+            background: #2563eb;
+        }
+
+        #text-content {
+            transition: padding 0.1s ease-out;
+            position: relative;
+        }
+
+        .mode-btn {
+            padding: 6px 14px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .mode-btn:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+
+        .mode-btn.active {
+            border-color: #3b82f6;
+            background: #3b82f6;
+            color: white;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .speed-control input[type="range"] {
+            flex: 1;
+            min-width: 80px;
+            width: 100px;
+            height: 6px;
+            border-radius: 3px;
+            background: #e5e7eb;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .speed-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+        }
+
+        .speed-control input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: none;
+        }
+
+        .speed-label {
+            font-size: 10px;
+            color: #666;
+            min-width: 45px;
+            white-space: nowrap;
+        }
+
+        .play-btn {
+            padding: 6px 16px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .play-btn:hover {
+            background: #2563eb;
+        }
+
+        .play-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .bionic {
+            font-weight: 700;
+        }
+
+        .flow-word {
+            transition: opacity 0.15s ease-out;
+            font-weight: 400;
+            cursor: pointer;
+            display: inline;
+        }
+
+        .flow-word:hover {
+            opacity: 0.7;
+        }
+
+        .flow-word.active {
+            opacity: 1;
+            color: #1a1a1a;
+        }
+
+        .flow-word.inactive {
+            opacity: 0.2;
+        }
+
+        .flow-word.inactive-always {
+            opacity: 0.2;
+            cursor: default;
+        }
+    </style>
+</head>
+<body>
+    <div id="toolbar">
+        <div class="toolbar-section">
+            <span class="toolbar-label">Bionic</span>
+            <button class="mode-btn" id="bionic-toggle">Off</button>
+        </div>
+        <div class="toolbar-section">
+            <button class="mode-btn" id="flow-toggle">Flow Mode</button>
+        </div>
+        <div class="toolbar-section" id="flow-controls" style="display: none;">
+            <span class="toolbar-label">Speed</span>
+            <div class="speed-control">
+                <input type="range" id="speed-slider" min="100" max="600" value="300" step="10">
+                <span class="speed-label" id="speed-label">300 wpm</span>
+            </div>
+            <span class="toolbar-label">Focus Width</span>
+            <div class="speed-control">
+                <input type="range" id="width-slider" min="1" max="4" value="2" step="0.5">
+                <span class="speed-label" id="width-label">2 👆</span>
+            </div>
+            <span class="toolbar-label">Scroll Position</span>
+            <div class="speed-control">
+                <input type="range" id="scroll-slider" min="1" max="5" value="1" step="1">
+                <span class="speed-label" id="scroll-label">1 (Top)</span>
+            </div>
+            <button class="play-btn" id="play-btn">▶ Play</button>
+        </div>
+    </div>
+
+    <div id="container">
+        <div id="reader-area">
+            <div class="margin-handle margin-handle-left">
+                <div class="margin-indicator"></div>
+            </div>
+            <div class="margin-handle margin-handle-right">
+                <div class="margin-indicator"></div>
+            </div>
+            <div id="text-content">
+                <h1>Chapter One: The Beginning</h1>
+                <p>In the heart of Silicon Valley, where innovation breathed life into dreams and ambition fueled the relentless pursuit of progress, there existed a small startup that dared to challenge the giants. The morning sun cast long shadows through the floor-to-ceiling windows of their modest office, illuminating screens filled with code and whiteboards covered in sketches of impossible ideas.</p>
+                
+                <p>Sarah had always believed that the best products were born from frustration. It was a Tuesday afternoon when she threw her e-reader across the room—not hard enough to break it, but with enough force to express her complete dissatisfaction with the experience. "Why," she asked her co-founder Marcus, "does every reading app feel like it was designed in 2010?"</p>
+                
+                <p>Marcus looked up from his laptop, his fingers still hovering over the keyboard. He'd been wrestling with the same question for months. The reading experience hadn't evolved. Sure, screens got sharper and devices got thinner, but the fundamental interaction between human and text remained stubbornly unchanged.</p>
+                
+                <p>"What if," Sarah continued, pacing now, her mind racing ahead of her words, "we treated text like it was alive? What if reading could be as fluid and intuitive as touching water?"</p>
+                
+                <p>That conversation sparked something neither of them could ignore. Within weeks, they had assembled a small team of designers and developers who shared their vision. The goal was simple yet audacious: reimagine reading for the touch-screen era. Not just digital books, but a completely new way of interacting with text.</p>
+                
+                <p>The first prototype was rough—buggy gestures, inconsistent behavior, and a tendency to crash at the worst possible moments. But there was something there, something that felt right. When you pinched the screen and watched the text respond, growing larger or smaller with the natural motion of your fingers, it felt like magic. When you swept two fingers vertically and saw the lines of text breathe, expanding and contracting with your touch, it felt like the text was alive.</p>
+                
+                <p>They called it Project Phoenix, because they were resurrecting the reading experience from the ashes of stagnation. Every evening, the team would gather around a large display, testing gestures, debating interactions, and pushing the boundaries of what felt natural. Some ideas were brilliant; most were terrible. But each failure taught them something new about how humans wanted to interact with text.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== CONFIGURATION ====================
+        const CONFIG = {
+            style: {
+                fontSize: { default: 18, min: 12, max: 48 },
+                lineHeight: { default: 1.6 },
+                margin: { default: 60, min: 10, max: 200 }
+            },
+            flow: {
+                cursorWidth: 150,
+                defaultSpeed: 300,
+                minSpeed: 100,
+                maxSpeed: 600,
+                wordSpacing: 5,
+                minWidth: 50,
+                maxWidth: 400
+            },
+            scroll: {
+                comfortZoneTop: 0.15,
+                comfortZoneBottom: 0.7,
+                userScrollTimeout: 1500,
+                defaultTargetPosition: 1, // 1-5 scale
+                topGap: 0.1 // 10% gap from top
+            },
+            focus: {
+                minFingers: 1,
+                maxFingers: 4,
+                defaultFingers: 2,
+                fingerWidthBase: 45 // Base width in px per "finger" at 18px font
+            }
+        };
+
+        // ==================== STATE MANAGEMENT ====================
+        const state = {
+            style: {
+                fontSize: CONFIG.style.fontSize.default,
+                lineHeight: CONFIG.style.lineHeight.default,
+                marginLeft: CONFIG.style.margin.default,
+                marginRight: CONFIG.style.margin.default,
+                marginTop: 40,
+                marginBottom: 40
+            },
+            flow: {
+                isPlaying: false,
+                speed: CONFIG.flow.defaultSpeed,
+                cursorPosition: 0,
+                startTime: 0,
+                animationFrame: null,
+                userScrolling: false,
+                scrollTimeout: null,
+                focusFingers: CONFIG.focus.defaultFingers,
+                scrollTargetPosition: CONFIG.scroll.defaultTargetPosition
+            },
+            mode: {
+                current: 'normal',
+                bionicEnabled: false
+            },
+            gesture: {
+                touches: [],
+                initialDistance: 0,
+                initialFontSize: 0,
+                isDraggingMargin: false,
+                draggedHandle: null,
+                initialMarginValue: 0,
+                initialTouchX: 0
+            }
+        };
+
+        // ==================== DOM REFERENCES ====================
+        const DOM = {
+            readerArea: document.getElementById('reader-area'),
+            textContent: document.getElementById('text-content'),
+            leftHandle: document.querySelector('.margin-handle-left'),
+            rightHandle: document.querySelector('.margin-handle-right'),
+            playBtn: document.getElementById('play-btn'),
+            speedSlider: document.getElementById('speed-slider'),
+            speedLabel: document.getElementById('speed-label'),
+            widthSlider: document.getElementById('width-slider'),
+            widthLabel: document.getElementById('width-label'),
+            scrollSlider: document.getElementById('scroll-slider'),
+            scrollLabel: document.getElementById('scroll-label'),
+            bionicToggle: document.getElementById('bionic-toggle'),
+            flowToggle: document.getElementById('flow-toggle'),
+            flowControls: document.getElementById('flow-controls')
+        };
+
+        // ==================== ORIGINAL CONTENT ====================
+        const ORIGINAL_TEXT = `
+            <h1>Chapter One: The Beginning</h1>
+            <p>In the heart of Silicon Valley, where innovation breathed life into dreams and ambition fueled the relentless pursuit of progress, there existed a small startup that dared to challenge the giants. The morning sun cast long shadows through the floor-to-ceiling windows of their modest office, illuminating screens filled with code and whiteboards covered in sketches of impossible ideas.</p>
+            
+            <p>Sarah had always believed that the best products were born from frustration. It was a Tuesday afternoon when she threw her e-reader across the room—not hard enough to break it, but with enough force to express her complete dissatisfaction with the experience. "Why," she asked her co-founder Marcus, "does every reading app feel like it was designed in 2010?"</p>
+            
+            <p>Marcus looked up from his laptop, his fingers still hovering over the keyboard. He'd been wrestling with the same question for months. The reading experience hadn't evolved. Sure, screens got sharper and devices got thinner, but the fundamental interaction between human and text remained stubbornly unchanged.</p>
+            
+            <p>"What if," Sarah continued, pacing now, her mind racing ahead of her words, "we treated text like it was alive? What if reading could be as fluid and intuitive as touching water?"</p>
+            
+            <p>That conversation sparked something neither of them could ignore. Within weeks, they had assembled a small team of designers and developers who shared their vision. The goal was simple yet audacious: reimagine reading for the touch-screen era. Not just digital books, but a completely new way of interacting with text.</p>
+            
+            <p>The first prototype was rough—buggy gestures, inconsistent behavior, and a tendency to crash at the worst possible moments. But there was something there, something that felt right. When you pinched the screen and watched the text respond, growing larger or smaller with the natural motion of your fingers, it felt like magic. When you swept two fingers vertically and saw the lines of text breathe, expanding and contracting with your touch, it felt like the text was alive.</p>
+            
+            <p>They called it Project Phoenix, because they were resurrecting the reading experience from the ashes of stagnation. Every evening, the team would gather around a large display, testing gestures, debating interactions, and pushing the boundaries of what felt natural. Some ideas were brilliant; most were terrible. But each failure taught them something new about how humans wanted to interact with text.</p>
+        `;
+
+        // ==================== UTILITY FUNCTIONS ====================
+        function applyElasticResistance(value, min, max) {
+            if (value < min) {
+                const overflow = min - value;
+                return min - Math.sqrt(overflow) * 2;
+            } else if (value > max) {
+                const overflow = value - max;
+                return max + Math.sqrt(overflow) * 2;
+            }
+            return value;
+        }
+
+        function getDistance(touch1, touch2) {
+            const dx = touch2.clientX - touch1.clientX;
+            const dy = touch2.clientY - touch1.clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        // ==================== WORD POSITION CALCULATOR ====================
+        class WordPositionCalculator {
+            static calculate() {
+                const words = document.querySelectorAll('.flow-word[data-word-index]');
+                const positions = [];
+                
+                words.forEach((word, index) => {
+                    const rect = word.getBoundingClientRect();
+                    positions.push({
+                        element: word,
+                        left: rect.left,
+                        right: rect.right,
+                        top: rect.top,
+                        width: rect.width,
+                        index: index
+                    });
+                });
+                
+                return positions;
+            }
+
+            static calculateDistanceToWord(targetIndex, positions) {
+                let distance = 0;
+                for (let i = 0; i < targetIndex && i < positions.length; i++) {
+                    distance += positions[i].width + CONFIG.flow.wordSpacing;
+                }
+                return distance;
+            }
+
+            static getTotalTextWidth(positions) {
+                return positions.reduce((sum, pos) => 
+                    sum + pos.width + CONFIG.flow.wordSpacing, 0
+                    );
+            }
+        }
+
+        // ==================== TEXT FORMATTER ====================
+        class TextFormatter {
+            static makeBionicText(text) {
+                return text.replace(/\b(\w+)\b/g, (word) => {
+                    if (word.length <= 2) return word;
+                    const boldCount = Math.ceil(word.length / 2);
+                    const boldPart = word.slice(0, boldCount);
+                    const normalPart = word.slice(boldCount);
+                    return `<span class="bionic">${boldPart}</span>${normalPart}`;
+                });
+            }
+
+            static makeFlowText(html, bionicEnabled) {
+                const container = document.createElement('div');
+                container.innerHTML = html;
+
+                let wordCounter = 0;
+                const wrapText = (text) => text.replace(/(\S+)/g, (item) => {
+                    // Check if it's a word with letters
+                    if (/\w/.test(item)) {
+                        let content = item;
+                        // Only apply bionic to actual words (strip punctuation for bionic check)
+                        const wordOnly = item.match(/\w+/);
+                        if (bionicEnabled && wordOnly && wordOnly[0].length > 2) {
+                            const word = wordOnly[0];
+                            const boldCount = Math.ceil(word.length / 2);
+                            const boldPart = word.slice(0, boldCount);
+                            const normalPart = word.slice(boldCount);
+                            // Replace the word part with bionic version, keep punctuation
+                            content = item.replace(word, `<span class="bionic">${boldPart}</span>${normalPart}`);
+                        }
+                        return `<span class="flow-word inactive" data-word-index="${wordCounter++}">${content}</span>`;
+                    } else {
+                        // Pure punctuation - still make it a flow word so it gets highlighted
+                        return `<span class="flow-word inactive" data-word-index="${wordCounter++}">${item}</span>`;
+                    }
+                });
+
+                const processNode = (node) => {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        const temp = document.createElement('span');
+                        temp.innerHTML = wrapText(node.textContent);
+                        node.replaceWith(...temp.childNodes);
+                    } else if (node.nodeType === Node.ELEMENT_NODE) {
+                        [...node.childNodes].forEach(processNode);
+                    }
+                };
+
+                [...container.childNodes].forEach(processNode);
+                return container.innerHTML;
+            }
+        }
+
+        // ==================== STYLE MANAGER ====================
+        class StyleManager {
+            static updateStyles() {
+                const s = state.style;
+                DOM.textContent.style.fontSize = s.fontSize + 'px';
+                DOM.textContent.style.lineHeight = s.lineHeight;
+                DOM.textContent.style.padding = 
+            `${s.marginTop}px ${s.marginRight}px ${s.marginBottom}px ${s.marginLeft}px`;
+            
+            this.updateHandlePositions();
+        }
+
+        static updateHandlePositions() {
+            const readerRect = DOM.readerArea.getBoundingClientRect();
+            DOM.leftHandle.style.left = 
+            (readerRect.left + state.style.marginLeft - 25) + 'px';
+            DOM.rightHandle.style.left = 
+            (readerRect.right - state.style.marginRight - 25) + 'px';
+        }
+    }
+
+        // ==================== SCROLL MANAGER ====================
+    class ScrollManager {
+        static getTargetPositionFromLevel(level) {
+                // Level 1-5 maps to viewport positions with 10% top gap
+                // 1 = 10% + 10% = 20%
+                // 2 = 10% + 30% = 40%
+                // 3 = 10% + 50% = 60%
+                // 4 = 10% + 70% = 80%
+                // 5 = 10% + 90% = 100% (bottom, practically)
+            const topGap = CONFIG.scroll.topGap;
+                const increment = 0.2; // 20% increments
+                return topGap + ((level - 1) * increment);
+            }
+
+            static gentlyScrollToWord(wordElement) {
+                if (state.flow.userScrolling) return;
+
+                const readerRect = DOM.readerArea.getBoundingClientRect();
+                const wordRect = wordElement.getBoundingClientRect();
+                
+                const scrollTop = DOM.readerArea.scrollTop;
+                const viewportHeight = readerRect.height;
+                
+                // Calculate target position based on user preference level (1-5)
+                const targetPositionRatio = this.getTargetPositionFromLevel(state.flow.scrollTargetPosition);
+                const targetViewportPosition = readerRect.top + 
+                viewportHeight * targetPositionRatio;
+                
+                // Define comfort zone around target position
+                const comfortZoneTop = readerRect.top + 
+                viewportHeight * CONFIG.scroll.comfortZoneTop;
+                const comfortZoneBottom = readerRect.bottom - 
+                viewportHeight * CONFIG.scroll.comfortZoneBottom;
+                
+                let targetScroll = scrollTop;
+                
+                // If word is outside comfort zone, scroll to target position
+                if (wordRect.top < comfortZoneTop || wordRect.bottom > comfortZoneBottom) {
+                    // Calculate scroll needed to place word at target position
+                    const wordDistanceFromTop = wordRect.top - readerRect.top;
+                    const desiredDistance = viewportHeight * targetPositionRatio;
+                    targetScroll = scrollTop + (wordDistanceFromTop - desiredDistance);
+                } else {
+                    // Word is in comfort zone - don't scroll
+                    return;
+                }
+                
+                DOM.readerArea.scrollTo({
+                    top: targetScroll,
+                    behavior: 'smooth'
+                });
+            }
+
+            static handleUserScroll() {
+                state.flow.userScrolling = true;
+                clearTimeout(state.flow.scrollTimeout);
+                state.flow.scrollTimeout = setTimeout(() => {
+                    state.flow.userScrolling = false;
+                }, CONFIG.scroll.userScrollTimeout);
+            }
+
+            static getScrollLevelLabel(level) {
+                const labels = {
+                    1: '1 (Top)',
+                    2: '2 (Upper)',
+                    3: '3 (Middle)',
+                    4: '4 (Lower)',
+                    5: '5 (Bottom)'
+                };
+                return labels[level] || level.toString();
+            }
+        }
+
+        // ==================== FOCUS WIDTH CALCULATOR ====================
+        class FocusWidthCalculator {
+            static calculate(fingers) {
+                // Scale focus width based on current font size
+                // Base: 45px per finger at 18px font size
+                const fontScale = state.style.fontSize / 18;
+                return CONFIG.focus.fingerWidthBase * fingers * fontScale;
+            }
+
+            static getCurrentWidth() {
+                return this.calculate(state.flow.focusFingers);
+            }
+        }
+
+        // ==================== FLOW READER ====================
+        class FlowReader {
+            static start() {
+                if (state.flow.isPlaying) return;
+                
+                state.flow.isPlaying = true;
+                DOM.playBtn.textContent = '⏸ Pause';
+                
+                const wordPositions = WordPositionCalculator.calculate();
+                if (wordPositions.length === 0) return;
+                
+                if (state.flow.cursorPosition === 0) {
+                    state.flow.startTime = performance.now();
+                } else {
+                    const avgCharWidth = state.style.fontSize * 0.5;
+                    const pixelsPerSecond = 
+                    (state.flow.speed / 60) * avgCharWidth * 6;
+                    const elapsedTime = 
+                    (state.flow.cursorPosition / pixelsPerSecond) * 1000;
+                    state.flow.startTime = performance.now() - elapsedTime;
+                }
+                
+                this.animate(wordPositions);
+            }
+
+            static stop() {
+                if (state.flow.animationFrame) {
+                    cancelAnimationFrame(state.flow.animationFrame);
+                    state.flow.animationFrame = null;
+                }
+                state.flow.isPlaying = false;
+                DOM.playBtn.textContent = '▶ Play';
+            }
+
+            static toggle() {
+                if (state.flow.isPlaying) {
+                    this.stop();
+                } else {
+                    this.start();
+                }
+            }
+
+            static animate(wordPositions) {
+                const animateFrame = (currentTime) => {
+                    if (!state.flow.isPlaying) return;
+                    
+                    const elapsed = currentTime - state.flow.startTime;
+                    const avgCharWidth = state.style.fontSize * 0.5;
+                    const pixelsPerSecond = 
+                    (state.flow.speed / 60) * avgCharWidth * 6;
+                    
+                    const totalDistance = (elapsed / 1000) * pixelsPerSecond;
+                    state.flow.cursorPosition = totalDistance;
+                    
+                    const words = document.querySelectorAll('.flow-word[data-word-index]');
+                    words.forEach(w => {
+                        w.classList.remove('active');
+                        w.classList.add('inactive');
+                    });
+                    
+                    let foundActive = false;
+                    for (let i = 0; i < wordPositions.length; i++) {
+                        const pos = wordPositions[i];
+                        
+                        const wordStart = 
+                        WordPositionCalculator.calculateDistanceToWord(i, wordPositions);
+                        const wordEnd = wordStart + pos.width;
+                        const cursorStart = totalDistance;
+                        const cursorEnd = totalDistance + FocusWidthCalculator.getCurrentWidth();
+                        
+                        if (cursorEnd >= wordStart && cursorStart <= wordEnd) {
+                            pos.element.classList.remove('inactive');
+                            pos.element.classList.add('active');
+                            
+                            if (!foundActive) {
+                                foundActive = true;
+                                ScrollManager.gentlyScrollToWord(pos.element);
+                            }
+                        }
+                    }
+                    
+                    const totalTextWidth = 
+                    WordPositionCalculator.getTotalTextWidth(wordPositions);
+                    if (totalDistance > totalTextWidth + FocusWidthCalculator.getCurrentWidth()) {
+                        state.flow.startTime = currentTime;
+                        state.flow.cursorPosition = 0;
+                    }
+                    
+                    state.flow.animationFrame = requestAnimationFrame(animateFrame);
+                };
+                
+                state.flow.animationFrame = requestAnimationFrame(animateFrame);
+            }
+
+            static jumpToWord(targetIndex) {
+                const wordPositions = WordPositionCalculator.calculate();
+                const distance = 
+                WordPositionCalculator.calculateDistanceToWord(targetIndex, wordPositions);
+                
+                state.flow.cursorPosition = distance;
+                
+                const avgCharWidth = state.style.fontSize * 0.5;
+                const pixelsPerSecond = (state.flow.speed / 60) * avgCharWidth * 6;
+                const elapsedTime = (distance / pixelsPerSecond) * 1000;
+                state.flow.startTime = performance.now() - elapsedTime;
+                
+                if (!state.flow.isPlaying) {
+                    this.updateWordStates(wordPositions, distance);
+                }
+            }
+
+            static updateWordStates(wordPositions, cursorPosition) {
+                const words = document.querySelectorAll('.flow-word[data-word-index]');
+                words.forEach(w => {
+                    w.classList.remove('active');
+                    w.classList.add('inactive');
+                });
+                
+                for (let i = 0; i < wordPositions.length; i++) {
+                    const pos = wordPositions[i];
+                    const wordStart = 
+                    WordPositionCalculator.calculateDistanceToWord(i, wordPositions);
+                    const wordEnd = wordStart + pos.width;
+                    const cursorStart = cursorPosition;
+                    const cursorEnd = cursorPosition + FocusWidthCalculator.getCurrentWidth();
+                    
+                    if (cursorEnd >= wordStart && cursorStart <= wordEnd) {
+                        pos.element.classList.remove('inactive');
+                        pos.element.classList.add('active');
+                    }
+                }
+            }
+        }
+
+        // ==================== MODE MANAGER ====================
+        class ModeManager {
+            static setMode(mode) {
+                const wasFlowPlaying = state.flow.isPlaying;
+                
+                state.mode.current = mode;
+                FlowReader.stop();
+                
+                DOM.flowToggle.classList.toggle('active', mode === 'flow');
+                DOM.flowControls.style.display = mode === 'flow' ? 'flex' : 'none';
+                
+                this.renderContent();
+                
+                // If flow was playing when mode changed, don't auto-restart
+                // User needs to manually restart
+            }
+
+            static renderContent() {
+                let html = ORIGINAL_TEXT;
+                
+                if (state.mode.current === 'flow') {
+                    html = TextFormatter.makeFlowText(html, state.mode.bionicEnabled);
+                    // Reset flow position when entering flow mode
+                    state.flow.cursorPosition = 0;
+                } else if (state.mode.bionicEnabled) {
+                    html = TextFormatter.makeBionicText(html);
+                }
+                
+                DOM.textContent.innerHTML = html;
+                
+                if (state.mode.current === 'flow') {
+                    setTimeout(() => this.attachWordClickHandlers(), 0);
+                }
+            }
+
+            static toggleFlow() {
+                const newMode = state.mode.current === 'flow' ? 'normal' : 'flow';
+                this.setMode(newMode);
+            }
+
+            static attachWordClickHandlers() {
+                // Remove old listener if it exists to prevent duplicates
+                const newContent = DOM.textContent.cloneNode(true);
+                DOM.textContent.parentNode.replaceChild(newContent, DOM.textContent);
+                DOM.textContent = newContent;
+                
+                DOM.textContent.addEventListener('click', (e) => {
+                    if (state.mode.current !== 'flow') return;
+                    
+                    const word = e.target.closest('.flow-word[data-word-index]');
+                    if (word) {
+                        const index = parseInt(word.dataset.wordIndex);
+                        FlowReader.jumpToWord(index);
+                    }
+                });
+            }
+
+            static toggleBionic() {
+                const wasFlowPlaying = state.flow.isPlaying;
+                const savedCursorPosition = state.flow.cursorPosition;
+                
+                state.mode.bionicEnabled = !state.mode.bionicEnabled;
+                DOM.bionicToggle.textContent = state.mode.bionicEnabled ? 'On' : 'Off';
+                DOM.bionicToggle.classList.toggle('active', state.mode.bionicEnabled);
+                
+    // Stop flow before re-rendering (preserve state)
+                if (wasFlowPlaying) {
+                    FlowReader.stop();
+                }
+                
+                this.renderContent();
+
+    // Wait for the browser to apply DOM changes & perform layout before recalculating geometry.
+    // requestAnimationFrame twice is a conservative way to ensure layout/paint completed.
+                if (wasFlowPlaying && state.mode.current === 'flow') {
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                // Restore cursor position and restart if it was playing
+                            state.flow.cursorPosition = savedCursorPosition;
+                            
+                // Recalculate start time based on saved position and current layout
+                            const avgCharWidth = state.style.fontSize * 0.5;
+                            const pixelsPerSecond = (state.flow.speed / 60) * avgCharWidth * 6;
+                            const elapsedTime = (savedCursorPosition / pixelsPerSecond) * 1000;
+                            state.flow.startTime = performance.now() - elapsedTime;
+                            
+                            FlowReader.start();
+                        });
+                    });
+                }
+            }
+        }
+
+        // ==================== GESTURE HANDLER ====================
+        class GestureHandler {
+            static startDragMargin(e) {
+                e.preventDefault();
+                state.gesture.isDraggingMargin = true;
+                state.gesture.draggedHandle = e.currentTarget;
+                state.gesture.draggedHandle.classList.add('active');
+                
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                state.gesture.initialTouchX = clientX;
+                state.gesture.initialMarginValue = 
+                state.gesture.draggedHandle === DOM.leftHandle ? 
+                state.style.marginLeft : state.style.marginRight;
+            }
+
+            static handleDragMargin(e) {
+                if (!state.gesture.isDraggingMargin) return;
+                
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const delta = clientX - state.gesture.initialTouchX;
+                
+                let newValue;
+                if (state.gesture.draggedHandle === DOM.leftHandle) {
+                    newValue = state.gesture.initialMarginValue + delta;
+                } else {
+                    newValue = state.gesture.initialMarginValue - delta;
+                }
+                
+                newValue = applyElasticResistance(
+                    newValue, 
+                    CONFIG.style.margin.min, 
+                    CONFIG.style.margin.max
+                    );
+                
+                if (state.gesture.draggedHandle === DOM.leftHandle) {
+                    state.style.marginLeft = newValue;
+                } else {
+                    state.style.marginRight = newValue;
+                }
+                
+                StyleManager.updateStyles();
+            }
+
+            static stopDragMargin() {
+                if (state.gesture.isDraggingMargin && state.gesture.draggedHandle) {
+                    state.gesture.draggedHandle.classList.remove('active');
+                    
+                    const isLeft = state.gesture.draggedHandle === DOM.leftHandle;
+                    const currentValue = isLeft ? 
+                    state.style.marginLeft : state.style.marginRight;
+                    
+                    const finalValue = Math.max(
+                        CONFIG.style.margin.min, 
+                        Math.min(CONFIG.style.margin.max, currentValue)
+                        );
+                    
+                    if (isLeft) {
+                        state.style.marginLeft = finalValue;
+                    } else {
+                        state.style.marginRight = finalValue;
+                    }
+                    StyleManager.updateStyles();
+                }
+                state.gesture.isDraggingMargin = false;
+                state.gesture.draggedHandle = null;
+            }
+
+            static handleTouchStart(e) {
+                if (state.gesture.isDraggingMargin) return;
+                
+                state.gesture.touches = Array.from(e.touches);
+                
+                if (state.gesture.touches.length === 2) {
+                    e.preventDefault();
+                    state.gesture.initialDistance = 
+                    getDistance(state.gesture.touches[0], state.gesture.touches[1]);
+                    state.gesture.initialFontSize = state.style.fontSize;
+                }
+            }
+
+            static handleTouchMove(e) {
+                if (state.gesture.isDraggingMargin) return;
+                
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    const currentTouches = Array.from(e.touches);
+                    const currentDistance = getDistance(currentTouches[0], currentTouches[1]);
+                    
+                    const distanceChange = Math.abs(currentDistance - state.gesture.initialDistance);
+                    
+                    const midpoint1X = (state.gesture.touches[0].clientX + state.gesture.touches[1].clientX) / 2;
+                    const midpoint1Y = (state.gesture.touches[0].clientY + state.gesture.touches[1].clientY) / 2;
+                    const midpoint2X = (currentTouches[0].clientX + currentTouches[1].clientX) / 2;
+                    const midpoint2Y = (currentTouches[0].clientY + currentTouches[1].clientY) / 2;
+                    const midpointDeltaX = Math.abs(midpoint2X - midpoint1X);
+                    const midpointDeltaY = Math.abs(midpoint2Y - midpoint1Y);
+                    
+                    if (distanceChange > 10 && distanceChange > midpointDeltaX && distanceChange > midpointDeltaY) {
+                        const scale = currentDistance / state.gesture.initialDistance;
+                        state.style.fontSize = Math.max(
+                            CONFIG.style.fontSize.min,
+                            Math.min(CONFIG.style.fontSize.max, state.gesture.initialFontSize * scale)
+                            );
+                        StyleManager.updateStyles();
+                    }
+                }
+            }
+
+            static handleWheel(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    state.style.fontSize = Math.max(
+                        CONFIG.style.fontSize.min,
+                        Math.min(CONFIG.style.fontSize.max, state.style.fontSize - e.deltaY * 0.1)
+                        );
+                    StyleManager.updateStyles();
+                }
+            }
+        }
+
+        // ==================== EVENT LISTENERS ====================
+        function initializeEventListeners() {
+            // Margin handle dragging
+            DOM.leftHandle.addEventListener('mousedown', (e) => GestureHandler.startDragMargin(e));
+            DOM.rightHandle.addEventListener('mousedown', (e) => GestureHandler.startDragMargin(e));
+            DOM.leftHandle.addEventListener('touchstart', (e) => GestureHandler.startDragMargin(e));
+            DOM.rightHandle.addEventListener('touchstart', (e) => GestureHandler.startDragMargin(e));
+
+            document.addEventListener('mousemove', (e) => GestureHandler.handleDragMargin(e));
+            document.addEventListener('touchmove', (e) => GestureHandler.handleDragMargin(e));
+            document.addEventListener('mouseup', () => GestureHandler.stopDragMargin());
+            document.addEventListener('touchend', () => GestureHandler.stopDragMargin());
+
+            // Touch gestures for pinch-to-zoom
+            DOM.readerArea.addEventListener('touchstart', (e) => GestureHandler.handleTouchStart(e));
+            DOM.readerArea.addEventListener('touchmove', (e) => GestureHandler.handleTouchMove(e));
+
+            // Mouse wheel for desktop testing
+            DOM.readerArea.addEventListener('wheel', (e) => GestureHandler.handleWheel(e));
+
+            // User scroll detection for flow mode
+            DOM.readerArea.addEventListener('scroll', () => ScrollManager.handleUserScroll());
+
+            // Window resize
+            window.addEventListener('resize', () => StyleManager.updateHandlePositions());
+
+            // Flow toggle button
+            DOM.flowToggle.addEventListener('click', () => ModeManager.toggleFlow());
+
+            // Bionic toggle
+            DOM.bionicToggle.addEventListener('click', () => ModeManager.toggleBionic());
+
+            // Flow controls
+            DOM.playBtn.addEventListener('click', () => FlowReader.toggle());
+            
+            DOM.speedSlider.addEventListener('input', (e) => {
+                state.flow.speed = parseInt(e.target.value);
+                DOM.speedLabel.textContent = state.flow.speed + ' wpm';
+            });
+
+            DOM.widthSlider.addEventListener('input', (e) => {
+                state.flow.focusFingers = parseFloat(e.target.value);
+                const fingerEmoji = state.flow.focusFingers === 1 ? '👆' : '👆'.repeat(Math.min(4, Math.ceil(state.flow.focusFingers)));
+                DOM.widthLabel.textContent = state.flow.focusFingers + ' ' + fingerEmoji;
+            });
+
+            DOM.scrollSlider.addEventListener('input', (e) => {
+                state.flow.scrollTargetPosition = parseInt(e.target.value);
+                DOM.scrollLabel.textContent = ScrollManager.getScrollLevelLabel(state.flow.scrollTargetPosition);
+            });
+        }
+
+        // ==================== INITIALIZATION ====================
+        function initialize() {
+            initializeEventListeners();
+            ModeManager.setMode('normal');
+            StyleManager.updateStyles();
+        }
+
+        initialize();
+    </script>
+</body>
+</html>
