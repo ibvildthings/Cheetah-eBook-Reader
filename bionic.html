@@ -449,15 +449,19 @@
                 const temp = document.createElement('div');
                 temp.innerHTML = html;
                 const wrap = text => text.replace(/(\S+)/g, word => {
-                    let content = word;
-                    if (useBionic && /\w{3,}/.test(word)) {
-                        const match = word.match(/\w+/);
-                        if (match)
-                            content = word.replace(match[0], bionicWord(match[0]))
-                    }
-                    return `<span class="flow-word inactive">${content}</span>`
-                }
-                );
+                    // Split hyphenated words into separate spans
+                    const parts = word.match(/[^-]+-?/g) || [word];
+                    
+                    return parts.map(part => {
+                        let content = part;
+                        if (useBionic && /\w{3,}/.test(part)) {
+                            const match = part.match(/\w+/);
+                            if (match)
+                                content = part.replace(match[0], bionicWord(match[0]))
+                        }
+                        return `<span class="flow-word inactive">${content}</span>`
+                    }).join('')
+                });
                 const process = node => {
                     if (node.nodeType === 3) {
                         const t = document.createElement('span');
