@@ -1,26 +1,214 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-        <title>eBook Reader Gesture Prototype</title>
-        <style>
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EBookReader - Usage Example</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        
+        #reader-container {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <div id="reader-container"></div>
+
+    <script>
+        // Include the EBookReader library (WordIndexManager class)
+        class WordIndexManager {
+          constructor() {
+            this.words = [];
+            this.dirty = true;
+          }
+
+          rebuild() {
+            this.words = [];
+            const wordElements = document.querySelectorAll('.flow-word');
+            if (!wordElements.length) {
+              this.dirty = false;
+              return;
             }
 
-            body {
-                font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+            let prevTop = -1;
+            wordElements.forEach((el, idx) => {
+              const rect = el.getBoundingClientRect();
+              const isNewline = prevTop !== -1 && rect.top > prevTop + 5;
+              
+              this.words.push({
+                el,
+                rect: {
+                  left: rect.left,
+                  right: rect.right,
+                  top: rect.top,
+                  bottom: rect.bottom,
+                  width: rect.width,
+                  height: rect.height
+                },
+                isNewline,
+                text: el.textContent,
+                index: idx
+              });
+              
+              prevTop = rect.top;
+            });
+            
+            this.dirty = false;
+          }
+
+          getWord(index) {
+            if (this.dirty) this.rebuild();
+            const idx = Math.floor(index);
+            return this.words[idx] || null;
+          }
+
+          getActiveRange(centerIndex, focusWidth) {
+            if (this.dirty) this.rebuild();
+            
+            const centerIdx = Math.floor(centerIndex);
+            const centerWord = this.words[centerIdx];
+            
+            if (!centerWord) return { start: 0, end: 0 };
+
+            const centerTop = centerWord.rect.top;
+            const halfWidth = focusWidth / 2;
+            
+            let start = Math.max(0, Math.round(centerIndex - halfWidth));
+            let end = Math.min(this.words.length - 1, Math.round(centerIndex + halfWidth));
+
+            while (start < centerIdx && this.words[start] && 
+                   Math.abs(this.words[start].rect.top - centerTop) > 5) {
+              start++;
+            }
+            
+            while (end > centerIdx && this.words[end] && 
+                   Math.abs(this.words[end].rect.top - centerTop) > 5) {
+              end--;
+            }
+
+            return { start, end };
+          }
+
+          getTotalWords() {
+            if (this.dirty) this.rebuild();
+            return this.words.length;
+          }
+
+          invalidate() {
+            this.dirty = true;
+          }
+        }
+
+        // Include the EBookReader library (main class)
+        class EBookReader {
+          constructor(containerSelector, options = {}) {
+            this.config = {
+              fontSize: { min: 12, default: 18, max: 48 },
+              margin: { min: 10, default: 60, max: 400 },
+              speed: { min: 100, default: 300, max: 600 },
+              lineHeight: 1.6,
+              newlinePause: 1.5,
+              scroll: {
+                top: 0.15,
+                bottom: 0.7,
+                timeout: 1500,
+                gap: 0.1
+              }
+            };
+
+            this.state = {
+              fontSize: options.fontSize || this.config.fontSize.default,
+              lineHeight: this.config.lineHeight,
+              marginL: options.margin || this.config.margin.default,
+              marginR: options.margin || this.config.margin.default,
+              marginTB: 40,
+              mode: 'normal',
+              bionic: false,
+              content: '',
+              flow: {
+                playing: false,
+                speed: this.config.speed.default,
+                currentWordIndex: 0,
+                startTime: 0,
+                rafId: null,
+                userScroll: false,
+                fingers: 2,
+                scrollLevel: 1,
+                pauseUntil: 0,
+                lastPausedWord: -1
+              },
+              gesture: {
+                touches: [],
+                initDist: 0,
+                initSize: 0,
+                dragging: false,
+                handle: null,
+                initMargin: 0,
+                initX: 0
+              },
+              saved: null
+            };
+
+            this.container = typeof containerSelector === 'string' 
+              ? document.querySelector(containerSelector) 
+              : containerSelector;
+            
+            if (!this.container) {
+              throw new Error('Container element not found');
+            }
+
+            this.wordIndexManager = new WordIndexManager();
+            this._injectStyles();
+            this._buildDOM();
+            this._attachEventListeners();
+            
+            // Wait for DOM to render before calculating positions
+            requestAnimationFrame(() => {
+              this.updateStyles();
+            });
+          }
+
+          loadContent(html) {
+            this.state.content = html;
+            this._render();
+          }
+
+          destroy() {
+            if (this.state.flow.playing) {
+              cancelAnimationFrame(this.state.flow.rafId);
+            }
+            this.container.innerHTML = '';
+          }
+
+          _injectStyles() {
+            if (document.getElementById('ebook-reader-styles')) return;
+
+            const style = document.createElement('style');
+            style.id = 'ebook-reader-styles';
+            style.textContent = `
+              * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+              }
+
+              .ebook-reader-root {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 background: #f5f5f5;
                 overflow: hidden;
                 touch-action: none;
                 margin: 0;
-                padding: 0
-            }
+                padding: 0;
+                width: 100%;
+                height: 100%;
+              }
 
-            #toolbar {
+              .ebook-toolbar {
                 position: fixed;
                 top: 0;
                 left: 0;
@@ -35,45 +223,45 @@
                 padding: 10px 20px;
                 z-index: 300;
                 box-shadow: 0 2px 8px rgba(0,0,0,.05);
-                flex-wrap: wrap
-            }
+                flex-wrap: wrap;
+              }
 
-            .toolbar-section {
+              .ebook-toolbar-section {
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                flex-wrap: wrap
-            }
+                flex-wrap: wrap;
+              }
 
-            .toolbar-label {
+              .ebook-toolbar-label {
                 font-size: 11px;
                 font-weight: 600;
                 color: #666;
                 text-transform: uppercase;
                 letter-spacing: .5px;
-                white-space: nowrap
-            }
+                white-space: nowrap;
+              }
 
-            #container {
+              .ebook-container {
                 position: relative;
                 width: 100vw;
                 height: 100vh;
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                padding-top: 80px
-            }
+                padding-top: 80px;
+              }
 
-            #reader-area {
+              .ebook-reader-area {
                 position: relative;
                 background: #fff;
                 box-shadow: 0 4px 20px rgba(0,0,0,.1);
                 overflow-y: auto;
                 transition: all .1s ease-out;
-                max-height: calc(90vh - 80px)
-            }
+                max-height: calc(90vh - 80px);
+              }
 
-            .margin-handle {
+              .ebook-margin-handle {
                 position: fixed;
                 top: 50%;
                 transform: translateY(-50%);
@@ -83,48 +271,43 @@
                 z-index: 100;
                 display: flex;
                 align-items: center;
-                justify-content: center
-            }
+                justify-content: center;
+              }
 
-            .margin-handle-left {
-                left: 0
-            }
+              .ebook-margin-handle-left { left: 0; }
+              .ebook-margin-handle-right { right: 0; }
 
-            .margin-handle-right {
-                right: 0
-            }
-
-            .margin-indicator {
+              .ebook-margin-indicator {
                 width: 8px;
                 height: 60px;
                 background: #3b82f6;
                 border-radius: 4px;
                 opacity: .3;
                 transition: all .2s;
-                box-shadow: 0 2px 12px rgba(59,130,246,.4)
-            }
+                box-shadow: 0 2px 12px rgba(59,130,246,.4);
+              }
 
-            .margin-handle:hover .margin-indicator {
+              .ebook-margin-handle:hover .ebook-margin-indicator {
                 opacity: .7;
-                transform: scale(1.1)
-            }
+                transform: scale(1.1);
+              }
 
-            .margin-handle.active .margin-indicator {
+              .ebook-margin-handle.active .ebook-margin-indicator {
                 opacity: 1;
                 transform: scale(1.15);
-                background: #2563eb
-            }
+                background: #2563eb;
+              }
 
-            #text-content {
-                transition: padding .1s ease-out,opacity .2s ease-in-out;
-                position: relative
-            }
+              .ebook-text-content {
+                transition: padding .1s ease-out, opacity .2s ease-in-out;
+                position: relative;
+              }
 
-            #text-content.transitioning {
-                opacity: .4
-            }
+              .ebook-text-content.transitioning {
+                opacity: .4;
+              }
 
-            .mode-btn {
+              .ebook-mode-btn {
                 padding: 6px 14px;
                 border: 2px solid #e5e7eb;
                 background: #fff;
@@ -132,27 +315,27 @@
                 font-size: 13px;
                 cursor: pointer;
                 transition: all .2s;
-                font-weight: 500
-            }
+                font-weight: 500;
+              }
 
-            .mode-btn:hover {
+              .ebook-mode-btn:hover {
                 border-color: #3b82f6;
-                background: #f0f9ff
-            }
+                background: #f0f9ff;
+              }
 
-            .mode-btn.active {
+              .ebook-mode-btn.active {
                 border-color: #3b82f6;
                 background: #3b82f6;
-                color: #fff
-            }
+                color: #fff;
+              }
 
-            .speed-control {
+              .ebook-speed-control {
                 display: flex;
                 align-items: center;
-                gap: 10px
-            }
+                gap: 10px;
+              }
 
-            .speed-control input[type=range] {
+              .ebook-speed-control input[type=range] {
                 flex: 1;
                 min-width: 80px;
                 width: 100px;
@@ -160,36 +343,36 @@
                 border-radius: 3px;
                 background: #e5e7eb;
                 outline: 0;
-                -webkit-appearance: none
-            }
+                -webkit-appearance: none;
+              }
 
-            .speed-control input[type=range]::-webkit-slider-thumb {
+              .ebook-speed-control input[type=range]::-webkit-slider-thumb {
                 -webkit-appearance: none;
                 appearance: none;
                 width: 16px;
                 height: 16px;
                 border-radius: 50%;
                 background: #3b82f6;
-                cursor: pointer
-            }
+                cursor: pointer;
+              }
 
-            .speed-control input[type=range]::-moz-range-thumb {
+              .ebook-speed-control input[type=range]::-moz-range-thumb {
                 width: 16px;
                 height: 16px;
                 border-radius: 50%;
                 background: #3b82f6;
                 cursor: pointer;
-                border: none
-            }
+                border: none;
+              }
 
-            .speed-label {
+              .ebook-speed-label {
                 font-size: 10px;
                 color: #666;
                 min-width: 45px;
-                white-space: nowrap
-            }
+                white-space: nowrap;
+              }
 
-            .play-btn {
+              .ebook-play-btn {
                 padding: 6px 16px;
                 background: #3b82f6;
                 color: #fff;
@@ -198,43 +381,43 @@
                 font-size: 13px;
                 font-weight: 600;
                 cursor: pointer;
-                transition: background .2s
-            }
+                transition: background .2s;
+              }
 
-            .play-btn:hover {
-                background: #2563eb
-            }
+              .ebook-play-btn:hover {
+                background: #2563eb;
+              }
 
-            .play-btn:disabled {
+              .ebook-play-btn:disabled {
                 background: #9ca3af;
-                cursor: not-allowed
-            }
+                cursor: not-allowed;
+              }
 
-            .bionic {
-                font-weight: 700
-            }
+              .bionic {
+                font-weight: 700;
+              }
 
-            .flow-word {
+              .flow-word {
                 font-weight: 400;
                 cursor: pointer;
                 display: inline;
-                position: relative
-            }
+                position: relative;
+              }
 
-            .flow-word:hover {
-                opacity: .7
-            }
+              .flow-word:hover {
+                opacity: .7;
+              }
 
-            .flow-word.active {
+              .flow-word.active {
                 opacity: 1;
-                color: #1a1a1a
-            }
+                color: #1a1a1a;
+              }
 
-            .flow-word.inactive {
-                opacity: .2
-            }
+              .flow-word.inactive {
+                opacity: .2;
+              }
 
-            #focus-indicator {
+              .ebook-focus-indicator {
                 position: absolute;
                 top: 0;
                 left: 0;
@@ -242,616 +425,578 @@
                 z-index: 50;
                 background: rgba(59,130,246,.08);
                 display: none;
-                border-radius: 3px
+                border-radius: 3px;
+              }
+
+              .ebook-focus-indicator.visible {
+                display: block;
+              }
+            `;
+            document.head.appendChild(style);
+          }
+
+          _buildDOM() {
+            this.container.innerHTML = '';
+            this.container.className = 'ebook-reader-root';
+
+            const html = `
+              <div class="ebook-toolbar">
+                <div class="ebook-toolbar-section">
+                  <button class="ebook-mode-btn" data-action="bionic">Bionic Reading</button>
+                </div>
+                <div class="ebook-toolbar-section">
+                  <button class="ebook-mode-btn" data-action="flow">Flow Mode</button>
+                </div>
+                <div class="ebook-toolbar-section" data-flow-controls style="display:none">
+                  <span class="ebook-toolbar-label">Speed</span>
+                  <div class="ebook-speed-control">
+                    <input type="range" data-control="speed" min="100" max="600" value="300" step="10">
+                    <span class="ebook-speed-label" data-label="speed">300 wpm</span>
+                  </div>
+                  <span class="ebook-toolbar-label">Focus Width</span>
+                  <div class="ebook-speed-control">
+                    <input type="range" data-control="width" min="1" max="5" value="2" step="0.5">
+                    <span class="ebook-speed-label" data-label="width">2 👆</span>
+                  </div>
+                  <span class="ebook-toolbar-label">Scroll Position</span>
+                  <div class="ebook-speed-control">
+                    <input type="range" data-control="scroll" min="1" max="5" value="1" step="1">
+                    <span class="ebook-speed-label" data-label="scroll">1 (Top)</span>
+                  </div>
+                  <button class="ebook-play-btn" data-action="play">▶ Play</button>
+                </div>
+              </div>
+              <div class="ebook-container">
+                <div class="ebook-reader-area">
+                  <div class="ebook-margin-handle ebook-margin-handle-left">
+                    <div class="ebook-margin-indicator"></div>
+                  </div>
+                  <div class="ebook-margin-handle ebook-margin-handle-right">
+                    <div class="ebook-margin-indicator"></div>
+                  </div>
+                  <div class="ebook-focus-indicator"></div>
+                  <div class="ebook-text-content"></div>
+                </div>
+              </div>
+            `;
+
+            this.container.innerHTML = html;
+
+            this.el = {
+              reader: this.container.querySelector('.ebook-reader-area'),
+              content: this.container.querySelector('.ebook-text-content'),
+              handleL: this.container.querySelector('.ebook-margin-handle-left'),
+              handleR: this.container.querySelector('.ebook-margin-handle-right'),
+              play: this.container.querySelector('[data-action="play"]'),
+              bionic: this.container.querySelector('[data-action="bionic"]'),
+              flow: this.container.querySelector('[data-action="flow"]'),
+              flowCtrl: this.container.querySelector('[data-flow-controls]'),
+              focus: this.container.querySelector('.ebook-focus-indicator')
+            };
+          }
+
+          _attachEventListeners() {
+            this.el.bionic.addEventListener('click', () => this._toggleBionic());
+            this.el.flow.addEventListener('click', () => this._setMode(this.state.mode === 'flow' ? 'normal' : 'flow', true));
+            this.el.play.addEventListener('click', () => this._togglePlay());
+
+            this.container.querySelector('[data-control="speed"]').addEventListener('input', (e) => {
+              this.state.flow.speed = +e.target.value;
+              this.container.querySelector('[data-label="speed"]').textContent = this.state.flow.speed + ' wpm';
+            });
+
+            this.container.querySelector('[data-control="width"]').addEventListener('input', (e) => {
+              this.state.flow.fingers = +e.target.value;
+              const emoji = '👆'.repeat(Math.min(5, Math.ceil(this.state.flow.fingers)));
+              this.container.querySelector('[data-label="width"]').textContent = this.state.flow.fingers + ' ' + emoji;
+              if (this.state.mode === 'flow') {
+                this._updateWordStates(this.state.flow.currentWordIndex);
+              }
+            });
+
+            this.container.querySelector('[data-control="scroll"]').addEventListener('input', (e) => {
+              this.state.flow.scrollLevel = +e.target.value;
+              const labels = ['1 (Top)', '2 (Upper)', '3 (Middle)', '4 (Lower)', '5 (Bottom)'];
+              this.container.querySelector('[data-label="scroll"]').textContent = labels[this.state.flow.scrollLevel - 1];
+            });
+
+            ['mousedown', 'touchstart'].forEach(evt => {
+              this.el.handleL.addEventListener(evt, e => this._startMarginDrag(e, this.el.handleL));
+              this.el.handleR.addEventListener(evt, e => this._startMarginDrag(e, this.el.handleR));
+            });
+
+            ['mousemove', 'touchmove'].forEach(evt => {
+              document.addEventListener(evt, e => this._handleMarginDrag(e));
+            });
+
+            ['mouseup', 'touchend'].forEach(evt => {
+              document.addEventListener(evt, () => {
+                this._stopMarginDrag();
+              });
+            });
+
+            this.el.reader.addEventListener('touchstart', e => this._handleTouchStart(e));
+            this.el.reader.addEventListener('touchmove', e => this._handleTouchMove(e));
+            this.el.reader.addEventListener('wheel', e => this._handleWheel(e));
+            this.el.reader.addEventListener('scroll', () => this._handleScroll());
+
+            window.addEventListener('resize', () => this.updateStyles());
+          }
+
+          updateStyles() {
+            this.el.content.style.cssText = `
+              font-size: ${this.state.fontSize}px;
+              line-height: ${this.state.lineHeight};
+              padding: ${this.state.marginTB}px ${this.state.marginR}px ${this.state.marginTB}px ${this.state.marginL}px;
+            `;
+
+            const r = this.el.reader.getBoundingClientRect();
+            this.el.handleL.style.left = (r.left + this.state.marginL - 25) + 'px';
+            this.el.handleR.style.left = (r.right - this.state.marginR - 25) + 'px';
+
+            if (this.state.mode === 'flow') {
+              this.wordIndexManager.invalidate();
+              requestAnimationFrame(() => {
+                this._updateWordStates(this.state.flow.currentWordIndex);
+              });
+            }
+          }
+
+          _render() {
+            this.el.content.classList.add('transitioning');
+            
+            let html = this.state.content;
+            if (this.state.mode === 'flow') {
+              html = this._makeFlow(html, this.state.bionic);
+              if (!this.state.saved) {
+                this.state.flow.currentWordIndex = 0;
+              }
+            } else if (this.state.bionic) {
+              html = this._makeBionic(html);
             }
 
-            #focus-indicator.visible {
-                display: block
-            }
-        </style>
-    </head>
-    <body>
-        <div id="toolbar">
-            <div class="toolbar-section">
-                <button class="mode-btn" id="bionic-toggle">Bionic Reading</button>
-            </div>
-            <div class="toolbar-section">
-                <button class="mode-btn" id="flow-toggle">Flow Mode</button>
-            </div>
-            <div class="toolbar-section" id="flow-controls" style="display:none">
-                <span class="toolbar-label">Speed</span>
-                <div class="speed-control">
-                    <input type="range" id="speed-slider" min="100" max="600" value="300" step="10">
-                    <span class="speed-label" id="speed-label">300 wpm</span>
-                </div>
-                <span class="toolbar-label">Focus Width</span>
-                <div class="speed-control">
-                    <input type="range" id="width-slider" min="1" max="5" value="2" step="0.5">
-                    <span class="speed-label" id="width-label">2 👆</span>
-                </div>
-                <span class="toolbar-label">Scroll Position</span>
-                <div class="speed-control">
-                    <input type="range" id="scroll-slider" min="1" max="5" value="1" step="1">
-                    <span class="speed-label" id="scroll-label">1 (Top)</span>
-                </div>
-                <button class="play-btn" id="play-btn">▶ Play</button>
-            </div>
-        </div>
-        <div id="container">
-            <div id="reader-area">
-                <div class="margin-handle margin-handle-left">
-                    <div class="margin-indicator"></div>
-                </div>
-                <div class="margin-handle margin-handle-right">
-                    <div class="margin-indicator"></div>
-                </div>
-                <div id="focus-indicator"></div>
-                <div id="text-content">
-                    <h1>Chapter One: The Beginning</h1>
-                    <p>In the heart of Silicon Valley, where innovation breathed life into dreams and ambition fueled the relentless pursuit of progress, there existed a small startup that dared to challenge the giants. The morning sun cast long shadows through the floor-to-ceiling windows of their modest office, illuminating screens filled with code and whiteboards covered in sketches of impossible ideas.</p>
-                    <p>Sarah had always believed that the best products were born from frustration. It was a Tuesday afternoon when she threw her e-reader across the room—not hard enough to break it, but with enough force to express her complete dissatisfaction with the experience. "Why," she asked her co-founder Marcus, "does every reading app feel like it was designed in 2010?"</p>
-                    <p>Marcus looked up from his laptop, his fingers still hovering over the keyboard. He'd been wrestling with the same question for months. The reading experience hadn't evolved. Sure, screens got sharper and devices got thinner, but the fundamental interaction between human and text remained stubbornly unchanged.</p>
-                    <p>"What if," Sarah continued, pacing now, her mind racing ahead of her words, "we treated text like it was alive? What if reading could be as fluid and intuitive as touching water?"</p>
-                    <p>That conversation sparked something neither of them could ignore. Within weeks, they had assembled a small team of designers and developers who shared their vision. The goal was simple yet audacious: reimagine reading for the touch-screen era. Not just digital books, but a completely new way of interacting with text.</p>
-                    <p>The first prototype was rough—buggy gestures, inconsistent behavior, and a tendency to crash at the worst possible moments. But there was something there, something that felt right. When you pinched the screen and watched the text respond, growing larger or smaller with the natural motion of your fingers, it felt like magic. When you swept two fingers vertically and saw the lines of text breathe, expanding and contracting with your touch, it felt like the text was alive.</p>
-                    <p>They called it Project Phoenix, because they were resurrecting the reading experience from the ashes of stagnation. Every evening, the team would gather around a large display, testing gestures, debating interactions, and pushing the boundaries of what felt natural. Some ideas were brilliant; most were terrible. But each failure taught them something new about how humans wanted to interact with text.</p>
-                </div>
-            </div>
-        </div>
-        <script>
-            const CFG = {
-                fontSize: [12, 18, 48],
-                margin: [10, 60, 400],
-                speed: [100, 300, 600],
-                lineHeight: 1.6,
-                newlinePause: 1.5,
-                scroll: {
-                    top: .15,
-                    bottom: .7,
-                    timeout: 1500,
-                    gap: .1
-                }
-            };
-            const state = {
-                fontSize: CFG.fontSize[1],
-                lineHeight: CFG.lineHeight,
-                marginL: CFG.margin[1],
-                marginR: CFG.margin[1],
-                marginTB: 40,
-                mode: 'normal',
-                bionic: false,
-                flow: {
-                    playing: false,
-                    speed: CFG.speed[1],
-                    currentWordIndex: 0,
-                    startTime: 0,
-                    rafId: null,
-                    userScroll: false,
-                    fingers: 2,
-                    scrollLevel: 1,
-                    pauseUntil: 0,
-                    lastPausedWord: -1
-                },
-                gesture: {
-                    touches: [],
-                    initDist: 0,
-                    initSize: 0,
-                    dragging: false,
-                    handle: null,
-                    initMargin: 0,
-                    initX: 0
-                },
-                saved: null
-            };
-            const WordIndexManager = {
-                words: [],
-                dirty: true,
-                rebuild() {
-                    this.words = [];
-                    const wordElements = document.querySelectorAll('.flow-word');
-                    if (!wordElements.length) {
-                        this.dirty = false;
-                        return
-                    }
-                    let prevTop = -1;
-                    wordElements.forEach( (el, idx) => {
-                        const rect = el.getBoundingClientRect();
-                        const isNewline = prevTop !== -1 && rect.top > prevTop + 5;
-                        this.words.push({
-                            el,
-                            rect: {
-                                left: rect.left,
-                                right: rect.right,
-                                top: rect.top,
-                                bottom: rect.bottom,
-                                width: rect.width,
-                                height: rect.height
-                            },
-                            isNewline,
-                            text: el.textContent,
-                            index: idx
-                        });
-                        prevTop = rect.top
-                    }
-                    );
-                    this.dirty = false
-                },
-                getWord(index) {
-                    if (this.dirty)
-                        this.rebuild();
-                    const idx = Math.floor(index);
-                    return this.words[idx] || null
-                },
-                getActiveRange(centerIndex, focusWidth) {
-                    if (this.dirty)
-                        this.rebuild();
-                    const centerIdx = Math.floor(centerIndex);
-                    const centerWord = this.words[centerIdx];
-                    if (!centerWord)
-                        return {
-                            start: 0,
-                            end: 0
-                        };
-                    const centerTop = centerWord.rect.top;
-                    const halfWidth = focusWidth / 2;
-                    let start = Math.max(0, Math.round(centerIndex - halfWidth));
-                    let end = Math.min(this.words.length - 1, Math.round(centerIndex + halfWidth));
-                    while (start < centerIdx && this.words[start] && Math.abs(this.words[start].rect.top - centerTop) > 5)
-                        start++;
-                    while (end > centerIdx && this.words[end] && Math.abs(this.words[end].rect.top - centerTop) > 5)
-                        end--;
-                    return {
-                        start,
-                        end
-                    }
-                },
-                getTotalWords() {
-                    if (this.dirty)
-                        this.rebuild();
-                    return this.words.length
-                },
-                invalidate() {
-                    this.dirty = true
-                }
-            };
-            const $ = (s, p=document) => p.querySelector(s);
-            const $$ = (s, p=document) => [...p.querySelectorAll(s)];
-            const el = {
-                reader: $('#reader-area'),
-                content: $('#text-content'),
-                handleL: $('.margin-handle-left'),
-                handleR: $('.margin-handle-right'),
-                play: $('#play-btn'),
-                speed: $('#speed-slider'),
-                speedLbl: $('#speed-label'),
-                width: $('#width-slider'),
-                widthLbl: $('#width-label'),
-                scroll: $('#scroll-slider'),
-                scrollLbl: $('#scroll-label'),
-                bionic: $('#bionic-toggle'),
-                flow: $('#flow-toggle'),
-                flowCtrl: $('#flow-controls'),
-                focus: $('#focus-indicator')
-            };
-            const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
-            const elastic = (v, min, max) => v < min ? min - Math.sqrt(min - v) * 2 : v > max ? max + Math.sqrt(v - max) * 2 : v;
-            const dist = (t1, t2) => Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-            const ORIGINAL = `<h1>Chapter One: The Beginning</h1><p>In the heart of Silicon Valley, where innovation breathed life into dreams and ambition fueled the relentless pursuit of progress, there existed a small startup that dared to challenge the giants. The morning sun cast long shadows through the floor-to-ceiling windows of their modest office, illuminating screens filled with code and whiteboards covered in sketches of impossible ideas.</p><p>Sarah had always believed that the best products were born from frustration. It was a Tuesday afternoon when she threw her e-reader across the room—not hard enough to break it, but with enough force to express her complete dissatisfaction with the experience. "Why," she asked her co-founder Marcus, "does every reading app feel like it was designed in 2010?"</p><p>Marcus looked up from his laptop, his fingers still hovering over the keyboard. He'd been wrestling with the same question for months. The reading experience hadn't evolved. Sure, screens got sharper and devices got thinner, but the fundamental interaction between human and text remained stubbornly unchanged.</p><p>"What if," Sarah continued, pacing now, her mind racing ahead of her words, "we treated text like it was alive? What if reading could be as fluid and intuitive as touching water?"</p><p>That conversation sparked something neither of them could ignore. Within weeks, they had assembled a small team of designers and developers who shared their vision. The goal was simple yet audacious: reimagine reading for the touch-screen era. Not just digital books, but a completely new way of interacting with text.</p><p>The first prototype was rough—buggy gestures, inconsistent behavior, and a tendency to crash at the worst possible moments. But there was something there, something that felt right. When you pinched the screen and watched the text respond, growing larger or smaller with the natural motion of your fingers, it felt like magic. When you swept two fingers vertically and saw the lines of text breathe, expanding and contracting with your touch, it felt like the text was alive.</p><p>They called it Project Phoenix, because they were resurrecting the reading experience from the ashes of stagnation. Every evening, the team would gather around a large display, testing gestures, debating interactions, and pushing the boundaries of what felt natural. Some ideas were brilliant; most were terrible. But each failure taught them something new about how humans wanted to interact with text.</p>`;
-            const bionicWord = w => {
-                if (w.length <= 2)
-                    return w;
-                const n = Math.ceil(w.length / 2);
-                return `<span class="bionic">${w.slice(0, n)}</span>${w.slice(n)}`
-            }
-            ;
-            const makeBionic = text => text.replace(/\b(\w+)\b/g, bionicWord);
-            const makeFlow = (html, useBionic) => {
-                const temp = document.createElement('div');
-                temp.innerHTML = html;
-                const wrap = text => text.replace(/(\S+)/g, word => {
-                    // Split hyphenated words into separate spans
-                    const parts = word.match(/[^-]+-?/g) || [word];
-                    
-                    return parts.map(part => {
-                        let content = part;
-                        if (useBionic && /\w{3,}/.test(part)) {
-                            const match = part.match(/\w+/);
-                            if (match)
-                                content = part.replace(match[0], bionicWord(match[0]))
-                        }
-                        return `<span class="flow-word inactive">${content}</span>`
-                    }).join('')
+            this.el.content.innerHTML = html;
+            this.wordIndexManager.invalidate();
+
+            setTimeout(() => this.el.content.classList.remove('transitioning'), 200);
+
+            if (this.state.mode === 'flow') {
+              setTimeout(() => {
+                this.el.content.querySelectorAll('.flow-word').forEach((w, idx) => {
+                  w.addEventListener('click', () => {
+                    if (this.state.mode === 'flow') this._jumpToWord(idx);
+                  });
                 });
-                const process = node => {
-                    if (node.nodeType === 3) {
-                        const t = document.createElement('span');
-                        t.innerHTML = wrap(node.textContent);
-                        node.replaceWith(...t.childNodes)
-                    } else if (node.nodeType === 1) {
-                        [...node.childNodes].forEach(process)
-                    }
-                }
-                ;
-                [...temp.childNodes].forEach(process);
-                return temp.innerHTML
+                this.wordIndexManager.rebuild();
+              }, 50);
             }
-            ;
-            const updateWordStates = centerIndex => {
-                document.querySelectorAll('.flow-word').forEach(w => {
-                    w.className = 'flow-word inactive'
+          }
+
+          _bionicWord(w) {
+            if (w.length <= 2) return w;
+            const n = Math.ceil(w.length / 2);
+            return `<span class="bionic">${w.slice(0, n)}</span>${w.slice(n)}`;
+          }
+
+          _makeBionic(text) {
+            return text.replace(/\b(\w+)\b/g, this._bionicWord.bind(this));
+          }
+
+          _makeFlow(html, useBionic) {
+            const temp = document.createElement('div');
+            temp.innerHTML = html;
+
+            const wrap = text => text.replace(/(\S+)/g, word => {
+              const parts = word.match(/[^-]+-?/g) || [word];
+              
+              return parts.map(part => {
+                let content = part;
+                if (useBionic && /\w{3,}/.test(part)) {
+                  const match = part.match(/\w+/);
+                  if (match) {
+                    content = part.replace(match[0], this._bionicWord(match[0]));
+                  }
                 }
-                );
-                const focusWidth = state.flow.fingers;
-                const range = WordIndexManager.getActiveRange(centerIndex, focusWidth);
-                const activeElements = [];
-                for (let i = range.start; i <= range.end; i++) {
-                    const word = WordIndexManager.getWord(i);
-                    if (word && word.el) {
-                        word.el.classList.remove('inactive');
-                        word.el.classList.add('active');
-                        activeElements.push(word.el)
-                    }
-                }
-                if (state.mode !== 'flow' || activeElements.length === 0) {
-                    el.focus.classList.remove('visible');
-                    return
-                }
-                const activeRects = activeElements.map(el => el.getBoundingClientRect());
-                const byLine = {};
-                activeRects.forEach(r => {
-                    const k = Math.round(r.top);
-                    (byLine[k] = byLine[k] || []).push(r)
-                }
-                );
-                const primary = Object.values(byLine).sort( (a, b) => b.length - a.length)[0];
-                if (!primary) {
-                    el.focus.classList.remove('visible');
-                    return
-                }
-                const minL = Math.min(...primary.map(r => r.left));
-                const maxR = Math.max(...primary.map(r => r.right));
-                const minT = Math.min(...primary.map(r => r.top));
-                const maxB = Math.max(...primary.map(r => r.bottom));
-                const rr = el.reader.getBoundingClientRect();
-                el.focus.style.cssText = `left:${minL - rr.left}px;width:${maxR - minL}px;top:${minT - rr.top + el.reader.scrollTop}px;height:${maxB - minT}px;`;
-                el.focus.classList.add('visible')
-            }
-            ;
-            const scrollToWord = (wordIndex, instant=false) => {
-                if (state.flow.userScroll)
-                    return;
-                const word = WordIndexManager.getWord(wordIndex);
-                if (!word)
-                    return;
-                const rr = el.reader.getBoundingClientRect();
-                const wr = word.rect;
-                const vhh = rr.height;
-                const target = CFG.scroll.gap + (state.flow.scrollLevel - 1) * .2;
-                const comfortT = rr.top + vhh * CFG.scroll.top;
-                const comfortB = rr.bottom - vhh * CFG.scroll.bottom;
-                const currentRect = word.el.getBoundingClientRect();
-                if (currentRect.top >= comfortT && currentRect.bottom <= comfortB)
-                    return;
-                el.reader.scrollTo({
-                    top: el.reader.scrollTop + (currentRect.top - rr.top) - (vhh * target),
-                    behavior: instant ? 'auto' : 'smooth'
-                })
-            }
-            ;
-            const updateStyles = () => {
-                el.content.style.cssText = `font-size:${state.fontSize}px;line-height:${state.lineHeight};padding:${state.marginTB}px ${state.marginR}px ${state.marginTB}px ${state.marginL}px;`;
-                const r = el.reader.getBoundingClientRect();
-                el.handleL.style.left = (r.left + state.marginL - 25) + 'px';
-                el.handleR.style.left = (r.right - state.marginR - 25) + 'px';
-                if (state.mode === 'flow') {
-                    WordIndexManager.invalidate();
-                    requestAnimationFrame( () => {
-                        updateWordStates(state.flow.currentWordIndex)
-                    }
-                    )
-                }
-            }
-            ;
-            const animate = () => {
-                const frame = t => {
-                    if (!state.flow.playing)
-                        return;
-                    if (state.flow.pauseUntil > 0) {
-                        if (t < state.flow.pauseUntil) {
-                            state.flow.rafId = requestAnimationFrame(frame);
-                            return
-                        }
-                        state.flow.startTime = t - (state.flow.currentWordIndex / (state.flow.speed / 60)) * 1000;
-                        state.flow.pauseUntil = 0
-                    }
-                    const elapsed = t - state.flow.startTime;
-                    const wordsPerSecond = state.flow.speed / 60;
-                    const wordIndex = (elapsed / 1000) * wordsPerSecond;
-                    state.flow.currentWordIndex = wordIndex;
-                    const totalWords = WordIndexManager.getTotalWords();
-                    if (wordIndex >= totalWords) {
-                        state.flow.currentWordIndex = 0;
-                        state.flow.startTime = t;
-                        state.flow.pauseUntil = 0;
-                        state.flow.lastPausedWord = -1
-                    }
-                    const currentWordIdx = Math.floor(wordIndex);
-                    const currentWord = WordIndexManager.getWord(currentWordIdx);
-                    if (currentWord && currentWord.isNewline && state.flow.pauseUntil === 0) {
-                        scrollToWord(currentWordIdx, true)
-                    }
-                    updateWordStates(state.flow.currentWordIndex);
-                    if (currentWord && currentWord.isNewline && state.flow.pauseUntil === 0 && state.flow.lastPausedWord !== currentWordIdx) {
-                        const pauseDuration = (60000 / state.flow.speed) * CFG.newlinePause;
-                        state.flow.pauseUntil = t + pauseDuration;
-                        state.flow.lastPausedWord = currentWordIdx
-                    }
-                    if (!currentWord || !currentWord.isNewline) {
-                        scrollToWord(currentWordIdx)
-                    }
-                    state.flow.rafId = requestAnimationFrame(frame)
-                }
-                ;
-                state.flow.rafId = requestAnimationFrame(frame)
-            }
-            ;
-            const togglePlay = () => {
-                if (state.flow.playing) {
-                    cancelAnimationFrame(state.flow.rafId);
-                    state.flow.playing = false;
-                    el.play.textContent = '▶ Play'
-                } else {
-                    WordIndexManager.rebuild();
-                    const totalWords = WordIndexManager.getTotalWords();
-                    if (!totalWords)
-                        return;
-                    state.flow.playing = true;
-                    el.play.textContent = '⏸ Pause';
-                    const wordsPerSecond = state.flow.speed / 60;
-                    state.flow.startTime = performance.now() - (state.flow.currentWordIndex / wordsPerSecond) * 1000;
-                    state.flow.pauseUntil = 0;
-                    state.flow.lastPausedWord = -1;
-                    animate()
-                }
-            }
-            ;
-            const jumpToWord = idx => {
-                state.flow.currentWordIndex = idx;
-                if (!state.flow.playing) {
-                    updateWordStates(idx);
-                    scrollToWord(idx)
-                } else {
-                    // Reset timing to reflect new position when playing
-                    const wordsPerSecond = state.flow.speed / 60;
-                    state.flow.startTime = performance.now() - (idx / wordsPerSecond) * 1000;
-                    state.flow.pauseUntil = 0;
-                    state.flow.lastPausedWord = -1;
-                    updateWordStates(idx);
-                    scrollToWord(idx, true)
-                }
+                return `<span class="flow-word inactive">${content}</span>`;
+              }).join('');
+            });
+
+            const process = node => {
+              if (node.nodeType === 3) {
+                const t = document.createElement('span');
+                t.innerHTML = wrap(node.textContent);
+                node.replaceWith(...t.childNodes);
+              } else if (node.nodeType === 1) {
+                [...node.childNodes].forEach(process);
+              }
             };
-            const render = () => {
-                el.content.classList.add('transitioning');
-                let html = ORIGINAL;
-                if (state.mode === 'flow') {
-                    html = makeFlow(html, state.bionic);
-                    if (!state.saved) {
-                        state.flow.currentWordIndex = 0
-                    }
-                } else if (state.bionic) {
-                    html = makeBionic(html)
-                }
-                el.content.innerHTML = html;
-                WordIndexManager.invalidate();
-                setTimeout( () => el.content.classList.remove('transitioning'), 200);
-                if (state.mode === 'flow') {
-                    setTimeout( () => {
-                        document.querySelectorAll('.flow-word').forEach( (w, idx) => {
-                            w.addEventListener('click', () => {
-                                if (state.mode === 'flow')
-                                    jumpToWord(idx)
-                            }
-                            )
-                        }
-                        );
-                        WordIndexManager.rebuild()
-                    }
-                    , 50)
-                }
+
+            [...temp.childNodes].forEach(process);
+            return temp.innerHTML;
+          }
+
+          _updateWordStates(centerIndex) {
+            this.el.content.querySelectorAll('.flow-word').forEach(w => {
+              w.className = 'flow-word inactive';
+            });
+
+            const focusWidth = this.state.flow.fingers;
+            const range = this.wordIndexManager.getActiveRange(centerIndex, focusWidth);
+            
+            const activeElements = [];
+            for (let i = range.start; i <= range.end; i++) {
+              const word = this.wordIndexManager.getWord(i);
+              if (word && word.el) {
+                word.el.classList.remove('inactive');
+                word.el.classList.add('active');
+                activeElements.push(word.el);
+              }
             }
-            ;
-            const setMode = (mode, preserve=false) => {
-                const wasPlaying = state.flow.playing;
-                if (state.mode === 'flow' && mode !== 'flow') {
-                    state.saved = {
-                        wordIndex: state.flow.currentWordIndex,
-                        playing: wasPlaying
-                    }
-                }
-                state.mode = mode;
-                if (state.flow.playing)
-                    togglePlay();
-                el.flow.classList.toggle('active', mode === 'flow');
-                el.flowCtrl.style.display = mode === 'flow' ? 'flex' : 'none';
-                render();
-                if (mode === 'flow' && state.saved && preserve) {
-                    setTimeout( () => {
-                        state.flow.currentWordIndex = state.saved.wordIndex || 0;
-                        updateWordStates(state.flow.currentWordIndex);
-                        if (state.saved.playing)
-                            setTimeout(togglePlay, 100)
-                    }
-                    , 100)
-                } else if (mode === 'flow') {
-                    setTimeout( () => {
-                        updateWordStates(state.flow.currentWordIndex)
-                    }
-                    , 100)
-                }
-                if (mode !== 'flow')
-                    el.focus.classList.remove('visible')
+
+            if (this.state.mode !== 'flow' || activeElements.length === 0) {
+              this.el.focus.classList.remove('visible');
+              return;
             }
-            ;
-            const toggleBionic = () => {
-                const wasPlaying = state.flow.playing;
-                const savedIdx = state.flow.currentWordIndex;
-                state.bionic = !state.bionic;
-                el.bionic.classList.toggle('active', state.bionic);
-                if (wasPlaying)
-                    togglePlay();
-                render();
-                if (state.mode === 'flow') {
-                    setTimeout( () => {
-                        state.flow.currentWordIndex = savedIdx;
-                        updateWordStates(savedIdx);
-                        if (wasPlaying)
-                            setTimeout(togglePlay, 100)
-                    }
-                    , 100)
-                }
+
+            const activeRects = activeElements.map(el => el.getBoundingClientRect());
+            const byLine = {};
+            activeRects.forEach(r => {
+              const k = Math.round(r.top);
+              (byLine[k] = byLine[k] || []).push(r);
+            });
+
+            const primary = Object.values(byLine).sort((a, b) => b.length - a.length)[0];
+            if (!primary) {
+              this.el.focus.classList.remove('visible');
+              return;
             }
-            ;
-            const startMarginDrag = (e, handle) => {
-                e.preventDefault();
-                state.gesture.dragging = true;
-                state.gesture.handle = handle;
-                handle.classList.add('active');
-                const x = e.touches?.[0]?.clientX || e.clientX;
-                state.gesture.initX = x;
-                state.gesture.initMargin = handle === el.handleL ? state.marginL : state.marginR
-            }
-            ;
-            const handleMarginDrag = e => {
-                if (!state.gesture.dragging)
-                    return;
-                const x = e.touches?.[0]?.clientX || e.clientX;
-                const delta = x - state.gesture.initX;
-                let val = state.gesture.initMargin + (state.gesture.handle === el.handleL ? delta : -delta);
-                val = elastic(val, CFG.margin[0], CFG.margin[2]);
-                if (state.gesture.handle === el.handleL)
-                    state.marginL = val;
-                else
-                    state.marginR = val;
-                updateStyles()
-            }
-            ;
-            const stopMarginDrag = () => {
-                if (state.gesture.dragging && state.gesture.handle) {
-                    state.gesture.handle.classList.remove('active');
-                    const isLeft = state.gesture.handle === el.handleL;
-                    const cur = isLeft ? state.marginL : state.marginR;
-                    const final = clamp(cur, CFG.margin[0], CFG.margin[2]);
-                    if (isLeft)
-                        state.marginL = final;
-                    else
-                        state.marginR = final;
-                    updateStyles()
+
+            const minL = Math.min(...primary.map(r => r.left));
+            const maxR = Math.max(...primary.map(r => r.right));
+            const minT = Math.min(...primary.map(r => r.top));
+            const maxB = Math.max(...primary.map(r => r.bottom));
+
+            const rr = this.el.reader.getBoundingClientRect();
+            this.el.focus.style.cssText = `
+              left: ${minL - rr.left}px;
+              width: ${maxR - minL}px;
+              top: ${minT - rr.top + this.el.reader.scrollTop}px;
+              height: ${maxB - minT}px;
+            `;
+            this.el.focus.classList.add('visible');
+          }
+
+          _scrollToWord(wordIndex, instant = false) {
+            if (this.state.flow.userScroll) return;
+
+            const word = this.wordIndexManager.getWord(wordIndex);
+            if (!word) return;
+
+            const rr = this.el.reader.getBoundingClientRect();
+            const vhh = rr.height;
+            const target = this.config.scroll.gap + (this.state.flow.scrollLevel - 1) * 0.2;
+
+            const comfortT = rr.top + vhh * this.config.scroll.top;
+            const comfortB = rr.bottom - vhh * this.config.scroll.bottom;
+
+            const currentRect = word.el.getBoundingClientRect();
+            if (currentRect.top >= comfortT && currentRect.bottom <= comfortB) return;
+
+            this.el.reader.scrollTo({
+              top: this.el.reader.scrollTop + (currentRect.top - rr.top) - (vhh * target),
+              behavior: instant ? 'auto' : 'smooth'
+            });
+          }
+
+          _animate() {
+            const frame = (t) => {
+              if (!this.state.flow.playing) return;
+
+              if (this.state.flow.pauseUntil > 0) {
+                if (t < this.state.flow.pauseUntil) {
+                  this.state.flow.rafId = requestAnimationFrame(frame);
+                  return;
                 }
-                state.gesture.dragging = false;
-                state.gesture.handle = null
-            }
-            ;
-            const handleTouch = {
-                start: e => {
-                    if (state.gesture.dragging)
-                        return;
-                    state.gesture.touches = [...e.touches];
-                    if (e.touches.length === 2) {
-                        e.preventDefault();
-                        state.gesture.initDist = dist(e.touches[0], e.touches[1]);
-                        state.gesture.initSize = state.fontSize
-                    }
-                }
-                ,
-                move: e => {
-                    if (state.gesture.dragging || e.touches.length !== 2)
-                        return;
-                    e.preventDefault();
-                    const curDist = dist(e.touches[0], e.touches[1]);
-                    const distChange = Math.abs(curDist - state.gesture.initDist);
-                    const mid1 = {
-                        x: (state.gesture.touches[0].clientX + state.gesture.touches[1].clientX) / 2,
-                        y: (state.gesture.touches[0].clientY + state.gesture.touches[1].clientY) / 2
-                    };
-                    const mid2 = {
-                        x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-                        y: (e.touches[0].clientY + e.touches[1].clientY) / 2
-                    };
-                    const midDelta = {
-                        x: Math.abs(mid2.x - mid1.x),
-                        y: Math.abs(mid2.y - mid1.y)
-                    };
-                    if (distChange > 10 && distChange > midDelta.x && distChange > midDelta.y) {
-                        const scale = curDist / state.gesture.initDist;
-                        state.fontSize = clamp(state.gesture.initSize * scale, CFG.fontSize[0], CFG.fontSize[2]);
-                        updateStyles()
-                    }
-                }
-                ,
-                end: () => {}
+                this.state.flow.startTime = t - (this.state.flow.currentWordIndex / (this.state.flow.speed / 60)) * 1000;
+                this.state.flow.pauseUntil = 0;
+              }
+
+              const elapsed = t - this.state.flow.startTime;
+              const wordsPerSecond = this.state.flow.speed / 60;
+              const wordIndex = (elapsed / 1000) * wordsPerSecond;
+
+              this.state.flow.currentWordIndex = wordIndex;
+
+              const totalWords = this.wordIndexManager.getTotalWords();
+              if (wordIndex >= totalWords) {
+                this.state.flow.currentWordIndex = 0;
+                this.state.flow.startTime = t;
+                this.state.flow.pauseUntil = 0;
+                this.state.flow.lastPausedWord = -1;
+              }
+
+              const currentWordIdx = Math.floor(wordIndex);
+              const currentWord = this.wordIndexManager.getWord(currentWordIdx);
+
+              if (currentWord && currentWord.isNewline && this.state.flow.pauseUntil === 0) {
+                this._scrollToWord(currentWordIdx, true);
+              }
+
+              this._updateWordStates(this.state.flow.currentWordIndex);
+
+              if (currentWord && currentWord.isNewline && 
+                  this.state.flow.pauseUntil === 0 && 
+                  this.state.flow.lastPausedWord !== currentWordIdx) {
+                const pauseDuration = (60000 / this.state.flow.speed) * this.config.newlinePause;
+                this.state.flow.pauseUntil = t + pauseDuration;
+                this.state.flow.lastPausedWord = currentWordIdx;
+              }
+
+              if (!currentWord || !currentWord.isNewline) {
+                this._scrollToWord(currentWordIdx);
+              }
+
+              this.state.flow.rafId = requestAnimationFrame(frame);
             };
-            const handleWheel = e => {
-                if (e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                    state.fontSize = clamp(state.fontSize - e.deltaY * .1, CFG.fontSize[0], CFG.fontSize[2]);
-                    updateStyles()
+
+            this.state.flow.rafId = requestAnimationFrame(frame);
+          }
+
+          _togglePlay() {
+            if (this.state.flow.playing) {
+              cancelAnimationFrame(this.state.flow.rafId);
+              this.state.flow.playing = false;
+              this.el.play.textContent = '▶ Play';
+            } else {
+              this.wordIndexManager.rebuild();
+              const totalWords = this.wordIndexManager.getTotalWords();
+              if (!totalWords) return;
+
+              this.state.flow.playing = true;
+              this.el.play.textContent = '⏸ Pause';
+              
+              const wordsPerSecond = this.state.flow.speed / 60;
+              this.state.flow.startTime = performance.now() - 
+                (this.state.flow.currentWordIndex / wordsPerSecond) * 1000;
+              this.state.flow.pauseUntil = 0;
+              this.state.flow.lastPausedWord = -1;
+              
+              this._animate();
+            }
+          }
+
+          _jumpToWord(idx) {
+            this.state.flow.currentWordIndex = idx;
+            if (!this.state.flow.playing) {
+              this._updateWordStates(idx);
+              this._scrollToWord(idx);
+            } else {
+              const wordsPerSecond = this.state.flow.speed / 60;
+              this.state.flow.startTime = performance.now() - (idx / wordsPerSecond) * 1000;
+              this.state.flow.pauseUntil = 0;
+              this.state.flow.lastPausedWord = -1;
+              this._updateWordStates(idx);
+              this._scrollToWord(idx, true);
+            }
+          }
+
+          _setMode(mode, preserve = false) {
+            const wasPlaying = this.state.flow.playing;
+            
+            if (this.state.mode === 'flow' && mode !== 'flow') {
+              this.state.saved = {
+                wordIndex: this.state.flow.currentWordIndex,
+                playing: wasPlaying
+              };
+            }
+
+            this.state.mode = mode;
+            
+            if (this.state.flow.playing) this._togglePlay();
+
+            this.el.flow.classList.toggle('active', mode === 'flow');
+            this.el.flowCtrl.style.display = mode === 'flow' ? 'flex' : 'none';
+
+            this._render();
+
+            if (mode === 'flow' && this.state.saved && preserve) {
+              setTimeout(() => {
+                this.state.flow.currentWordIndex = this.state.saved.wordIndex || 0;
+                this._updateWordStates(this.state.flow.currentWordIndex);
+                if (this.state.saved.playing) {
+                  setTimeout(() => this._togglePlay(), 100);
                 }
+              }, 100);
+            } else if (mode === 'flow') {
+              setTimeout(() => {
+                this._updateWordStates(this.state.flow.currentWordIndex);
+              }, 100);
             }
-            ;
-            let scrollTimeout;
-            const handleScroll = () => {
-                state.flow.userScroll = true;
-                clearTimeout(scrollTimeout);
-                scrollTimeout = setTimeout( () => {
-                    state.flow.userScroll = false
-                }
-                , CFG.scroll.timeout)
+
+            if (mode !== 'flow') {
+              this.el.focus.classList.remove('visible');
             }
-            ;
-            const scrollLabels = ['1 (Top)', '2 (Upper)', '3 (Middle)', '4 (Lower)', '5 (Bottom)'];
-            ['mousedown', 'touchstart'].forEach(evt => {
-                el.handleL.addEventListener(evt, e => startMarginDrag(e, el.handleL));
-                el.handleR.addEventListener(evt, e => startMarginDrag(e, el.handleR))
+          }
+
+          _toggleBionic() {
+            const wasPlaying = this.state.flow.playing;
+            const savedIdx = this.state.flow.currentWordIndex;
+            
+            this.state.bionic = !this.state.bionic;
+            this.el.bionic.classList.toggle('active', this.state.bionic);
+            
+            if (wasPlaying) this._togglePlay();
+            
+            this._render();
+            
+            if (this.state.mode === 'flow') {
+              setTimeout(() => {
+                this.state.flow.currentWordIndex = savedIdx;
+                this._updateWordStates(savedIdx);
+                if (wasPlaying) setTimeout(() => this._togglePlay(), 100);
+              }, 100);
             }
-            );
-            ['mousemove', 'touchmove'].forEach(evt => document.addEventListener(evt, handleMarginDrag));
-            ['mouseup', 'touchend'].forEach(evt => document.addEventListener(evt, () => {
-                stopMarginDrag();
-                handleTouch.end()
+          }
+
+          _startMarginDrag(e, handle) {
+            e.preventDefault();
+            this.state.gesture.dragging = true;
+            this.state.gesture.handle = handle;
+            handle.classList.add('active');
+
+            const x = e.touches?.[0]?.clientX || e.clientX;
+            this.state.gesture.initX = x;
+            this.state.gesture.initMargin = handle === this.el.handleL ? this.state.marginL : this.state.marginR;
+          }
+
+          _handleMarginDrag(e) {
+            if (!this.state.gesture.dragging) return;
+
+            const x = e.touches?.[0]?.clientX || e.clientX;
+            const delta = x - this.state.gesture.initX;
+            
+            let val = this.state.gesture.initMargin + 
+              (this.state.gesture.handle === this.el.handleL ? delta : -delta);
+            val = this._elastic(val, this.config.margin.min, this.config.margin.max);
+
+            if (this.state.gesture.handle === this.el.handleL) {
+              this.state.marginL = val;
+            } else {
+              this.state.marginR = val;
             }
-            ));
-            el.reader.addEventListener('touchstart', handleTouch.start);
-            el.reader.addEventListener('touchmove', handleTouch.move);
-            el.reader.addEventListener('wheel', handleWheel);
-            el.reader.addEventListener('scroll', handleScroll);
-            window.addEventListener('resize', () => {
-                updateStyles()
+            
+            this.updateStyles();
+          }
+
+          _stopMarginDrag() {
+            if (this.state.gesture.dragging && this.state.gesture.handle) {
+              this.state.gesture.handle.classList.remove('active');
+              
+              const isLeft = this.state.gesture.handle === this.el.handleL;
+              const cur = isLeft ? this.state.marginL : this.state.marginR;
+              const final = this._clamp(cur, this.config.margin.min, this.config.margin.max);
+              
+              if (isLeft) this.state.marginL = final;
+              else this.state.marginR = final;
+              
+              this.updateStyles();
             }
-            );
-            el.flow.addEventListener('click', () => setMode(state.mode === 'flow' ? 'normal' : 'flow', true));
-            el.bionic.addEventListener('click', toggleBionic);
-            el.play.addEventListener('click', togglePlay);
-            el.speed.addEventListener('input', e => {
-                state.flow.speed = +e.target.value;
-                el.speedLbl.textContent = state.flow.speed + ' wpm'
+            
+            this.state.gesture.dragging = false;
+            this.state.gesture.handle = null;
+          }
+
+          _handleTouchStart(e) {
+            if (this.state.gesture.dragging) return;
+            this.state.gesture.touches = [...e.touches];
+            
+            if (e.touches.length === 2) {
+              e.preventDefault();
+              this.state.gesture.initDist = this._dist(e.touches[0], e.touches[1]);
+              this.state.gesture.initSize = this.state.fontSize;
             }
-            );
-            el.width.addEventListener('input', e => {
-                state.flow.fingers = +e.target.value;
-                const emoji = '👆'.repeat(Math.min(5, Math.ceil(state.flow.fingers)));
-                el.widthLbl.textContent = state.flow.fingers + ' ' + emoji;
-                if (state.mode === 'flow') {
-                    updateWordStates(state.flow.currentWordIndex)
-                }
+          }
+
+          _handleTouchMove(e) {
+            if (this.state.gesture.dragging || e.touches.length !== 2) return;
+            e.preventDefault();
+
+            const curDist = this._dist(e.touches[0], e.touches[1]);
+            const distChange = Math.abs(curDist - this.state.gesture.initDist);
+
+            const mid1 = {
+              x: (this.state.gesture.touches[0].clientX + this.state.gesture.touches[1].clientX) / 2,
+              y: (this.state.gesture.touches[0].clientY + this.state.gesture.touches[1].clientY) / 2
+            };
+            const mid2 = {
+              x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+              y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+            };
+            const midDelta = {
+              x: Math.abs(mid2.x - mid1.x),
+              y: Math.abs(mid2.y - mid1.y)
+            };
+
+            if (distChange > 10 && distChange > midDelta.x && distChange > midDelta.y) {
+              const scale = curDist / this.state.gesture.initDist;
+              this.state.fontSize = this._clamp(
+                this.state.gesture.initSize * scale,
+                this.config.fontSize.min,
+                this.config.fontSize.max
+              );
+              this.updateStyles();
             }
-            );
-            el.scroll.addEventListener('input', e => {
-                state.flow.scrollLevel = +e.target.value;
-                el.scrollLbl.textContent = scrollLabels[state.flow.scrollLevel - 1]
+          }
+
+          _handleWheel(e) {
+            if (e.ctrlKey || e.metaKey) {
+              e.preventDefault();
+              this.state.fontSize = this._clamp(
+                this.state.fontSize - e.deltaY * 0.1,
+                this.config.fontSize.min,
+                this.config.fontSize.max
+              );
+              this.updateStyles();
             }
-            );
-            setMode('normal');
-            updateStyles()
-        </script>
-    </body>
+          }
+
+          _handleScroll() {
+            this.state.flow.userScroll = true;
+            clearTimeout(this._scrollTimeout);
+            this._scrollTimeout = setTimeout(() => {
+              this.state.flow.userScroll = false;
+            }, this.config.scroll.timeout);
+          }
+
+          _clamp(v, min, max) {
+            return Math.max(min, Math.min(max, v));
+          }
+
+          _elastic(v, min, max) {
+            return v < min ? min - Math.sqrt(min - v) * 2 :
+                   v > max ? max + Math.sqrt(v - max) * 2 : v;
+          }
+
+          _dist(t1, t2) {
+            return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+          }
+        }
+
+        // Initialize the reader with the original content
+        const originalContent = `
+            <h1>Chapter One: The Beginning</h1>
+            <p>In the heart of Silicon Valley, where innovation breathed life into dreams and ambition fueled the relentless pursuit of progress, there existed a small startup that dared to challenge the giants. The morning sun cast long shadows through the floor-to-ceiling windows of their modest office, illuminating screens filled with code and whiteboards covered in sketches of impossible ideas.</p>
+            <p>Sarah had always believed that the best products were born from frustration. It was a Tuesday afternoon when she threw her e-reader across the room—not hard enough to break it, but with enough force to express her complete dissatisfaction with the experience. "Why," she asked her co-founder Marcus, "does every reading app feel like it was designed in 2010?"</p>
+            <p>Marcus looked up from his laptop, his fingers still hovering over the keyboard. He'd been wrestling with the same question for months. The reading experience hadn't evolved. Sure, screens got sharper and devices got thinner, but the fundamental interaction between human and text remained stubbornly unchanged.</p>
+            <p>"What if," Sarah continued, pacing now, her mind racing ahead of her words, "we treated text like it was alive? What if reading could be as fluid and intuitive as touching water?"</p>
+            <p>That conversation sparked something neither of them could ignore. Within weeks, they had assembled a small team of designers and developers who shared their vision. The goal was simple yet audacious: reimagine reading for the touch-screen era. Not just digital books, but a completely new way of interacting with text.</p>
+            <p>The first prototype was rough—buggy gestures, inconsistent behavior, and a tendency to crash at the worst possible moments. But there was something there, something that felt right. When you pinched the screen and watched the text respond, growing larger or smaller with the natural motion of your fingers, it felt like magic. When you swept two fingers vertically and saw the lines of text breathe, expanding and contracting with your touch, it felt like the text was alive.</p>
+            <p>They called it Project Phoenix, because they were resurrecting the reading experience from the ashes of stagnation. Every evening, the team would gather around a large display, testing gestures, debating interactions, and pushing the boundaries of what felt natural. Some ideas were brilliant; most were terrible. But each failure taught them something new about how humans wanted to interact with text.</p>
+        `;
+
+        // Create the reader instance and load content
+        const reader = new EBookReader('#reader-container');
+        reader.loadContent(originalContent);
+    </script>
+</body>
 </html>
