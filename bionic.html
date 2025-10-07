@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>eBook Reader Gesture Prototype</title>
     <style>
         * {
@@ -10,7 +10,7 @@
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f5f5f5;
@@ -19,14 +19,14 @@
             margin: 0;
             padding: 0;
         }
-
+        
         #toolbar {
             position: fixed;
             top: 0;
             left: 0;
             right: 0;
             min-height: 60px;
-            background: white;
+            background: #fff;
             border-bottom: 1px solid #e5e7eb;
             display: flex;
             align-items: center;
@@ -34,26 +34,26 @@
             gap: 20px;
             padding: 10px 20px;
             z-index: 300;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,.05);
             flex-wrap: wrap;
         }
-
+        
         .toolbar-section {
             display: flex;
             align-items: center;
             gap: 8px;
             flex-wrap: wrap;
         }
-
+        
         .toolbar-label {
             font-size: 11px;
             font-weight: 600;
             color: #666;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: .5px;
             white-space: nowrap;
         }
-
+        
         #container {
             position: relative;
             width: 100vw;
@@ -63,16 +63,16 @@
             align-items: center;
             padding-top: 80px;
         }
-
+        
         #reader-area {
             position: relative;
-            background: white;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0,0,0,.1);
             overflow-y: auto;
-            transition: all 0.1s ease-out;
+            transition: all .1s ease-out;
             max-height: calc(90vh - 80px);
         }
-
+        
         .margin-handle {
             position: fixed;
             top: 50%;
@@ -85,81 +85,85 @@
             align-items: center;
             justify-content: center;
         }
-
+        
         .margin-handle-left {
             left: 0;
         }
-
+        
         .margin-handle-right {
             right: 0;
         }
-
+        
         .margin-indicator {
             width: 8px;
             height: 60px;
             background: #3b82f6;
             border-radius: 4px;
-            opacity: 0.3;
-            transition: all 0.2s;
-            box-shadow: 0 2px 12px rgba(59, 130, 246, 0.4);
+            opacity: .3;
+            transition: all .2s;
+            box-shadow: 0 2px 12px rgba(59,130,246,.4);
         }
-
+        
         .margin-handle:hover .margin-indicator {
-            opacity: 0.7;
+            opacity: .7;
             transform: scale(1.1);
         }
-
+        
         .margin-handle.active .margin-indicator {
             opacity: 1;
             transform: scale(1.15);
             background: #2563eb;
         }
-
+        
         #text-content {
-            transition: padding 0.1s ease-out;
+            transition: padding .1s ease-out, opacity .2s ease-in-out;
             position: relative;
         }
-
+        
+        #text-content.transitioning {
+            opacity: 0.4;
+        }
+        
         .mode-btn {
             padding: 6px 14px;
             border: 2px solid #e5e7eb;
-            background: white;
+            background: #fff;
             border-radius: 6px;
             font-size: 13px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all .2s;
             font-weight: 500;
         }
-
+        
         .mode-btn:hover {
             border-color: #3b82f6;
             background: #f0f9ff;
         }
-
+        
         .mode-btn.active {
             border-color: #3b82f6;
             background: #3b82f6;
-            color: white;
+            color: #fff;
         }
-
+        
         .speed-control {
             display: flex;
             align-items: center;
             gap: 10px;
         }
-
-        .speed-control input[type="range"] {
+        
+        .speed-control input[type=range] {
             flex: 1;
             min-width: 80px;
             width: 100px;
             height: 6px;
             border-radius: 3px;
             background: #e5e7eb;
-            outline: none;
+            outline: 0;
             -webkit-appearance: none;
         }
-
-        .speed-control input[type="range"]::-webkit-slider-thumb {
+        
+        .speed-control input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
             width: 16px;
@@ -168,8 +172,8 @@
             background: #3b82f6;
             cursor: pointer;
         }
-
-        .speed-control input[type="range"]::-moz-range-thumb {
+        
+        .speed-control input[type=range]::-moz-range-thumb {
             width: 16px;
             height: 16px;
             border-radius: 50%;
@@ -177,62 +181,80 @@
             cursor: pointer;
             border: none;
         }
-
+        
         .speed-label {
             font-size: 10px;
             color: #666;
             min-width: 45px;
             white-space: nowrap;
         }
-
+        
         .play-btn {
             padding: 6px 16px;
             background: #3b82f6;
-            color: white;
+            color: #fff;
             border: none;
             border-radius: 6px;
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background .2s;
         }
-
+        
         .play-btn:hover {
             background: #2563eb;
         }
-
+        
         .play-btn:disabled {
             background: #9ca3af;
             cursor: not-allowed;
         }
-
+        
         .bionic {
             font-weight: 700;
         }
-
+        
         .flow-word {
-            transition: opacity 0.15s ease-out;
+            transition: opacity .15s ease-out;
             font-weight: 400;
             cursor: pointer;
             display: inline;
+            position: relative;
         }
-
+        
         .flow-word:hover {
-            opacity: 0.7;
+            opacity: .7;
         }
-
+        
         .flow-word.active {
             opacity: 1;
             color: #1a1a1a;
         }
-
+        
         .flow-word.inactive {
-            opacity: 0.2;
+            opacity: .2;
         }
-
+        
         .flow-word.inactive-always {
-            opacity: 0.2;
+            opacity: .2;
             cursor: default;
+        }
+        
+        /* Focus indicator overlay */
+        #focus-indicator {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 50;
+            background: rgba(59, 130, 246, 0.08);
+            transition: all 0.1s ease-out;
+            display: none;
+            border-radius: 3px;
+        }
+        
+        #focus-indicator.visible {
+            display: block;
         }
     </style>
 </head>
@@ -245,7 +267,7 @@
         <div class="toolbar-section">
             <button class="mode-btn" id="flow-toggle">Flow Mode</button>
         </div>
-        <div class="toolbar-section" id="flow-controls" style="display: none;">
+        <div class="toolbar-section" id="flow-controls" style="display:none">
             <span class="toolbar-label">Speed</span>
             <div class="speed-control">
                 <input type="range" id="speed-slider" min="100" max="600" value="300" step="10">
@@ -264,7 +286,7 @@
             <button class="play-btn" id="play-btn">▶ Play</button>
         </div>
     </div>
-
+    
     <div id="container">
         <div id="reader-area">
             <div class="margin-handle margin-handle-left">
@@ -273,20 +295,15 @@
             <div class="margin-handle margin-handle-right">
                 <div class="margin-indicator"></div>
             </div>
+            <div id="focus-indicator"></div>
             <div id="text-content">
                 <h1>Chapter One: The Beginning</h1>
                 <p>In the heart of Silicon Valley, where innovation breathed life into dreams and ambition fueled the relentless pursuit of progress, there existed a small startup that dared to challenge the giants. The morning sun cast long shadows through the floor-to-ceiling windows of their modest office, illuminating screens filled with code and whiteboards covered in sketches of impossible ideas.</p>
-                
                 <p>Sarah had always believed that the best products were born from frustration. It was a Tuesday afternoon when she threw her e-reader across the room—not hard enough to break it, but with enough force to express her complete dissatisfaction with the experience. "Why," she asked her co-founder Marcus, "does every reading app feel like it was designed in 2010?"</p>
-                
                 <p>Marcus looked up from his laptop, his fingers still hovering over the keyboard. He'd been wrestling with the same question for months. The reading experience hadn't evolved. Sure, screens got sharper and devices got thinner, but the fundamental interaction between human and text remained stubbornly unchanged.</p>
-                
                 <p>"What if," Sarah continued, pacing now, her mind racing ahead of her words, "we treated text like it was alive? What if reading could be as fluid and intuitive as touching water?"</p>
-                
                 <p>That conversation sparked something neither of them could ignore. Within weeks, they had assembled a small team of designers and developers who shared their vision. The goal was simple yet audacious: reimagine reading for the touch-screen era. Not just digital books, but a completely new way of interacting with text.</p>
-                
                 <p>The first prototype was rough—buggy gestures, inconsistent behavior, and a tendency to crash at the worst possible moments. But there was something there, something that felt right. When you pinched the screen and watched the text respond, growing larger or smaller with the natural motion of your fingers, it felt like magic. When you swept two fingers vertically and saw the lines of text breathe, expanding and contracting with your touch, it felt like the text was alive.</p>
-                
                 <p>They called it Project Phoenix, because they were resurrecting the reading experience from the ashes of stagnation. Every evening, the team would gather around a large display, testing gestures, debating interactions, and pushing the boundaries of what felt natural. Some ideas were brilliant; most were terrible. But each failure taught them something new about how humans wanted to interact with text.</p>
             </div>
         </div>
@@ -298,7 +315,7 @@
             style: {
                 fontSize: { default: 18, min: 12, max: 48 },
                 lineHeight: { default: 1.6 },
-                margin: { default: 60, min: 10, max: 200 }
+                margin: { default: 60, min: 10, max: 400 } // Increased max from 200 to 400
             },
             flow: {
                 cursorWidth: 150,
@@ -307,20 +324,21 @@
                 maxSpeed: 600,
                 wordSpacing: 5,
                 minWidth: 50,
-                maxWidth: 400
+                maxWidth: 400,
+                newlinePauseMultiplier: 1.5 // Pause 1.5x longer at newlines
             },
             scroll: {
                 comfortZoneTop: 0.15,
                 comfortZoneBottom: 0.7,
                 userScrollTimeout: 1500,
-                defaultTargetPosition: 1, // 1-5 scale
-                topGap: 0.1 // 10% gap from top
+                defaultTargetPosition: 1,
+                topGap: 0.1
             },
             focus: {
                 minFingers: 1,
                 maxFingers: 4,
                 defaultFingers: 2,
-                fingerWidthBase: 45 // Base width in px per "finger" at 18px font
+                fingerWidthBase: 45
             }
         };
 
@@ -338,16 +356,21 @@
                 isPlaying: false,
                 speed: CONFIG.flow.defaultSpeed,
                 cursorPosition: 0,
+                currentWordIndex: 0, // Track current word index instead of just position
                 startTime: 0,
                 animationFrame: null,
                 userScrolling: false,
                 scrollTimeout: null,
                 focusFingers: CONFIG.focus.defaultFingers,
-                scrollTargetPosition: CONFIG.scroll.defaultTargetPosition
+                scrollTargetPosition: CONFIG.scroll.defaultTargetPosition,
+                pausedAtNewline: false,
+                newlinePauseStart: 0
             },
             mode: {
                 current: 'normal',
-                bionicEnabled: false
+                bionicEnabled: false,
+                previousMode: 'normal',
+                savedFlowState: null // Store flow state when switching modes
             },
             gesture: {
                 touches: [],
@@ -375,7 +398,8 @@
             scrollLabel: document.getElementById('scroll-label'),
             bionicToggle: document.getElementById('bionic-toggle'),
             flowToggle: document.getElementById('flow-toggle'),
-            flowControls: document.getElementById('flow-controls')
+            flowControls: document.getElementById('flow-controls'),
+            focusIndicator: document.getElementById('focus-indicator')
         };
 
         // ==================== ORIGINAL CONTENT ====================
@@ -422,13 +446,15 @@
                 
                 words.forEach((word, index) => {
                     const rect = word.getBoundingClientRect();
+                    const isNewline = word.dataset.isNewline === 'true';
                     positions.push({
                         element: word,
                         left: rect.left,
                         right: rect.right,
                         top: rect.top,
                         width: rect.width,
-                        index: index
+                        index: index,
+                        isNewline: isNewline
                     });
                 });
                 
@@ -446,7 +472,19 @@
             static getTotalTextWidth(positions) {
                 return positions.reduce((sum, pos) => 
                     sum + pos.width + CONFIG.flow.wordSpacing, 0
-                    );
+                );
+            }
+            
+            static getWordIndexAtPosition(positions, distance) {
+                let accumulated = 0;
+                for (let i = 0; i < positions.length; i++) {
+                    const wordEnd = accumulated + positions[i].width;
+                    if (distance < wordEnd) {
+                        return i;
+                    }
+                    accumulated = wordEnd + CONFIG.flow.wordSpacing;
+                }
+                return positions.length - 1;
             }
         }
 
@@ -467,38 +505,54 @@
                 container.innerHTML = html;
 
                 let wordCounter = 0;
-                const wrapText = (text) => text.replace(/(\S+)/g, (item) => {
-                    // Check if it's a word with letters
-                    if (/\w/.test(item)) {
-                        let content = item;
-                        // Only apply bionic to actual words (strip punctuation for bionic check)
-                        const wordOnly = item.match(/\w+/);
-                        if (bionicEnabled && wordOnly && wordOnly[0].length > 2) {
-                            const word = wordOnly[0];
-                            const boldCount = Math.ceil(word.length / 2);
-                            const boldPart = word.slice(0, boldCount);
-                            const normalPart = word.slice(boldCount);
-                            // Replace the word part with bionic version, keep punctuation
-                            content = item.replace(word, `<span class="bionic">${boldPart}</span>${normalPart}`);
+                let previousTop = null;
+                
+                const wrapText = (text, parentElement) => {
+                    return text.replace(/(\S+)/g, (item) => {
+                        if (/\w/.test(item)) {
+                            let content = item;
+                            const wordOnly = item.match(/\w+/);
+                            if (bionicEnabled && wordOnly && wordOnly[0].length > 2) {
+                                const word = wordOnly[0];
+                                const boldCount = Math.ceil(word.length / 2);
+                                const boldPart = word.slice(0, boldCount);
+                                const normalPart = word.slice(boldCount);
+                                content = item.replace(word, `<span class="bionic">${boldPart}</span>${normalPart}`);
+                            }
+                            
+                            // Create temporary span to check if it's on a new line
+                            const tempSpan = document.createElement('span');
+                            tempSpan.innerHTML = content;
+                            tempSpan.style.position = 'absolute';
+                            tempSpan.style.visibility = 'hidden';
+                            if (parentElement) {
+                                parentElement.appendChild(tempSpan);
+                                const rect = tempSpan.getBoundingClientRect();
+                                const isNewline = previousTop !== null && rect.top > previousTop + 5;
+                                previousTop = rect.top;
+                                parentElement.removeChild(tempSpan);
+                                
+                                return `<span class="flow-word inactive" data-word-index="${wordCounter++}" data-is-newline="${isNewline}">${content}</span>`;
+                            }
+                            
+                            return `<span class="flow-word inactive" data-word-index="${wordCounter++}" data-is-newline="false">${content}</span>`;
+                        } else {
+                            return `<span class="flow-word inactive" data-word-index="${wordCounter++}" data-is-newline="false">${item}</span>`;
                         }
-                        return `<span class="flow-word inactive" data-word-index="${wordCounter++}">${content}</span>`;
-                    } else {
-                        // Pure punctuation - still make it a flow word so it gets highlighted
-                        return `<span class="flow-word inactive" data-word-index="${wordCounter++}">${item}</span>`;
-                    }
-                });
+                    });
+                };
 
-                const processNode = (node) => {
+                const processNode = (node, parentElement) => {
                     if (node.nodeType === Node.TEXT_NODE) {
                         const temp = document.createElement('span');
-                        temp.innerHTML = wrapText(node.textContent);
+                        temp.innerHTML = wrapText(node.textContent, parentElement);
                         node.replaceWith(...temp.childNodes);
                     } else if (node.nodeType === Node.ELEMENT_NODE) {
-                        [...node.childNodes].forEach(processNode);
+                        [...node.childNodes].forEach(child => processNode(child, node));
                     }
                 };
 
-                [...container.childNodes].forEach(processNode);
+                [...container.childNodes].forEach(node => processNode(node, container));
                 return container.innerHTML;
             }
         }
@@ -510,31 +564,86 @@
                 DOM.textContent.style.fontSize = s.fontSize + 'px';
                 DOM.textContent.style.lineHeight = s.lineHeight;
                 DOM.textContent.style.padding = 
-            `${s.marginTop}px ${s.marginRight}px ${s.marginBottom}px ${s.marginLeft}px`;
-            
-            this.updateHandlePositions();
+                    `${s.marginTop}px ${s.marginRight}px ${s.marginBottom}px ${s.marginLeft}px`;
+                
+                this.updateHandlePositions();
+                
+                // Update focus indicator if in flow mode
+                if (state.mode.current === 'flow') {
+                    FocusIndicator.update();
+                }
+            }
+
+            static updateHandlePositions() {
+                const readerRect = DOM.readerArea.getBoundingClientRect();
+                DOM.leftHandle.style.left = 
+                    (readerRect.left + state.style.marginLeft - 25) + 'px';
+                DOM.rightHandle.style.left = 
+                    (readerRect.right - state.style.marginRight - 25) + 'px';
+            }
         }
 
-        static updateHandlePositions() {
-            const readerRect = DOM.readerArea.getBoundingClientRect();
-            DOM.leftHandle.style.left = 
-            (readerRect.left + state.style.marginLeft - 25) + 'px';
-            DOM.rightHandle.style.left = 
-            (readerRect.right - state.style.marginRight - 25) + 'px';
+        // ==================== FOCUS INDICATOR ====================
+        class FocusIndicator {
+            static update() {
+                if (state.mode.current !== 'flow') {
+                    DOM.focusIndicator.classList.remove('visible');
+                    return;
+                }
+                
+                const words = document.querySelectorAll('.flow-word[data-word-index]');
+                const activeWords = Array.from(words).filter(w => w.classList.contains('active'));
+                
+                if (activeWords.length === 0) {
+                    DOM.focusIndicator.classList.remove('visible');
+                    return;
+                }
+                
+                // Group words by line (based on their top position)
+                const wordsByLine = {};
+                activeWords.forEach(word => {
+                    const rect = word.getBoundingClientRect();
+                    const lineKey = Math.round(rect.top);
+                    if (!wordsByLine[lineKey]) {
+                        wordsByLine[lineKey] = [];
+                    }
+                    wordsByLine[lineKey].push(rect);
+                });
+                
+                // Get the line with the most words (primary line)
+                let primaryLine = null;
+                let maxWords = 0;
+                for (const lineKey in wordsByLine) {
+                    if (wordsByLine[lineKey].length > maxWords) {
+                        maxWords = wordsByLine[lineKey].length;
+                        primaryLine = lineKey;
+                    }
+                }
+                
+                // Use only the primary line for the indicator
+                if (primaryLine) {
+                    const rects = wordsByLine[primaryLine];
+                    const minLeft = Math.min(...rects.map(r => r.left));
+                    const maxRight = Math.max(...rects.map(r => r.right));
+                    const minTop = Math.min(...rects.map(r => r.top));
+                    const maxBottom = Math.max(...rects.map(r => r.bottom));
+                    
+                    const readerRect = DOM.readerArea.getBoundingClientRect();
+                    
+                    DOM.focusIndicator.style.left = (minLeft - readerRect.left) + 'px';
+                    DOM.focusIndicator.style.width = (maxRight - minLeft) + 'px';
+                    DOM.focusIndicator.style.top = (minTop - readerRect.top + DOM.readerArea.scrollTop) + 'px';
+                    DOM.focusIndicator.style.height = (maxBottom - minTop) + 'px';
+                    DOM.focusIndicator.classList.add('visible');
+                }
+            }
         }
-    }
 
         // ==================== SCROLL MANAGER ====================
-    class ScrollManager {
-        static getTargetPositionFromLevel(level) {
-                // Level 1-5 maps to viewport positions with 10% top gap
-                // 1 = 10% + 10% = 20%
-                // 2 = 10% + 30% = 40%
-                // 3 = 10% + 50% = 60%
-                // 4 = 10% + 70% = 80%
-                // 5 = 10% + 90% = 100% (bottom, practically)
-            const topGap = CONFIG.scroll.topGap;
-                const increment = 0.2; // 20% increments
+        class ScrollManager {
+            static getTargetPositionFromLevel(level) {
+                const topGap = CONFIG.scroll.topGap;
+                const increment = 0.2;
                 return topGap + ((level - 1) * increment);
             }
 
@@ -547,27 +656,19 @@
                 const scrollTop = DOM.readerArea.scrollTop;
                 const viewportHeight = readerRect.height;
                 
-                // Calculate target position based on user preference level (1-5)
                 const targetPositionRatio = this.getTargetPositionFromLevel(state.flow.scrollTargetPosition);
-                const targetViewportPosition = readerRect.top + 
-                viewportHeight * targetPositionRatio;
+                const targetViewportPosition = readerRect.top + viewportHeight * targetPositionRatio;
                 
-                // Define comfort zone around target position
-                const comfortZoneTop = readerRect.top + 
-                viewportHeight * CONFIG.scroll.comfortZoneTop;
-                const comfortZoneBottom = readerRect.bottom - 
-                viewportHeight * CONFIG.scroll.comfortZoneBottom;
+                const comfortZoneTop = readerRect.top + viewportHeight * CONFIG.scroll.comfortZoneTop;
+                const comfortZoneBottom = readerRect.bottom - viewportHeight * CONFIG.scroll.comfortZoneBottom;
                 
                 let targetScroll = scrollTop;
                 
-                // If word is outside comfort zone, scroll to target position
                 if (wordRect.top < comfortZoneTop || wordRect.bottom > comfortZoneBottom) {
-                    // Calculate scroll needed to place word at target position
                     const wordDistanceFromTop = wordRect.top - readerRect.top;
                     const desiredDistance = viewportHeight * targetPositionRatio;
                     targetScroll = scrollTop + (wordDistanceFromTop - desiredDistance);
                 } else {
-                    // Word is in comfort zone - don't scroll
                     return;
                 }
                 
@@ -600,8 +701,6 @@
         // ==================== FOCUS WIDTH CALCULATOR ====================
         class FocusWidthCalculator {
             static calculate(fingers) {
-                // Scale focus width based on current font size
-                // Base: 45px per finger at 18px font size
                 const fontScale = state.style.fontSize / 18;
                 return CONFIG.focus.fingerWidthBase * fingers * fontScale;
             }
@@ -624,12 +723,11 @@
                 
                 if (state.flow.cursorPosition === 0) {
                     state.flow.startTime = performance.now();
+                    state.flow.currentWordIndex = 0;
                 } else {
                     const avgCharWidth = state.style.fontSize * 0.5;
-                    const pixelsPerSecond = 
-                    (state.flow.speed / 60) * avgCharWidth * 6;
-                    const elapsedTime = 
-                    (state.flow.cursorPosition / pixelsPerSecond) * 1000;
+                    const pixelsPerSecond = (state.flow.speed / 60) * avgCharWidth * 6;
+                    const elapsedTime = (state.flow.cursorPosition / pixelsPerSecond) * 1000;
                     state.flow.startTime = performance.now() - elapsedTime;
                 }
                 
@@ -657,10 +755,24 @@
                 const animateFrame = (currentTime) => {
                     if (!state.flow.isPlaying) return;
                     
+                    // Handle newline pause
+                    if (state.flow.pausedAtNewline) {
+                        const pauseDuration = (60000 / state.flow.speed) * CONFIG.flow.newlinePauseMultiplier;
+                        const pauseElapsed = currentTime - state.flow.newlinePauseStart;
+                        
+                        if (pauseElapsed < pauseDuration) {
+                            state.flow.animationFrame = requestAnimationFrame(animateFrame);
+                            return;
+                        } else {
+                            state.flow.pausedAtNewline = false;
+                            state.flow.startTime = currentTime - ((state.flow.cursorPosition / 
+                                ((state.flow.speed / 60) * (state.style.fontSize * 0.5) * 6)) * 1000);
+                        }
+                    }
+                    
                     const elapsed = currentTime - state.flow.startTime;
                     const avgCharWidth = state.style.fontSize * 0.5;
-                    const pixelsPerSecond = 
-                    (state.flow.speed / 60) * avgCharWidth * 6;
+                    const pixelsPerSecond = (state.flow.speed / 60) * avgCharWidth * 6;
                     
                     const totalDistance = (elapsed / 1000) * pixelsPerSecond;
                     state.flow.cursorPosition = totalDistance;
@@ -672,11 +784,12 @@
                     });
                     
                     let foundActive = false;
+                    let lastActiveIndex = -1;
+                    
                     for (let i = 0; i < wordPositions.length; i++) {
                         const pos = wordPositions[i];
                         
-                        const wordStart = 
-                        WordPositionCalculator.calculateDistanceToWord(i, wordPositions);
+                        const wordStart = WordPositionCalculator.calculateDistanceToWord(i, wordPositions);
                         const wordEnd = wordStart + pos.width;
                         const cursorStart = totalDistance;
                         const cursorEnd = totalDistance + FocusWidthCalculator.getCurrentWidth();
@@ -684,19 +797,30 @@
                         if (cursorEnd >= wordStart && cursorStart <= wordEnd) {
                             pos.element.classList.remove('inactive');
                             pos.element.classList.add('active');
+                            lastActiveIndex = i;
                             
                             if (!foundActive) {
                                 foundActive = true;
+                                state.flow.currentWordIndex = i;
                                 ScrollManager.gentlyScrollToWord(pos.element);
+                                
+                                // Check if this word starts a new line and we haven't paused yet
+                                if (pos.isNewline && i > 0 && !state.flow.pausedAtNewline) {
+                                    state.flow.pausedAtNewline = true;
+                                    state.flow.newlinePauseStart = currentTime;
+                                }
                             }
                         }
                     }
                     
-                    const totalTextWidth = 
-                    WordPositionCalculator.getTotalTextWidth(wordPositions);
+                    // Update focus indicator
+                    FocusIndicator.update();
+                    
+                    const totalTextWidth = WordPositionCalculator.getTotalTextWidth(wordPositions);
                     if (totalDistance > totalTextWidth + FocusWidthCalculator.getCurrentWidth()) {
                         state.flow.startTime = currentTime;
                         state.flow.cursorPosition = 0;
+                        state.flow.currentWordIndex = 0;
                     }
                     
                     state.flow.animationFrame = requestAnimationFrame(animateFrame);
@@ -707,10 +831,10 @@
 
             static jumpToWord(targetIndex) {
                 const wordPositions = WordPositionCalculator.calculate();
-                const distance = 
-                WordPositionCalculator.calculateDistanceToWord(targetIndex, wordPositions);
+                const distance = WordPositionCalculator.calculateDistanceToWord(targetIndex, wordPositions);
                 
                 state.flow.cursorPosition = distance;
+                state.flow.currentWordIndex = targetIndex;
                 
                 const avgCharWidth = state.style.fontSize * 0.5;
                 const pixelsPerSecond = (state.flow.speed / 60) * avgCharWidth * 6;
@@ -719,6 +843,7 @@
                 
                 if (!state.flow.isPlaying) {
                     this.updateWordStates(wordPositions, distance);
+                    FocusIndicator.update();
                 }
             }
 
@@ -731,8 +856,7 @@
                 
                 for (let i = 0; i < wordPositions.length; i++) {
                     const pos = wordPositions[i];
-                    const wordStart = 
-                    WordPositionCalculator.calculateDistanceToWord(i, wordPositions);
+                    const wordStart = WordPositionCalculator.calculateDistanceToWord(i, wordPositions);
                     const wordEnd = wordStart + pos.width;
                     const cursorStart = cursorPosition;
                     const cursorEnd = cursorPosition + FocusWidthCalculator.getCurrentWidth();
@@ -743,13 +867,54 @@
                     }
                 }
             }
+            
+            static recalibrateAfterLayoutChange() {
+                // After font/margin changes, recalculate position based on current word index
+                const wordPositions = WordPositionCalculator.calculate();
+                if (wordPositions.length === 0) return;
+                
+                // Clamp word index to valid range
+                state.flow.currentWordIndex = Math.min(
+                    state.flow.currentWordIndex, 
+                    wordPositions.length - 1
+                );
+                
+                const distance = WordPositionCalculator.calculateDistanceToWord(
+                    state.flow.currentWordIndex, 
+                    wordPositions
+                );
+                
+                state.flow.cursorPosition = distance;
+                
+                // Recalculate start time
+                const avgCharWidth = state.style.fontSize * 0.5;
+                const pixelsPerSecond = (state.flow.speed / 60) * avgCharWidth * 6;
+                const elapsedTime = (distance / pixelsPerSecond) * 1000;
+                state.flow.startTime = performance.now() - elapsedTime;
+                
+                if (!state.flow.isPlaying) {
+                    this.updateWordStates(wordPositions, distance);
+                }
+                
+                FocusIndicator.update();
+            }
         }
 
         // ==================== MODE MANAGER ====================
         class ModeManager {
-            static setMode(mode) {
+            static setMode(mode, preserveState = false) {
                 const wasFlowPlaying = state.flow.isPlaying;
                 
+                // Save current flow state before switching
+                if (state.mode.current === 'flow' && mode !== 'flow') {
+                    state.mode.savedFlowState = {
+                        cursorPosition: state.flow.cursorPosition,
+                        currentWordIndex: state.flow.currentWordIndex,
+                        isPlaying: wasFlowPlaying
+                    };
+                }
+                
+                state.mode.previousMode = state.mode.current;
                 state.mode.current = mode;
                 FlowReader.stop();
                 
@@ -758,22 +923,52 @@
                 
                 this.renderContent();
                 
-                // If flow was playing when mode changed, don't auto-restart
-                // User needs to manually restart
+                // Restore flow state if switching back to flow mode
+                if (mode === 'flow' && state.mode.savedFlowState && preserveState) {
+                    requestAnimationFrame(() => {
+                        state.flow.currentWordIndex = state.mode.savedFlowState.currentWordIndex;
+                        FlowReader.recalibrateAfterLayoutChange();
+                        
+                        if (state.mode.savedFlowState.isPlaying) {
+                            setTimeout(() => FlowReader.start(), 100);
+                        }
+                    });
+                } else if (mode === 'flow') {
+                    // Show focus indicator even when paused
+                    requestAnimationFrame(() => {
+                        const wordPositions = WordPositionCalculator.calculate();
+                        FlowReader.updateWordStates(wordPositions, state.flow.cursorPosition);
+                        FocusIndicator.update();
+                    });
+                }
+                
+                if (mode !== 'flow') {
+                    DOM.focusIndicator.classList.remove('visible');
+                }
             }
 
             static renderContent() {
                 let html = ORIGINAL_TEXT;
                 
+                // Add transition class for smooth bionic toggle
+                DOM.textContent.classList.add('transitioning');
+                
                 if (state.mode.current === 'flow') {
                     html = TextFormatter.makeFlowText(html, state.mode.bionicEnabled);
-                    // Reset flow position when entering flow mode
-                    state.flow.cursorPosition = 0;
+                    if (!state.mode.savedFlowState) {
+                        state.flow.cursorPosition = 0;
+                        state.flow.currentWordIndex = 0;
+                    }
                 } else if (state.mode.bionicEnabled) {
                     html = TextFormatter.makeBionicText(html);
                 }
                 
                 DOM.textContent.innerHTML = html;
+                
+                // Remove transition class after content update
+                setTimeout(() => {
+                    DOM.textContent.classList.remove('transitioning');
+                }, 200);
                 
                 if (state.mode.current === 'flow') {
                     setTimeout(() => this.attachWordClickHandlers(), 0);
@@ -782,11 +977,10 @@
 
             static toggleFlow() {
                 const newMode = state.mode.current === 'flow' ? 'normal' : 'flow';
-                this.setMode(newMode);
+                this.setMode(newMode, true); // Preserve state when toggling
             }
 
             static attachWordClickHandlers() {
-                // Remove old listener if it exists to prevent duplicates
                 const newContent = DOM.textContent.cloneNode(true);
                 DOM.textContent.parentNode.replaceChild(newContent, DOM.textContent);
                 DOM.textContent = newContent;
@@ -805,33 +999,29 @@
             static toggleBionic() {
                 const wasFlowPlaying = state.flow.isPlaying;
                 const savedCursorPosition = state.flow.cursorPosition;
+                const savedWordIndex = state.flow.currentWordIndex;
                 
                 state.mode.bionicEnabled = !state.mode.bionicEnabled;
                 DOM.bionicToggle.textContent = state.mode.bionicEnabled ? 'On' : 'Off';
                 DOM.bionicToggle.classList.toggle('active', state.mode.bionicEnabled);
                 
-    // Stop flow before re-rendering (preserve state)
                 if (wasFlowPlaying) {
                     FlowReader.stop();
                 }
                 
                 this.renderContent();
 
-    // Wait for the browser to apply DOM changes & perform layout before recalculating geometry.
-    // requestAnimationFrame twice is a conservative way to ensure layout/paint completed.
-                if (wasFlowPlaying && state.mode.current === 'flow') {
+                if (state.mode.current === 'flow') {
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => {
-                // Restore cursor position and restart if it was playing
+                            state.flow.currentWordIndex = savedWordIndex;
                             state.flow.cursorPosition = savedCursorPosition;
                             
-                // Recalculate start time based on saved position and current layout
-                            const avgCharWidth = state.style.fontSize * 0.5;
-                            const pixelsPerSecond = (state.flow.speed / 60) * avgCharWidth * 6;
-                            const elapsedTime = (savedCursorPosition / pixelsPerSecond) * 1000;
-                            state.flow.startTime = performance.now() - elapsedTime;
+                            FlowReader.recalibrateAfterLayoutChange();
                             
-                            FlowReader.start();
+                            if (wasFlowPlaying) {
+                                FlowReader.start();
+                            }
                         });
                     });
                 }
@@ -849,8 +1039,8 @@
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 state.gesture.initialTouchX = clientX;
                 state.gesture.initialMarginValue = 
-                state.gesture.draggedHandle === DOM.leftHandle ? 
-                state.style.marginLeft : state.style.marginRight;
+                    state.gesture.draggedHandle === DOM.leftHandle ? 
+                    state.style.marginLeft : state.style.marginRight;
             }
 
             static handleDragMargin(e) {
@@ -870,7 +1060,7 @@
                     newValue, 
                     CONFIG.style.margin.min, 
                     CONFIG.style.margin.max
-                    );
+                );
                 
                 if (state.gesture.draggedHandle === DOM.leftHandle) {
                     state.style.marginLeft = newValue;
@@ -887,12 +1077,12 @@
                     
                     const isLeft = state.gesture.draggedHandle === DOM.leftHandle;
                     const currentValue = isLeft ? 
-                    state.style.marginLeft : state.style.marginRight;
+                        state.style.marginLeft : state.style.marginRight;
                     
                     const finalValue = Math.max(
                         CONFIG.style.margin.min, 
                         Math.min(CONFIG.style.margin.max, currentValue)
-                        );
+                    );
                     
                     if (isLeft) {
                         state.style.marginLeft = finalValue;
@@ -900,6 +1090,11 @@
                         state.style.marginRight = finalValue;
                     }
                     StyleManager.updateStyles();
+                    
+                    // Recalibrate flow if in flow mode
+                    if (state.mode.current === 'flow') {
+                        requestAnimationFrame(() => FlowReader.recalibrateAfterLayoutChange());
+                    }
                 }
                 state.gesture.isDraggingMargin = false;
                 state.gesture.draggedHandle = null;
@@ -913,7 +1108,7 @@
                 if (state.gesture.touches.length === 2) {
                     e.preventDefault();
                     state.gesture.initialDistance = 
-                    getDistance(state.gesture.touches[0], state.gesture.touches[1]);
+                        getDistance(state.gesture.touches[0], state.gesture.touches[1]);
                     state.gesture.initialFontSize = state.style.fontSize;
                 }
             }
@@ -940,27 +1135,40 @@
                         state.style.fontSize = Math.max(
                             CONFIG.style.fontSize.min,
                             Math.min(CONFIG.style.fontSize.max, state.gesture.initialFontSize * scale)
-                            );
+                        );
                         StyleManager.updateStyles();
                     }
+                }
+            }
+            
+            static handleTouchEnd(e) {
+                if (state.gesture.touches.length === 2 && state.mode.current === 'flow') {
+                    // Recalibrate after pinch zoom
+                    requestAnimationFrame(() => FlowReader.recalibrateAfterLayoutChange());
                 }
             }
 
             static handleWheel(e) {
                 if (e.ctrlKey || e.metaKey) {
                     e.preventDefault();
+                    const wasPlaying = state.flow.isPlaying;
+                    
                     state.style.fontSize = Math.max(
                         CONFIG.style.fontSize.min,
                         Math.min(CONFIG.style.fontSize.max, state.style.fontSize - e.deltaY * 0.1)
-                        );
+                    );
                     StyleManager.updateStyles();
+                    
+                    // Recalibrate flow after zoom
+                    if (state.mode.current === 'flow') {
+                        requestAnimationFrame(() => FlowReader.recalibrateAfterLayoutChange());
+                    }
                 }
             }
         }
 
         // ==================== EVENT LISTENERS ====================
         function initializeEventListeners() {
-            // Margin handle dragging
             DOM.leftHandle.addEventListener('mousedown', (e) => GestureHandler.startDragMargin(e));
             DOM.rightHandle.addEventListener('mousedown', (e) => GestureHandler.startDragMargin(e));
             DOM.leftHandle.addEventListener('touchstart', (e) => GestureHandler.startDragMargin(e));
@@ -969,39 +1177,51 @@
             document.addEventListener('mousemove', (e) => GestureHandler.handleDragMargin(e));
             document.addEventListener('touchmove', (e) => GestureHandler.handleDragMargin(e));
             document.addEventListener('mouseup', () => GestureHandler.stopDragMargin());
-            document.addEventListener('touchend', () => GestureHandler.stopDragMargin());
+            document.addEventListener('touchend', () => {
+                GestureHandler.stopDragMargin();
+                GestureHandler.handleTouchEnd();
+            });
 
-            // Touch gestures for pinch-to-zoom
             DOM.readerArea.addEventListener('touchstart', (e) => GestureHandler.handleTouchStart(e));
             DOM.readerArea.addEventListener('touchmove', (e) => GestureHandler.handleTouchMove(e));
 
-            // Mouse wheel for desktop testing
             DOM.readerArea.addEventListener('wheel', (e) => GestureHandler.handleWheel(e));
 
-            // User scroll detection for flow mode
             DOM.readerArea.addEventListener('scroll', () => ScrollManager.handleUserScroll());
 
-            // Window resize
-            window.addEventListener('resize', () => StyleManager.updateHandlePositions());
+            window.addEventListener('resize', () => {
+                StyleManager.updateHandlePositions();
+                if (state.mode.current === 'flow') {
+                    requestAnimationFrame(() => FlowReader.recalibrateAfterLayoutChange());
+                }
+            });
 
-            // Flow toggle button
             DOM.flowToggle.addEventListener('click', () => ModeManager.toggleFlow());
 
-            // Bionic toggle
             DOM.bionicToggle.addEventListener('click', () => ModeManager.toggleBionic());
 
-            // Flow controls
             DOM.playBtn.addEventListener('click', () => FlowReader.toggle());
             
             DOM.speedSlider.addEventListener('input', (e) => {
+                const wasPlaying = state.flow.isPlaying;
                 state.flow.speed = parseInt(e.target.value);
                 DOM.speedLabel.textContent = state.flow.speed + ' wpm';
+                
+                // Recalibrate timing when speed changes
+                if (state.mode.current === 'flow') {
+                    FlowReader.recalibrateAfterLayoutChange();
+                }
             });
 
             DOM.widthSlider.addEventListener('input', (e) => {
                 state.flow.focusFingers = parseFloat(e.target.value);
                 const fingerEmoji = state.flow.focusFingers === 1 ? '👆' : '👆'.repeat(Math.min(4, Math.ceil(state.flow.focusFingers)));
                 DOM.widthLabel.textContent = state.flow.focusFingers + ' ' + fingerEmoji;
+                
+                // Update focus indicator immediately
+                if (state.mode.current === 'flow') {
+                    FocusIndicator.update();
+                }
             });
 
             DOM.scrollSlider.addEventListener('input', (e) => {
