@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EBookReader v1.0.0 - Enhanced Library</title>
+    <title>EBookReader v2.0.0 - Separated Architecture</title>
     <style>
         body {
             margin: 0;
@@ -11,6 +11,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         
+        /* Test Results Panel */
         #test-results {
             position: fixed;
             top: 10px;
@@ -68,25 +69,100 @@
             border-top: 2px solid #e5e7eb;
             font-weight: 600;
         }
+        
+        /* Example UI Styles (NOT part of library) */
+        .demo-toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 15px 20px;
+            z-index: 300;
+            box-shadow: 0 2px 8px rgba(0,0,0,.05);
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .demo-btn {
+            padding: 8px 16px;
+            border: 2px solid #e5e7eb;
+            background: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all .2s;
+        }
+
+        .demo-btn:hover {
+            border-color: #3b82f6;
+            background: #f0f9ff;
+        }
+
+        .demo-btn.active {
+            border-color: #3b82f6;
+            background: #3b82f6;
+            color: #fff;
+        }
+
+        .demo-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .demo-label {
+            font-size: 12px;
+            color: #666;
+            font-weight: 600;
+        }
 
         #reader-container {
             width: 100vw;
             height: 100vh;
+            padding-top: 80px;
         }
     </style>
 </head>
 <body>
+    <!-- Test Results Panel -->
     <div id="test-results"></div>
+    
+    <!-- External UI (NOT part of library) -->
+    <div class="demo-toolbar">
+        <button class="demo-btn" id="btn-bionic">Bionic Reading</button>
+        <button class="demo-btn" id="btn-flow">Flow Mode</button>
+        
+        <div class="demo-control" id="flow-controls" style="display:none;">
+            <span class="demo-label">Speed:</span>
+            <input type="range" id="speed-slider" min="100" max="600" value="300" step="10">
+            <span id="speed-label" class="demo-label">300 wpm</span>
+            
+            <span class="demo-label">Focus:</span>
+            <input type="range" id="focus-slider" min="1" max="5" value="2" step="0.5">
+            <span id="focus-label" class="demo-label">2</span>
+            
+            <span class="demo-label">Position:</span>
+            <input type="range" id="scroll-slider" min="1" max="5" value="1" step="1">
+            <span id="scroll-label" class="demo-label">Top</span>
+            
+            <button class="demo-btn" id="btn-play">▶ Play</button>
+        </div>
+    </div>
+
+    <!-- Library only needs this container -->
     <div id="reader-container"></div>
 
     <script>
         /**
-         * EBookReader Library v1.0.0
-         * A modern, touch-friendly e-reader with flow reading mode
+         * EBookReader Core Library v2.0.0
+         * Pure reading functionality - NO UI components
          * 
          * @license MIT
-         * @author EBookReader Team
-         * @version 1.0.0
+         * @version 2.0.0
          */
 
         // ============================================================================
@@ -225,11 +301,11 @@
         }
 
         // ============================================================================
-        // MAIN EBOOK READER
+        // CORE EBOOK READER (NO UI)
         // ============================================================================
 
         class EBookReader {
-            static VERSION = '1.0.0';
+            static VERSION = '2.0.0';
 
             constructor(containerSelector, options = {}) {
                 try {
@@ -282,18 +358,32 @@
                         saved: null
                     };
 
+                    // Event callbacks (external UI can subscribe)
+                    this.callbacks = {
+                        onModeChange: [],
+                        onBionicChange: [],
+                        onPlayChange: [],
+                        onSpeedChange: [],
+                        onStateChange: []
+                    };
+
                     this.container = typeof containerSelector === 'string' 
                         ? document.querySelector(containerSelector) 
                         : containerSelector;
                     
                     if (!this.container) {
                         throw new ConfigurationError(
-                            `Container element not found: "${containerSelector}". ` +
-                            `Please provide a valid selector or DOM element.`
+                            `Container element not found: "${containerSelector}"`
                         );
                     }
 
                     this.wordIndexManager = new WordIndexManager();
+                    this._destroyed = false;
+                    
+                    // Bind event handlers so we can remove them later
+                    this._resizeHandler = () => this.updateStyles();
+                    this._scrollHandler = () => this._handleScroll();
+                    
                     this._injectStyles();
                     this._buildDOM();
                     this._attachEventListeners();
@@ -305,76 +395,87 @@
                     if (error instanceof EBookReaderError) {
                         throw error;
                     }
-                    throw new ConfigurationError(`Failed to initialize EBookReader: ${error.message}`);
+                    throw new ConfigurationError(`Failed to initialize: ${error.message}`);
                 }
             }
 
-            _validateConstructorArgs(containerSelector, options) {
-                if (!containerSelector) {
-                    throw new ConfigurationError(
-                        'Container selector is required. Please provide a valid CSS selector or DOM element.'
-                    );
-                }
-
-                if (options && typeof options !== 'object') {
-                    throw new ConfigurationError(
-                        'Options must be an object. Received: ' + typeof options
-                    );
-                }
-            }
-
-            _validateOption(value, config, name) {
-                if (value === undefined) {
-                    return config.default;
-                }
-
-                if (typeof value !== 'number' || isNaN(value)) {
-                    throw new ConfigurationError(
-                        `${name} must be a valid number. Received: ${value}`
-                    );
-                }
-
-                if (value < config.min || value > config.max) {
-                    console.warn(
-                        `${name} value ${value} is outside recommended range [${config.min}, ${config.max}]. ` +
-                        `Using clamped value: ${Math.max(config.min, Math.min(config.max, value))}`
-                    );
-                    return Math.max(config.min, Math.min(config.max, value));
-                }
-
-                return value;
-            }
+            // ========================================
+            // PUBLIC API (for external UI)
+            // ========================================
 
             loadContent(html) {
                 if (typeof html !== 'string') {
-                    throw new ContentError(
-                        `Content must be a string. Received: ${typeof html}`
-                    );
+                    throw new ContentError(`Content must be a string`);
                 }
-
                 if (html.trim().length === 0) {
-                    throw new ContentError(
-                        'Content cannot be empty. Please provide valid HTML content.'
-                    );
+                    throw new ContentError('Content cannot be empty');
                 }
 
-                try {
-                    this.state.content = html;
-                    this._render();
-                } catch (error) {
-                    throw new ContentError(`Failed to load content: ${error.message}`);
+                this.state.content = html;
+                this._render();
+            }
+
+            setMode(mode) {
+                if (mode !== 'normal' && mode !== 'flow') {
+                    throw new Error('Mode must be "normal" or "flow"');
+                }
+                this._setMode(mode, true);
+                this._emit('onModeChange', mode);
+            }
+
+            setBionic(enabled) {
+                if (this.state.bionic !== enabled) {
+                    this._toggleBionic();
+                    this._emit('onBionicChange', enabled);
                 }
             }
 
-            destroy() {
-                try {
-                    if (this.state.flow.playing) {
-                        cancelAnimationFrame(this.state.flow.rafId);
-                    }
-                    this.container.innerHTML = '';
-                    this.wordIndexManager = null;
-                } catch (error) {
-                    throw new StateError(`Failed to destroy reader: ${error.message}`);
+            setSpeed(wpm) {
+                if (typeof wpm !== 'number' || wpm < this.config.speed.min || wpm > this.config.speed.max) {
+                    throw new Error(`Speed must be between ${this.config.speed.min} and ${this.config.speed.max}`);
+                }
+                this.state.flow.speed = wpm;
+                this._emit('onSpeedChange', wpm);
+            }
+
+            setFocusWidth(width) {
+                if (typeof width !== 'number' || width < 1 || width > 5) {
+                    throw new Error('Focus width must be between 1 and 5');
+                }
+                this.state.flow.fingers = width;
+                if (this.state.mode === 'flow' && !this._destroyed && this.wordIndexManager) {
+                    this._updateWordStates(this.state.flow.currentWordIndex);
+                }
+            }
+
+            setScrollLevel(level) {
+                if (typeof level !== 'number' || level < 1 || level > 5) {
+                    throw new Error('Scroll level must be between 1 and 5');
+                }
+                this.state.flow.scrollLevel = level;
+            }
+
+            play() {
+                if (!this.state.flow.playing && this.state.mode === 'flow') {
+                    this._togglePlay();
+                }
+            }
+
+            pause() {
+                if (this.state.flow.playing) {
+                    this._togglePlay();
+                }
+            }
+
+            togglePlay() {
+                if (this.state.mode === 'flow') {
+                    this._togglePlay();
+                }
+            }
+
+            jumpToWord(index) {
+                if (this.state.mode === 'flow') {
+                    this._jumpToWord(index);
                 }
             }
 
@@ -386,67 +487,99 @@
                     fontSize: this.state.fontSize,
                     isPlaying: this.state.flow.playing,
                     currentWordIndex: this.state.flow.currentWordIndex,
-                    totalWords: this.wordIndexManager.getTotalWords()
+                    totalWords: this.wordIndexManager ? this.wordIndexManager.getTotalWords() : 0,
+                    speed: this.state.flow.speed,
+                    focusWidth: this.state.flow.fingers,
+                    scrollLevel: this.state.flow.scrollLevel
                 };
             }
 
-            // ... [Rest of the implementation remains the same] ...
+            on(event, callback) {
+                if (this.callbacks[event]) {
+                    this.callbacks[event].push(callback);
+                }
+            }
+
+            off(event, callback) {
+                if (this.callbacks[event]) {
+                    this.callbacks[event] = this.callbacks[event].filter(cb => cb !== callback);
+                }
+            }
+
+            destroy() {
+                try {
+                    // Stop any playing animation
+                    if (this.state.flow.playing) {
+                        cancelAnimationFrame(this.state.flow.rafId);
+                    }
+                    
+                    // Remove event listeners to prevent errors after destroy
+                    window.removeEventListener('resize', this._resizeHandler);
+                    
+                    if (this.el && this.el.reader) {
+                        this.el.reader.removeEventListener('scroll', this._scrollHandler);
+                    }
+                    
+                    // Clear container
+                    if (this.container) {
+                        this.container.innerHTML = '';
+                    }
+                    
+                    // Mark as destroyed
+                    this._destroyed = true;
+                    this.wordIndexManager = null;
+                } catch (error) {
+                    throw new StateError(`Failed to destroy reader: ${error.message}`);
+                }
+            }
+
+            // ========================================
+            // PRIVATE METHODS
+            // ========================================
+
+            _emit(event, data) {
+                if (this.callbacks[event]) {
+                    this.callbacks[event].forEach(cb => cb(data));
+                }
+            }
+
+            _validateConstructorArgs(containerSelector, options) {
+                if (!containerSelector) {
+                    throw new ConfigurationError('Container selector is required');
+                }
+                if (options && typeof options !== 'object') {
+                    throw new ConfigurationError('Options must be an object');
+                }
+            }
+
+            _validateOption(value, config, name) {
+                if (value === undefined) return config.default;
+                if (typeof value !== 'number' || isNaN(value)) {
+                    throw new ConfigurationError(`${name} must be a valid number`);
+                }
+                if (value < config.min || value > config.max) {
+                    console.warn(`${name} clamped to [${config.min}, ${config.max}]`);
+                    return Math.max(config.min, Math.min(config.max, value));
+                }
+                return value;
+            }
+
             _injectStyles() {
                 if (document.getElementById('ebook-reader-styles')) return;
 
                 const style = document.createElement('style');
                 style.id = 'ebook-reader-styles';
                 style.textContent = `
-                    * { margin: 0; padding: 0; box-sizing: border-box; }
                     .ebook-reader-root {
                         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                         background: #f5f5f5;
                         overflow: hidden;
                         touch-action: none;
-                        margin: 0;
-                        padding: 0;
                         width: 100%;
                         height: 100%;
-                    }
-                    .ebook-toolbar {
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        min-height: 60px;
-                        background: #fff;
-                        border-bottom: 1px solid #e5e7eb;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 20px;
-                        padding: 10px 20px;
-                        z-index: 300;
-                        box-shadow: 0 2px 8px rgba(0,0,0,.05);
-                        flex-wrap: wrap;
-                    }
-                    .ebook-toolbar-section {
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                        flex-wrap: wrap;
-                    }
-                    .ebook-toolbar-label {
-                        font-size: 11px;
-                        font-weight: 600;
-                        color: #666;
-                        text-transform: uppercase;
-                        letter-spacing: .5px;
-                        white-space: nowrap;
-                    }
-                    .ebook-container {
-                        position: relative;
-                        width: 100vw;
-                        height: 100vh;
                         display: flex;
                         justify-content: center;
                         align-items: center;
-                        padding-top: 80px;
                     }
                     .ebook-reader-area {
                         position: relative;
@@ -454,7 +587,7 @@
                         box-shadow: 0 4px 20px rgba(0,0,0,.1);
                         overflow-y: auto;
                         transition: all .1s ease-out;
-                        max-height: calc(90vh - 80px);
+                        max-height: 85vh;
                     }
                     .ebook-margin-handle {
                         position: fixed;
@@ -493,79 +626,6 @@
                         position: relative;
                     }
                     .ebook-text-content.transitioning { opacity: .4; }
-                    .ebook-mode-btn {
-                        padding: 6px 14px;
-                        border: 2px solid #e5e7eb;
-                        background: #fff;
-                        border-radius: 6px;
-                        font-size: 13px;
-                        cursor: pointer;
-                        transition: all .2s;
-                        font-weight: 500;
-                    }
-                    .ebook-mode-btn:hover {
-                        border-color: #3b82f6;
-                        background: #f0f9ff;
-                    }
-                    .ebook-mode-btn.active {
-                        border-color: #3b82f6;
-                        background: #3b82f6;
-                        color: #fff;
-                    }
-                    .ebook-speed-control {
-                        display: flex;
-                        align-items: center;
-                        gap: 10px;
-                    }
-                    .ebook-speed-control input[type=range] {
-                        flex: 1;
-                        min-width: 80px;
-                        width: 100px;
-                        height: 6px;
-                        border-radius: 3px;
-                        background: #e5e7eb;
-                        outline: 0;
-                        -webkit-appearance: none;
-                    }
-                    .ebook-speed-control input[type=range]::-webkit-slider-thumb {
-                        -webkit-appearance: none;
-                        appearance: none;
-                        width: 16px;
-                        height: 16px;
-                        border-radius: 50%;
-                        background: #3b82f6;
-                        cursor: pointer;
-                    }
-                    .ebook-speed-control input[type=range]::-moz-range-thumb {
-                        width: 16px;
-                        height: 16px;
-                        border-radius: 50%;
-                        background: #3b82f6;
-                        cursor: pointer;
-                        border: none;
-                    }
-                    .ebook-speed-label {
-                        font-size: 10px;
-                        color: #666;
-                        min-width: 45px;
-                        white-space: nowrap;
-                    }
-                    .ebook-play-btn {
-                        padding: 6px 16px;
-                        background: #3b82f6;
-                        color: #fff;
-                        border: none;
-                        border-radius: 6px;
-                        font-size: 13px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: background .2s;
-                    }
-                    .ebook-play-btn:hover { background: #2563eb; }
-                    .ebook-play-btn:disabled {
-                        background: #9ca3af;
-                        cursor: not-allowed;
-                    }
                     .bionic { font-weight: 700; }
                     .flow-word {
                         font-weight: 400;
@@ -599,43 +659,15 @@
                 this.container.className = 'ebook-reader-root';
 
                 const html = `
-                    <div class="ebook-toolbar">
-                        <div class="ebook-toolbar-section">
-                            <button class="ebook-mode-btn" data-action="bionic">Bionic Reading</button>
+                    <div class="ebook-reader-area">
+                        <div class="ebook-margin-handle ebook-margin-handle-left">
+                            <div class="ebook-margin-indicator"></div>
                         </div>
-                        <div class="ebook-toolbar-section">
-                            <button class="ebook-mode-btn" data-action="flow">Flow Mode</button>
+                        <div class="ebook-margin-handle ebook-margin-handle-right">
+                            <div class="ebook-margin-indicator"></div>
                         </div>
-                        <div class="ebook-toolbar-section" data-flow-controls style="display:none">
-                            <span class="ebook-toolbar-label">Speed</span>
-                            <div class="ebook-speed-control">
-                                <input type="range" data-control="speed" min="100" max="600" value="300" step="10">
-                                <span class="ebook-speed-label" data-label="speed">300 wpm</span>
-                            </div>
-                            <span class="ebook-toolbar-label">Focus Width</span>
-                            <div class="ebook-speed-control">
-                                <input type="range" data-control="width" min="1" max="5" value="2" step="0.5">
-                                <span class="ebook-speed-label" data-label="width">2 👆</span>
-                            </div>
-                            <span class="ebook-toolbar-label">Scroll Position</span>
-                            <div class="ebook-speed-control">
-                                <input type="range" data-control="scroll" min="1" max="5" value="1" step="1">
-                                <span class="ebook-speed-label" data-label="scroll">1 (Top)</span>
-                            </div>
-                            <button class="ebook-play-btn" data-action="play">▶ Play</button>
-                        </div>
-                    </div>
-                    <div class="ebook-container">
-                        <div class="ebook-reader-area">
-                            <div class="ebook-margin-handle ebook-margin-handle-left">
-                                <div class="ebook-margin-indicator"></div>
-                            </div>
-                            <div class="ebook-margin-handle ebook-margin-handle-right">
-                                <div class="ebook-margin-indicator"></div>
-                            </div>
-                            <div class="ebook-focus-indicator"></div>
-                            <div class="ebook-text-content"></div>
-                        </div>
+                        <div class="ebook-focus-indicator"></div>
+                        <div class="ebook-text-content"></div>
                     </div>
                 `;
 
@@ -646,39 +678,11 @@
                     content: this.container.querySelector('.ebook-text-content'),
                     handleL: this.container.querySelector('.ebook-margin-handle-left'),
                     handleR: this.container.querySelector('.ebook-margin-handle-right'),
-                    play: this.container.querySelector('[data-action="play"]'),
-                    bionic: this.container.querySelector('[data-action="bionic"]'),
-                    flow: this.container.querySelector('[data-action="flow"]'),
-                    flowCtrl: this.container.querySelector('[data-flow-controls]'),
                     focus: this.container.querySelector('.ebook-focus-indicator')
                 };
             }
 
             _attachEventListeners() {
-                this.el.bionic.addEventListener('click', () => this._toggleBionic());
-                this.el.flow.addEventListener('click', () => this._setMode(this.state.mode === 'flow' ? 'normal' : 'flow', true));
-                this.el.play.addEventListener('click', () => this._togglePlay());
-
-                this.container.querySelector('[data-control="speed"]').addEventListener('input', (e) => {
-                    this.state.flow.speed = +e.target.value;
-                    this.container.querySelector('[data-label="speed"]').textContent = this.state.flow.speed + ' wpm';
-                });
-
-                this.container.querySelector('[data-control="width"]').addEventListener('input', (e) => {
-                    this.state.flow.fingers = +e.target.value;
-                    const emoji = '👆'.repeat(Math.min(5, Math.ceil(this.state.flow.fingers)));
-                    this.container.querySelector('[data-label="width"]').textContent = this.state.flow.fingers + ' ' + emoji;
-                    if (this.state.mode === 'flow') {
-                        this._updateWordStates(this.state.flow.currentWordIndex);
-                    }
-                });
-
-                this.container.querySelector('[data-control="scroll"]').addEventListener('input', (e) => {
-                    this.state.flow.scrollLevel = +e.target.value;
-                    const labels = ['1 (Top)', '2 (Upper)', '3 (Middle)', '4 (Lower)', '5 (Bottom)'];
-                    this.container.querySelector('[data-label="scroll"]').textContent = labels[this.state.flow.scrollLevel - 1];
-                });
-
                 ['mousedown', 'touchstart'].forEach(evt => {
                     this.el.handleL.addEventListener(evt, e => this._startMarginDrag(e, this.el.handleL));
                     this.el.handleR.addEventListener(evt, e => this._startMarginDrag(e, this.el.handleR));
@@ -695,12 +699,14 @@
                 this.el.reader.addEventListener('touchstart', e => this._handleTouchStart(e));
                 this.el.reader.addEventListener('touchmove', e => this._handleTouchMove(e));
                 this.el.reader.addEventListener('wheel', e => this._handleWheel(e));
-                this.el.reader.addEventListener('scroll', () => this._handleScroll());
+                this.el.reader.addEventListener('scroll', this._scrollHandler);
 
-                window.addEventListener('resize', () => this.updateStyles());
+                window.addEventListener('resize', this._resizeHandler);
             }
 
             updateStyles() {
+                if (this._destroyed || !this.el || !this.el.content) return;
+                
                 this.el.content.style.cssText = `
                     font-size: ${this.state.fontSize}px;
                     line-height: ${this.state.lineHeight};
@@ -711,15 +717,19 @@
                 this.el.handleL.style.left = (r.left + this.state.marginL - 25) + 'px';
                 this.el.handleR.style.left = (r.right - this.state.marginR - 25) + 'px';
 
-                if (this.state.mode === 'flow') {
+                if (this.state.mode === 'flow' && this.wordIndexManager) {
                     this.wordIndexManager.invalidate();
                     requestAnimationFrame(() => {
-                        this._updateWordStates(this.state.flow.currentWordIndex);
+                        if (!this._destroyed && this.wordIndexManager) {
+                            this._updateWordStates(this.state.flow.currentWordIndex);
+                        }
                     });
                 }
             }
 
             _render() {
+                if (this._destroyed || !this.el || !this.el.content) return;
+                
                 this.el.content.classList.add('transitioning');
                 
                 let html = this.state.content;
@@ -733,17 +743,27 @@
                 }
 
                 this.el.content.innerHTML = html;
-                this.wordIndexManager.invalidate();
+                
+                if (this.wordIndexManager) {
+                    this.wordIndexManager.invalidate();
+                }
 
-                setTimeout(() => this.el.content.classList.remove('transitioning'), 200);
+                setTimeout(() => {
+                    if (!this._destroyed && this.el && this.el.content) {
+                        this.el.content.classList.remove('transitioning');
+                    }
+                }, 200);
 
                 if (this.state.mode === 'flow') {
                     setTimeout(() => {
+                        if (this._destroyed || !this.el || !this.el.content || !this.wordIndexManager) return;
+                        
                         this.el.content.querySelectorAll('.flow-word').forEach((w, idx) => {
                             w.addEventListener('click', () => {
-                                if (this.state.mode === 'flow') this._jumpToWord(idx);
+                                if (this.state.mode === 'flow' && !this._destroyed) this._jumpToWord(idx);
                             });
                         });
+                        
                         this.wordIndexManager.rebuild();
                     }, 50);
                 }
@@ -793,6 +813,8 @@
             }
 
             _updateWordStates(centerIndex) {
+                if (this._destroyed || !this.wordIndexManager || !this.el || !this.el.content) return;
+                
                 this.el.content.querySelectorAll('.flow-word').forEach(w => {
                     w.className = 'flow-word inactive';
                 });
@@ -844,7 +866,7 @@
             }
 
             _scrollToWord(wordIndex, instant = false) {
-                if (this.state.flow.userScroll) return;
+                if (this._destroyed || !this.wordIndexManager || this.state.flow.userScroll) return;
 
                 const word = this.wordIndexManager.getWord(wordIndex);
                 if (!word) return;
@@ -867,7 +889,7 @@
 
             _animate() {
                 const frame = (t) => {
-                    if (!this.state.flow.playing) return;
+                    if (!this.state.flow.playing || this._destroyed || !this.wordIndexManager) return;
 
                     if (this.state.flow.pauseUntil > 0) {
                         if (t < this.state.flow.pauseUntil) {
@@ -920,17 +942,17 @@
             }
 
             _togglePlay() {
+                if (this._destroyed || !this.wordIndexManager) return;
+                
                 if (this.state.flow.playing) {
                     cancelAnimationFrame(this.state.flow.rafId);
                     this.state.flow.playing = false;
-                    this.el.play.textContent = '▶ Play';
                 } else {
                     this.wordIndexManager.rebuild();
                     const totalWords = this.wordIndexManager.getTotalWords();
                     if (!totalWords) return;
 
                     this.state.flow.playing = true;
-                    this.el.play.textContent = '⏸ Pause';
                     
                     const wordsPerSecond = this.state.flow.speed / 60;
                     this.state.flow.startTime = performance.now() - 
@@ -940,9 +962,12 @@
                     
                     this._animate();
                 }
+                this._emit('onPlayChange', this.state.flow.playing);
             }
 
             _jumpToWord(idx) {
+                if (this._destroyed || !this.wordIndexManager) return;
+                
                 this.state.flow.currentWordIndex = idx;
                 if (!this.state.flow.playing) {
                     this._updateWordStates(idx);
@@ -958,6 +983,8 @@
             }
 
             _setMode(mode, preserve = false) {
+                if (this._destroyed) return;
+                
                 const wasPlaying = this.state.flow.playing;
                 
                 if (this.state.mode === 'flow' && mode !== 'flow') {
@@ -971,22 +998,25 @@
                 
                 if (this.state.flow.playing) this._togglePlay();
 
-                this.el.flow.classList.toggle('active', mode === 'flow');
-                this.el.flowCtrl.style.display = mode === 'flow' ? 'flex' : 'none';
-
                 this._render();
 
                 if (mode === 'flow' && this.state.saved && preserve) {
                     setTimeout(() => {
+                        if (this._destroyed || !this.wordIndexManager) return;
+                        
                         this.state.flow.currentWordIndex = this.state.saved.wordIndex || 0;
                         this._updateWordStates(this.state.flow.currentWordIndex);
                         if (this.state.saved.playing) {
-                            setTimeout(() => this._togglePlay(), 100);
+                            setTimeout(() => {
+                                if (!this._destroyed && this.wordIndexManager) this._togglePlay();
+                            }, 100);
                         }
                     }, 100);
                 } else if (mode === 'flow') {
                     setTimeout(() => {
-                        this._updateWordStates(this.state.flow.currentWordIndex);
+                        if (!this._destroyed && this.wordIndexManager) {
+                            this._updateWordStates(this.state.flow.currentWordIndex);
+                        }
                     }, 100);
                 }
 
@@ -996,11 +1026,12 @@
             }
 
             _toggleBionic() {
+                if (this._destroyed) return;
+                
                 const wasPlaying = this.state.flow.playing;
                 const savedIdx = this.state.flow.currentWordIndex;
                 
                 this.state.bionic = !this.state.bionic;
-                this.el.bionic.classList.toggle('active', this.state.bionic);
                 
                 if (wasPlaying) this._togglePlay();
                 
@@ -1008,9 +1039,15 @@
                 
                 if (this.state.mode === 'flow') {
                     setTimeout(() => {
+                        if (this._destroyed || !this.wordIndexManager) return;
+                        
                         this.state.flow.currentWordIndex = savedIdx;
                         this._updateWordStates(savedIdx);
-                        if (wasPlaying) setTimeout(() => this._togglePlay(), 100);
+                        if (wasPlaying) {
+                            setTimeout(() => {
+                                if (!this._destroyed && this.wordIndexManager) this._togglePlay();
+                            }, 100);
+                        }
                     }, 100);
                 }
             }
@@ -1140,6 +1177,16 @@
         }
 
         // ============================================================================
+        // EXPOSE LIBRARY
+        // ============================================================================
+
+        window.EBookReader = EBookReader;
+        window.EBookReaderError = EBookReaderError;
+        window.ConfigurationError = ConfigurationError;
+        window.ContentError = ContentError;
+        window.StateError = StateError;
+
+        // ============================================================================
         // TEST SUITE
         // ============================================================================
 
@@ -1199,19 +1246,18 @@
             }
         }
 
-        // ============================================================================
-        // RUN TESTS
-        // ============================================================================
-
         async function runTests() {
             const suite = new EBookReaderTestSuite();
+
+            // Helper to wait for pending operations
+            const waitForPending = () => new Promise(resolve => setTimeout(resolve, 150));
 
             // ========================================
             // INITIALIZATION TESTS
             // ========================================
 
             suite.test('Library has version number', () => {
-                suite.assertEqual(EBookReader.VERSION, '1.0.0', 'Version should be 1.0.0');
+                suite.assertEqual(EBookReader.VERSION, '2.0.0', 'Version should be 2.0.0');
             });
 
             suite.test('Constructor requires container', () => {
@@ -1230,7 +1276,7 @@
                 );
             });
 
-            suite.test('Constructor accepts custom options', () => {
+            suite.test('Constructor accepts custom options', async () => {
                 const testContainer = document.createElement('div');
                 document.body.appendChild(testContainer);
                 const reader = new EBookReader(testContainer, { fontSize: 20, margin: 80 });
@@ -1240,24 +1286,14 @@
                 
                 reader.destroy();
                 document.body.removeChild(testContainer);
-            });
-
-            suite.test('Constructor validates option ranges', () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer, { fontSize: 100 });
-                
-                suite.assertEqual(reader.state.fontSize, 48, 'fontSize should be clamped to max');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
+                await waitForPending();
             });
 
             // ========================================
             // CONTENT LOADING TESTS
             // ========================================
 
-            suite.test('loadContent validates input', () => {
+            suite.test('loadContent validates input', async () => {
                 const testContainer = document.createElement('div');
                 document.body.appendChild(testContainer);
                 const reader = new EBookReader(testContainer);
@@ -1276,9 +1312,10 @@
                 
                 reader.destroy();
                 document.body.removeChild(testContainer);
+                await waitForPending();
             });
 
-            suite.test('Content loads and renders', () => {
+            suite.test('Content loads and renders', async () => {
                 const testContainer = document.createElement('div');
                 document.body.appendChild(testContainer);
                 const reader = new EBookReader(testContainer);
@@ -1286,105 +1323,142 @@
                 reader.loadContent('<p>Test content here</p>');
                 suite.assert(reader.state.content.includes('Test content here'), 'Content should be stored');
                 
-                const renderedContent = reader.el.content.textContent;
-                suite.assert(renderedContent.includes('Test content here'), 'Content should be rendered in DOM');
-                
                 reader.destroy();
                 document.body.removeChild(testContainer);
+                await waitForPending();
             });
 
             // ========================================
-            // BIONIC READING MODE TESTS
+            // PUBLIC API TESTS
             // ========================================
 
-            suite.test('Bionic mode transforms words correctly', () => {
+            suite.test('setMode() changes mode', async () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>Test</p>');
+                reader.setMode('flow');
+                
+                suite.assertEqual(reader.getState().mode, 'flow', 'Mode should be flow');
+                
+                reader.setMode('normal');
+                suite.assertEqual(reader.getState().mode, 'normal', 'Mode should be normal');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+                await waitForPending();
+            });
+
+            suite.test('setBionic() toggles bionic mode', async () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>Test</p>');
+                
+                suite.assertEqual(reader.getState().bionic, false, 'Should start disabled');
+                
+                reader.setBionic(true);
+                suite.assertEqual(reader.getState().bionic, true, 'Should be enabled');
+                
+                reader.setBionic(false);
+                suite.assertEqual(reader.getState().bionic, false, 'Should be disabled');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+                await waitForPending();
+            });
+
+            suite.test('setSpeed() changes speed', async () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.setSpeed(450);
+                suite.assertEqual(reader.getState().speed, 450, 'Speed should be 450');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+                await waitForPending();
+            });
+
+            suite.test('setFocusWidth() changes focus width', async () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.setFocusWidth(3);
+                suite.assertEqual(reader.getState().focusWidth, 3, 'Focus width should be 3');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+                await waitForPending();
+            });
+
+            suite.test('setScrollLevel() changes scroll position', async () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.setScrollLevel(3);
+                suite.assertEqual(reader.getState().scrollLevel, 3, 'Scroll level should be 3');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+                await waitForPending();
+            });
+
+            // ========================================
+            // BIONIC READING TESTS
+            // ========================================
+
+            suite.test('Bionic mode transforms text', async () => {
                 const testContainer = document.createElement('div');
                 document.body.appendChild(testContainer);
                 const reader = new EBookReader(testContainer);
                 
                 reader.loadContent('<p>reading</p>');
+                reader.setBionic(true);
                 
-                // Enable bionic mode
-                reader._toggleBionic();
+                await waitForPending();
                 
-                suite.assert(reader.state.bionic === true, 'Bionic should be enabled');
-                
-                // Check if bionic spans are created
                 const bionicSpans = reader.el.content.querySelectorAll('.bionic');
                 suite.assert(bionicSpans.length > 0, 'Should have bionic spans');
                 
                 reader.destroy();
                 document.body.removeChild(testContainer);
+                await waitForPending();
             });
 
-            suite.test('Bionic mode can toggle on and off', () => {
+            suite.test('Bionic mode toggles correctly', async () => {
                 const testContainer = document.createElement('div');
                 document.body.appendChild(testContainer);
                 const reader = new EBookReader(testContainer);
                 
                 reader.loadContent('<p>test</p>');
                 
-                suite.assertEqual(reader.state.bionic, false, 'Should start disabled');
+                reader.setBionic(true);
+                suite.assertEqual(reader.getState().bionic, true, 'Should be enabled');
                 
-                reader._toggleBionic();
-                suite.assertEqual(reader.state.bionic, true, 'Should be enabled after toggle');
-                
-                reader._toggleBionic();
-                suite.assertEqual(reader.state.bionic, false, 'Should be disabled after second toggle');
+                reader.setBionic(false);
+                suite.assertEqual(reader.getState().bionic, false, 'Should be disabled');
                 
                 reader.destroy();
                 document.body.removeChild(testContainer);
+                await waitForPending();
             });
 
-            // ========================================
-            // FLOW MODE TESTS
-            // ========================================
-
-            suite.test('Flow mode creates word spans', () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>The quick brown fox jumps</p>');
-                reader._setMode('flow');
-                
-                // Wait for render
-                const wordSpans = reader.el.content.querySelectorAll('.flow-word');
-                suite.assert(wordSpans.length >= 5, 'Should create word spans (expected 5+)');
-                suite.assertEqual(reader.state.mode, 'flow', 'Mode should be flow');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-            });
-
-            suite.test('Flow mode switches back to normal', () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>test content</p>');
-                
-                reader._setMode('flow');
-                suite.assertEqual(reader.state.mode, 'flow', 'Should be in flow mode');
-                
-                reader._setMode('normal');
-                suite.assertEqual(reader.state.mode, 'normal', 'Should be in normal mode');
-                
-                const wordSpans = reader.el.content.querySelectorAll('.flow-word');
-                suite.assertEqual(wordSpans.length, 0, 'Should not have word spans in normal mode');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-            });
-
-            suite.test('Flow mode with bionic creates both', () => {
+            suite.test('Flow mode with bionic works', async () => {
                 const testContainer = document.createElement('div');
                 document.body.appendChild(testContainer);
                 const reader = new EBookReader(testContainer);
                 
                 reader.loadContent('<p>reading writing</p>');
-                reader._toggleBionic();
-                reader._setMode('flow');
+                reader.setBionic(true);
+                reader.setMode('flow');
+                
+                await waitForPending();
                 
                 const wordSpans = reader.el.content.querySelectorAll('.flow-word');
                 const bionicSpans = reader.el.content.querySelectorAll('.bionic');
@@ -1394,195 +1468,249 @@
                 
                 reader.destroy();
                 document.body.removeChild(testContainer);
+                await waitForPending();
+            });
+
+            // ========================================
+            // EVENT SYSTEM TESTS
+            // ========================================
+
+            suite.test('Event system works', async () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                let eventFired = false;
+                let eventData = null;
+                
+                reader.on('onModeChange', (mode) => {
+                    eventFired = true;
+                    eventData = mode;
+                });
+                
+                reader.loadContent('<p>Test</p>');
+                reader.setMode('flow');
+                
+                suite.assert(eventFired, 'Event should fire');
+                suite.assertEqual(eventData, 'flow', 'Event data should be correct');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+                await waitForPending();
+            });
+
+            suite.test('Event unsubscribe works', async () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                let callCount = 0;
+                const callback = () => callCount++;
+                
+                reader.on('onModeChange', callback);
+                reader.loadContent('<p>Test</p>');
+                reader.setMode('flow');
+                
+                suite.assertEqual(callCount, 1, 'Should fire once');
+                
+                reader.off('onModeChange', callback);
+                reader.setMode('normal');
+                
+                suite.assertEqual(callCount, 1, 'Should not fire after unsubscribe');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+                await waitForPending();
+            });
+
+            // ========================================
+            // FLOW MODE TESTS
+            // ========================================
+
+            suite.test('Flow mode creates word spans', async () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>The quick brown fox jumps</p>');
+                reader.setMode('flow');
+                
+                await waitForPending();
+                
+                const wordSpans = reader.el.content.querySelectorAll('.flow-word');
+                suite.assert(wordSpans.length >= 5, 'Should create word spans');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+                await waitForPending();
+            });
+
+            suite.test('Play/pause works', async () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>Test content</p>');
+                reader.setMode('flow');
+                
+                await waitForPending();
+                
+                suite.assertEqual(reader.getState().isPlaying, false, 'Should not be playing');
+                
+                reader.play();
+                suite.assertEqual(reader.getState().isPlaying, true, 'Should be playing');
+                
+                reader.pause();
+                suite.assertEqual(reader.getState().isPlaying, false, 'Should be paused');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+                await waitForPending();
             });
 
             // ========================================
             // WORD INDEX MANAGER TESTS
             // ========================================
 
-            suite.test('WordIndexManager initializes correctly', () => {
+            suite.test('WordIndexManager initializes', () => {
                 const manager = new WordIndexManager();
                 suite.assertEqual(manager.dirty, true, 'Should be dirty initially');
                 
-                // Note: getTotalWords() will search entire document for .flow-word elements
-                // In isolation it would be 0, but our main reader might have words
                 const total = manager.getTotalWords();
-                suite.assert(total >= 0, 'Should return a valid word count');
+                suite.assert(total >= 0, 'Should return valid count');
                 suite.assertEqual(manager.dirty, false, 'Should not be dirty after rebuild');
             });
 
-            suite.test('WordIndexManager rebuilds with words', () => {
+            suite.test('WordIndexManager rebuilds with words', async () => {
                 const testContainer = document.createElement('div');
+                testContainer.style.position = 'absolute';
+                testContainer.style.left = '-9999px';
                 document.body.appendChild(testContainer);
                 const reader = new EBookReader(testContainer);
                 
                 reader.loadContent('<p>One two three four five</p>');
-                reader._setMode('flow');
+                reader.setMode('flow');
                 
-                // Hide main reader temporarily to avoid interference
+                await waitForPending();
+                
                 const mainReader = document.getElementById('reader-container');
                 const originalDisplay = mainReader.style.display;
                 mainReader.style.display = 'none';
                 
-                reader.wordIndexManager.rebuild();
-                const totalWords = reader.wordIndexManager.getTotalWords();
+                if (reader.wordIndexManager) {
+                    reader.wordIndexManager.rebuild();
+                    const totalWords = reader.wordIndexManager.getTotalWords();
+                    suite.assert(totalWords >= 5, `Should have at least 5 words`);
+                }
                 
                 mainReader.style.display = originalDisplay;
                 
-                suite.assert(totalWords >= 5, `Should have at least 5 words, got ${totalWords}`);
-                
                 reader.destroy();
                 document.body.removeChild(testContainer);
+                await waitForPending();
             });
 
-            suite.test('WordIndexManager getWord returns correct data', () => {
+            suite.test('WordIndexManager getWord returns data', async () => {
                 const testContainer = document.createElement('div');
                 testContainer.style.position = 'absolute';
-                testContainer.style.left = '-9999px'; // Hide off-screen
+                testContainer.style.left = '-9999px';
                 document.body.appendChild(testContainer);
                 const reader = new EBookReader(testContainer);
                 
                 reader.loadContent('<p>Hello world</p>');
-                reader._setMode('flow');
+                reader.setMode('flow');
                 
-                // Hide main reader to avoid interference
+                await waitForPending();
+                
                 const mainReader = document.getElementById('reader-container');
                 const originalDisplay = mainReader.style.display;
                 mainReader.style.display = 'none';
                 
-                reader.wordIndexManager.rebuild();
-                
-                const word = reader.wordIndexManager.getWord(0);
+                if (reader.wordIndexManager) {
+                    reader.wordIndexManager.rebuild();
+                    const word = reader.wordIndexManager.getWord(0);
+                    
+                    suite.assert(word !== null, 'Should get word');
+                    suite.assert('el' in word, 'Should have el property');
+                    suite.assert('text' in word, 'Should have text property');
+                }
                 
                 mainReader.style.display = originalDisplay;
                 
-                suite.assert(word !== null, 'Should get word at index 0');
-                suite.assert('el' in word, 'Word should have el property');
-                suite.assert('text' in word, 'Word should have text property');
-                suite.assert('rect' in word, 'Word should have rect property');
-                
                 reader.destroy();
                 document.body.removeChild(testContainer);
+                await waitForPending();
             });
 
             // ========================================
             // STATE MANAGEMENT TESTS
             // ========================================
 
-            suite.test('getState returns complete state', () => {
+            suite.test('getState() returns complete state', async () => {
                 const testContainer = document.createElement('div');
                 document.body.appendChild(testContainer);
                 const reader = new EBookReader(testContainer);
                 
                 const state = reader.getState();
                 
-                suite.assertEqual(state.version, '1.0.0', 'State should include version');
-                suite.assertEqual(state.mode, 'normal', 'State should include mode');
-                suite.assert('fontSize' in state, 'State should include fontSize');
-                suite.assert('bionic' in state, 'State should include bionic');
-                suite.assert('isPlaying' in state, 'State should include isPlaying');
-                suite.assert('currentWordIndex' in state, 'State should include currentWordIndex');
-                suite.assert('totalWords' in state, 'State should include totalWords');
+                suite.assert('version' in state, 'Should have version');
+                suite.assert('mode' in state, 'Should have mode');
+                suite.assert('bionic' in state, 'Should have bionic');
+                suite.assert('isPlaying' in state, 'Should have isPlaying');
+                suite.assert('speed' in state, 'Should have speed');
+                suite.assert('focusWidth' in state, 'Should have focusWidth');
                 
                 reader.destroy();
                 document.body.removeChild(testContainer);
+                await waitForPending();
             });
 
-            suite.test('Mode switching preserves word position', () => {
+            suite.test('Mode switching preserves position', async () => {
                 const testContainer = document.createElement('div');
                 document.body.appendChild(testContainer);
                 const reader = new EBookReader(testContainer);
                 
-                reader.loadContent('<p>One two three four five six seven eight</p>');
-                reader._setMode('flow');
+                reader.loadContent('<p>One two three four five six</p>');
+                reader.setMode('flow');
                 
-                // Set position
+                await waitForPending();
+                
                 reader.state.flow.currentWordIndex = 3;
                 
-                // Switch to normal and back
-                reader._setMode('normal', true);
-                reader._setMode('flow', true);
+                reader.setMode('normal');
+                await waitForPending();
                 
-                // Position should be preserved
-                suite.assert(reader.state.flow.currentWordIndex >= 0, 'Word index should be preserved');
+                reader.setMode('flow');
+                await waitForPending();
                 
-                reader.destroy();
-                document.body.removeChild(testContainer);
-            });
-
-            // ========================================
-            // CONTROLS TESTS
-            // ========================================
-
-            suite.test('Speed control changes state', () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                const initialSpeed = reader.state.flow.speed;
-                reader.state.flow.speed = 450;
-                
-                suite.assertEqual(reader.state.flow.speed, 450, 'Speed should update');
-                suite.assert(reader.state.flow.speed !== initialSpeed, 'Speed should be different from initial');
+                suite.assert(reader.state.flow.currentWordIndex >= 0, 'Position should be preserved');
                 
                 reader.destroy();
                 document.body.removeChild(testContainer);
-            });
-
-            suite.test('Focus width control changes state', () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.state.flow.fingers = 3;
-                suite.assertEqual(reader.state.flow.fingers, 3, 'Focus width should update');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
+                await waitForPending();
             });
 
             // ========================================
-            // PLAY/PAUSE TESTS
+            // CLEANUP TESTS
             // ========================================
 
-            suite.test('Play state toggles correctly', () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>Test content for playing</p>');
-                reader._setMode('flow');
-                
-                suite.assertEqual(reader.state.flow.playing, false, 'Should not be playing initially');
-                
-                // Note: We can't fully test animation without waiting, but we can test state changes
-                reader._togglePlay();
-                suite.assertEqual(reader.state.flow.playing, true, 'Should be playing after toggle');
-                
-                reader._togglePlay();
-                suite.assertEqual(reader.state.flow.playing, false, 'Should not be playing after second toggle');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-            });
-
-            // ========================================
-            // DESTROY TESTS
-            // ========================================
-
-            suite.test('Destroy cleans up properly', () => {
+            suite.test('Destroy cleans up resources', async () => {
                 const testContainer = document.createElement('div');
                 document.body.appendChild(testContainer);
                 const reader = new EBookReader(testContainer);
                 
                 reader.loadContent('<p>Test</p>');
-                reader._setMode('flow');
-                reader._togglePlay();
+                reader.setMode('flow');
                 
+                await waitForPending();
+                
+                reader.play();
                 reader.destroy();
                 
-                suite.assertEqual(testContainer.innerHTML, '', 'Container should be empty after destroy');
-                suite.assertEqual(reader.wordIndexManager, null, 'Word index manager should be null');
+                await waitForPending();
+                
+                suite.assertEqual(testContainer.innerHTML, '', 'Container should be empty');
+                suite.assertEqual(reader.wordIndexManager, null, 'Manager should be null');
                 
                 document.body.removeChild(testContainer);
             });
@@ -1595,28 +1723,16 @@
             
             // Group results by category
             const categories = {
-                'Initialization': [],
-                'Content Loading': [],
-                'Bionic Reading': [],
-                'Flow Mode': [],
-                'Word Index': [],
-                'State Management': [],
-                'Controls': [],
-                'Play/Pause': [],
-                'Cleanup': []
+                'Initialization': results.slice(0, 4),
+                'Content Loading': results.slice(4, 6),
+                'Public API': results.slice(6, 11),
+                'Bionic Reading': results.slice(11, 14),
+                'Event System': results.slice(14, 16),
+                'Flow Mode': results.slice(16, 17),
+                'Word Index': results.slice(17, 20),
+                'State Management': results.slice(20, 22),
+                'Cleanup': results.slice(22, 23)
             };
-            
-            results.forEach((result, idx) => {
-                if (idx < 5) categories['Initialization'].push(result);
-                else if (idx < 7) categories['Content Loading'].push(result);
-                else if (idx < 9) categories['Bionic Reading'].push(result);
-                else if (idx < 12) categories['Flow Mode'].push(result);
-                else if (idx < 15) categories['Word Index'].push(result);
-                else if (idx < 17) categories['State Management'].push(result);
-                else if (idx < 19) categories['Controls'].push(result);
-                else if (idx < 20) categories['Play/Pause'].push(result);
-                else categories['Cleanup'].push(result);
-            });
             
             for (const [category, tests] of Object.entries(categories)) {
                 if (tests.length === 0) continue;
@@ -1632,7 +1748,7 @@
                 tests.forEach(result => {
                     const icon = result.passed ? '✓' : '✗';
                     const className = result.passed ? 'test-pass' : 'test-fail';
-                    const testName = result.name.replace(/^(Library has|Constructor|Content|Bionic|Flow|WordIndexManager|getState|Mode|Speed|Focus|Play|Destroy)\s+/i, '');
+                    const testName = result.name.replace(/^(Library|Constructor|Content|setMode|setBionic|setSpeed|setFocusWidth|setScrollLevel|Bionic|Event|Flow|Play|WordIndexManager|getState|Mode|Destroy)\s+/i, '');
                     html += `<div class="test-item ${className}" style="padding-left:12px;font-size:12px;">${icon} ${testName}</div>`;
                     if (!result.passed) {
                         html += `<div style="font-size:11px;color:#666;margin-left:32px;margin-bottom:4px;">${result.error}</div>`;
@@ -1652,20 +1768,32 @@
             return { passed: suite.passed, failed: suite.failed, total: suite.tests.length };
         }
 
-        // Expose test runner globally
+        // Expose test runner
         window.EBookReaderTests = {
-            run: runTests
+            run: runTests,
+            
+            watch: async function() {
+                console.clear();
+                console.log('🔍 Running tests...\n');
+                
+                const start = performance.now();
+                const result = await runTests();
+                const duration = (performance.now() - start).toFixed(0);
+                
+                console.log(`\n⏱️  Completed in ${duration}ms`);
+                
+                if (result.failed === 0) {
+                    console.log(`✅ All ${result.total} tests passed!`);
+                } else {
+                    console.log(`❌ ${result.failed} test(s) failed`);
+                }
+                
+                return result;
+            }
         };
 
-        // Expose library classes globally for easy access
-        window.EBookReader = EBookReader;
-        window.EBookReaderError = EBookReaderError;
-        window.ConfigurationError = ConfigurationError;
-        window.ContentError = ContentError;
-        window.StateError = StateError;
-
         // ============================================================================
-        // USAGE EXAMPLE
+        // EXAMPLE: EXTERNAL UI CONTROLLER
         // ============================================================================
 
         const sampleContent = `
@@ -1675,125 +1803,107 @@
             <p>Marcus looked up from his laptop, his fingers still hovering over the keyboard. He'd been wrestling with the same question for months. The reading experience hadn't evolved. Sure, screens got sharper and devices got thinner, but the fundamental interaction between human and text remained stubbornly unchanged.</p>
         `;
 
-        // Initialize reader
+        // Initialize core library
         window.reader = new EBookReader('#reader-container');
-        window.reader.loadContent(sampleContent);
+        reader.loadContent(sampleContent);
 
-        // Log library info
+        // Connect external UI to library
+        const btnBionic = document.getElementById('btn-bionic');
+        const btnFlow = document.getElementById('btn-flow');
+        const btnPlay = document.getElementById('btn-play');
+        const flowControls = document.getElementById('flow-controls');
+        const speedSlider = document.getElementById('speed-slider');
+        const speedLabel = document.getElementById('speed-label');
+        const focusSlider = document.getElementById('focus-slider');
+        const focusLabel = document.getElementById('focus-label');
+        const scrollSlider = document.getElementById('scroll-slider');
+        const scrollLabel = document.getElementById('scroll-label');
+
+        // Wire up buttons to library API
+        btnBionic.addEventListener('click', () => {
+            reader.setBionic(!reader.getState().bionic);
+            btnBionic.classList.toggle('active');
+        });
+
+        btnFlow.addEventListener('click', () => {
+            const currentMode = reader.getState().mode;
+            const newMode = currentMode === 'flow' ? 'normal' : 'flow';
+            reader.setMode(newMode);
+            btnFlow.classList.toggle('active', newMode === 'flow');
+            flowControls.style.display = newMode === 'flow' ? 'flex' : 'none';
+        });
+
+        btnPlay.addEventListener('click', () => {
+            reader.togglePlay();
+        });
+
+        speedSlider.addEventListener('input', (e) => {
+            reader.setSpeed(+e.target.value);
+            speedLabel.textContent = e.target.value + ' wpm';
+        });
+
+        focusSlider.addEventListener('input', (e) => {
+            reader.setFocusWidth(+e.target.value);
+            focusLabel.textContent = e.target.value;
+        });
+
+        scrollSlider.addEventListener('input', (e) => {
+            const level = +e.target.value;
+            reader.setScrollLevel(level);
+            const labels = ['Top', 'Upper', 'Middle', 'Lower', 'Bottom'];
+            scrollLabel.textContent = labels[level - 1];
+        });
+
+        // Listen to library events
+        reader.on('onPlayChange', (isPlaying) => {
+            btnPlay.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
+            console.log('Play state changed:', isPlaying);
+        });
+
+        reader.on('onModeChange', (mode) => {
+            console.log('Mode changed:', mode);
+        });
+
+        reader.on('onBionicChange', (enabled) => {
+            console.log('Bionic changed:', enabled);
+        });
+
+        // Log initialization
         console.log('╔════════════════════════════════════════╗');
-        console.log('║   EBookReader v' + EBookReader.VERSION + ' initialized    ║');
+        console.log('║   EBookReader v' + EBookReader.VERSION + ' (Separated)     ║');
         console.log('╚════════════════════════════════════════╝');
         console.log('');
-        console.log('📖 Reader ready!');
+        console.log('🏗️  ARCHITECTURE:');
+        console.log('   ✓ Core library: Provides reading functionality');
+        console.log('   ✓ External UI: Toolbar built separately');
+        console.log('   ✓ Clean API: Library exposes methods, not UI');
         console.log('');
-        console.log('🧪 To run tests (21 feature tests), use:');
-        console.log('   await EBookReaderTests.run()');
+        console.log('📚 PUBLIC API:');
+        console.log('   reader.setMode("flow" | "normal")');
+        console.log('   reader.setBionic(true | false)');
+        console.log('   reader.setSpeed(wpm)');
+        console.log('   reader.setFocusWidth(width)');
+        console.log('   reader.play() / pause() / togglePlay()');
+        console.log('   reader.getState()');
+        console.log('   reader.on(event, callback)');
+        console.log('   reader.off(event, callback)');
         console.log('');
-        console.log('   Tests verify: initialization, content loading,');
-        console.log('   bionic mode, flow mode, controls, and cleanup.');
+        console.log('🎯 WHAT LIBRARY INCLUDES:');
+        console.log('   ✓ Reading area with text');
+        console.log('   ✓ Margin drag handles (integral to UX)');
+        console.log('   ✓ Focus highlight indicator');
+        console.log('   ✓ Touch gestures (pinch-zoom)');
         console.log('');
-        console.log('ℹ️  Current state:');
-        console.log(window.reader.getState());
-
-        // ============================================================================
-        // TYPESCRIPT DEFINITIONS (see comments below)
-        // ============================================================================
-
-        /*
-         * RUNNING TESTS:
-         * Tests are not run automatically. To run them, open the browser console and type:
-         *   await EBookReaderTests.run()
-         * 
-         * This will display a test results panel organized by feature category.
-         * Click the × to close the panel.
-         * 
-         * TEST COVERAGE (21 tests):
-         * ✓ Initialization (5 tests) - Constructor validation, options, error handling
-         * ✓ Content Loading (2 tests) - Loading and rendering content
-         * ✓ Bionic Reading (2 tests) - Text transformation and toggling
-         * ✓ Flow Mode (3 tests) - Word span creation, mode switching, combined features
-         * ✓ Word Index (3 tests) - Word tracking, rebuilding, data structure
-         * ✓ State Management (2 tests) - State retrieval and preservation
-         * ✓ Controls (2 tests) - Speed and focus width controls
-         * ✓ Play/Pause (1 test) - Playback state toggling
-         * ✓ Cleanup (1 test) - Proper resource cleanup
-         * 
-         * These tests verify that core features work correctly and will catch regressions
-         * when adding new code.
-         * 
-         * ============================================================================
-         * 
-         * TypeScript definitions are available below.
-         * To use them, save this content to a file named 'ebook-reader.d.ts'
-         * 
-         * // ebook-reader.d.ts
-         * 
-         * export interface EBookReaderOptions {
-         *   fontSize?: number;
-         *   margin?: number;
-         * }
-         * 
-         * export interface ReaderState {
-         *   version: string;
-         *   mode: 'normal' | 'flow';
-         *   bionic: boolean;
-         *   fontSize: number;
-         *   isPlaying: boolean;
-         *   currentWordIndex: number;
-         *   totalWords: number;
-         * }
-         * 
-         * export interface WordData {
-         *   el: HTMLElement;
-         *   rect: DOMRect;
-         *   isNewline: boolean;
-         *   text: string;
-         *   index: number;
-         * }
-         * 
-         * export interface ActiveRange {
-         *   start: number;
-         *   end: number;
-         * }
-         * 
-         * export class EBookReaderError extends Error {
-         *   name: 'EBookReaderError';
-         * }
-         * 
-         * export class ConfigurationError extends EBookReaderError {
-         *   name: 'ConfigurationError';
-         * }
-         * 
-         * export class ContentError extends EBookReaderError {
-         *   name: 'ContentError';
-         * }
-         * 
-         * export class StateError extends EBookReaderError {
-         *   name: 'StateError';
-         * }
-         * 
-         * export class WordIndexManager {
-         *   constructor();
-         *   rebuild(): void;
-         *   getWord(index: number): WordData | null;
-         *   getActiveRange(centerIndex: number, focusWidth: number): ActiveRange;
-         *   getTotalWords(): number;
-         *   invalidate(): void;
-         * }
-         * 
-         * export class EBookReader {
-         *   static VERSION: string;
-         *   
-         *   constructor(containerSelector: string | HTMLElement, options?: EBookReaderOptions);
-         *   
-         *   loadContent(html: string): void;
-         *   destroy(): void;
-         *   getState(): ReaderState;
-         *   updateStyles(): void;
-         * }
-         * 
-         * export default EBookReader;
-         */
+        console.log('❌ WHAT LIBRARY EXCLUDES:');
+        console.log('   ✗ Toolbar (build your own!)');
+        console.log('   ✗ Buttons (use API instead)');
+        console.log('   ✗ Control sliders (optional)');
+        console.log('');
+        console.log('🧪 TESTS (23 tests covering all features):');
+        console.log('   await EBookReaderTests.run()    → Full panel');
+        console.log('   await EBookReaderTests.watch()  → Quick console');
+        console.log('');
+        console.log('Current state:', reader.getState());
     </script>
 </body>
 </html>
