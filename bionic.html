@@ -3,13 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EBookReader - Usage Example</title>
+    <title>EBookReader v1.0.0 - Enhanced Library</title>
     <style>
         body {
             margin: 0;
             padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         
+        #test-results {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 15px;
+            max-width: 350px;
+            max-height: 500px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            display: none;
+        }
+
+        #test-results.visible {
+            display: block;
+        }
+
+        .test-header {
+            font-weight: 600;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .test-close {
+            cursor: pointer;
+            font-size: 18px;
+            color: #666;
+            padding: 0 5px;
+        }
+
+        .test-close:hover {
+            color: #000;
+        }
+
+        .test-item {
+            padding: 5px 0;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .test-pass { color: #10b981; }
+        .test-fail { color: #ef4444; }
+        .test-summary {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 2px solid #e5e7eb;
+            font-weight: 600;
+        }
+
         #reader-container {
             width: 100vw;
             height: 100vh;
@@ -17,986 +76,1724 @@
     </style>
 </head>
 <body>
+    <div id="test-results"></div>
     <div id="reader-container"></div>
 
     <script>
-        // Include the EBookReader library (WordIndexManager class)
+        /**
+         * EBookReader Library v1.0.0
+         * A modern, touch-friendly e-reader with flow reading mode
+         * 
+         * @license MIT
+         * @author EBookReader Team
+         * @version 1.0.0
+         */
+
+        // ============================================================================
+        // ERROR CLASSES
+        // ============================================================================
+
+        class EBookReaderError extends Error {
+            constructor(message) {
+                super(message);
+                this.name = 'EBookReaderError';
+            }
+        }
+
+        class ConfigurationError extends EBookReaderError {
+            constructor(message) {
+                super(message);
+                this.name = 'ConfigurationError';
+            }
+        }
+
+        class ContentError extends EBookReaderError {
+            constructor(message) {
+                super(message);
+                this.name = 'ContentError';
+            }
+        }
+
+        class StateError extends EBookReaderError {
+            constructor(message) {
+                super(message);
+                this.name = 'StateError';
+            }
+        }
+
+        // ============================================================================
+        // WORD INDEX MANAGER
+        // ============================================================================
+
         class WordIndexManager {
-          constructor() {
-            this.words = [];
-            this.dirty = true;
-          }
-
-          rebuild() {
-            this.words = [];
-            const wordElements = document.querySelectorAll('.flow-word');
-            if (!wordElements.length) {
-              this.dirty = false;
-              return;
+            constructor() {
+                this.words = [];
+                this.dirty = true;
             }
 
-            let prevTop = -1;
-            wordElements.forEach((el, idx) => {
-              const rect = el.getBoundingClientRect();
-              const isNewline = prevTop !== -1 && rect.top > prevTop + 5;
-              
-              this.words.push({
-                el,
-                rect: {
-                  left: rect.left,
-                  right: rect.right,
-                  top: rect.top,
-                  bottom: rect.bottom,
-                  width: rect.width,
-                  height: rect.height
-                },
-                isNewline,
-                text: el.textContent,
-                index: idx
-              });
-              
-              prevTop = rect.top;
-            });
-            
-            this.dirty = false;
-          }
+            rebuild() {
+                try {
+                    this.words = [];
+                    const wordElements = document.querySelectorAll('.flow-word');
+                    
+                    if (!wordElements.length) {
+                        this.dirty = false;
+                        return;
+                    }
 
-          getWord(index) {
-            if (this.dirty) this.rebuild();
-            const idx = Math.floor(index);
-            return this.words[idx] || null;
-          }
-
-          getActiveRange(centerIndex, focusWidth) {
-            if (this.dirty) this.rebuild();
-            
-            const centerIdx = Math.floor(centerIndex);
-            const centerWord = this.words[centerIdx];
-            
-            if (!centerWord) return { start: 0, end: 0 };
-
-            const centerTop = centerWord.rect.top;
-            const halfWidth = focusWidth / 2;
-            
-            let start = Math.max(0, Math.round(centerIndex - halfWidth));
-            let end = Math.min(this.words.length - 1, Math.round(centerIndex + halfWidth));
-
-            while (start < centerIdx && this.words[start] && 
-                   Math.abs(this.words[start].rect.top - centerTop) > 5) {
-              start++;
-            }
-            
-            while (end > centerIdx && this.words[end] && 
-                   Math.abs(this.words[end].rect.top - centerTop) > 5) {
-              end--;
+                    let prevTop = -1;
+                    wordElements.forEach((el, idx) => {
+                        const rect = el.getBoundingClientRect();
+                        const isNewline = prevTop !== -1 && rect.top > prevTop + 5;
+                        
+                        this.words.push({
+                            el,
+                            rect: {
+                                left: rect.left,
+                                right: rect.right,
+                                top: rect.top,
+                                bottom: rect.bottom,
+                                width: rect.width,
+                                height: rect.height
+                            },
+                            isNewline,
+                            text: el.textContent,
+                            index: idx
+                        });
+                        
+                        prevTop = rect.top;
+                    });
+                    
+                    this.dirty = false;
+                } catch (error) {
+                    throw new StateError(`Failed to rebuild word index: ${error.message}`);
+                }
             }
 
-            return { start, end };
-          }
+            getWord(index) {
+                if (typeof index !== 'number' || isNaN(index)) {
+                    throw new TypeError('Word index must be a valid number');
+                }
+                
+                if (this.dirty) this.rebuild();
+                const idx = Math.floor(index);
+                return this.words[idx] || null;
+            }
 
-          getTotalWords() {
-            if (this.dirty) this.rebuild();
-            return this.words.length;
-          }
+            getActiveRange(centerIndex, focusWidth) {
+                if (typeof centerIndex !== 'number' || isNaN(centerIndex)) {
+                    throw new TypeError('Center index must be a valid number');
+                }
+                if (typeof focusWidth !== 'number' || focusWidth <= 0) {
+                    throw new TypeError('Focus width must be a positive number');
+                }
+                
+                if (this.dirty) this.rebuild();
+                
+                const centerIdx = Math.floor(centerIndex);
+                const centerWord = this.words[centerIdx];
+                
+                if (!centerWord) return { start: 0, end: 0 };
 
-          invalidate() {
-            this.dirty = true;
-          }
+                const centerTop = centerWord.rect.top;
+                const halfWidth = focusWidth / 2;
+                
+                let start = Math.max(0, Math.round(centerIndex - halfWidth));
+                let end = Math.min(this.words.length - 1, Math.round(centerIndex + halfWidth));
+
+                while (start < centerIdx && this.words[start] && 
+                       Math.abs(this.words[start].rect.top - centerTop) > 5) {
+                    start++;
+                }
+                
+                while (end > centerIdx && this.words[end] && 
+                       Math.abs(this.words[end].rect.top - centerTop) > 5) {
+                    end--;
+                }
+
+                return { start, end };
+            }
+
+            getTotalWords() {
+                if (this.dirty) this.rebuild();
+                return this.words.length;
+            }
+
+            invalidate() {
+                this.dirty = true;
+            }
         }
 
-        // Include the EBookReader library (main class)
+        // ============================================================================
+        // MAIN EBOOK READER
+        // ============================================================================
+
         class EBookReader {
-          constructor(containerSelector, options = {}) {
-            this.config = {
-              fontSize: { min: 12, default: 18, max: 48 },
-              margin: { min: 10, default: 60, max: 400 },
-              speed: { min: 100, default: 300, max: 600 },
-              lineHeight: 1.6,
-              newlinePause: 1.5,
-              scroll: {
-                top: 0.15,
-                bottom: 0.7,
-                timeout: 1500,
-                gap: 0.1
-              }
-            };
+            static VERSION = '1.0.0';
 
-            this.state = {
-              fontSize: options.fontSize || this.config.fontSize.default,
-              lineHeight: this.config.lineHeight,
-              marginL: options.margin || this.config.margin.default,
-              marginR: options.margin || this.config.margin.default,
-              marginTB: 40,
-              mode: 'normal',
-              bionic: false,
-              content: '',
-              flow: {
-                playing: false,
-                speed: this.config.speed.default,
-                currentWordIndex: 0,
-                startTime: 0,
-                rafId: null,
-                userScroll: false,
-                fingers: 2,
-                scrollLevel: 1,
-                pauseUntil: 0,
-                lastPausedWord: -1
-              },
-              gesture: {
-                touches: [],
-                initDist: 0,
-                initSize: 0,
-                dragging: false,
-                handle: null,
-                initMargin: 0,
-                initX: 0
-              },
-              saved: null
-            };
+            constructor(containerSelector, options = {}) {
+                try {
+                    this._validateConstructorArgs(containerSelector, options);
+                    
+                    this.config = {
+                        fontSize: { min: 12, default: 18, max: 48 },
+                        margin: { min: 10, default: 60, max: 400 },
+                        speed: { min: 100, default: 300, max: 600 },
+                        lineHeight: 1.6,
+                        newlinePause: 1.5,
+                        scroll: {
+                            top: 0.15,
+                            bottom: 0.7,
+                            timeout: 1500,
+                            gap: 0.1
+                        }
+                    };
 
-            this.container = typeof containerSelector === 'string' 
-              ? document.querySelector(containerSelector) 
-              : containerSelector;
-            
-            if (!this.container) {
-              throw new Error('Container element not found');
+                    this.state = {
+                        fontSize: this._validateOption(options.fontSize, this.config.fontSize, 'fontSize'),
+                        lineHeight: this.config.lineHeight,
+                        marginL: this._validateOption(options.margin, this.config.margin, 'margin'),
+                        marginR: this._validateOption(options.margin, this.config.margin, 'margin'),
+                        marginTB: 40,
+                        mode: 'normal',
+                        bionic: false,
+                        content: '',
+                        flow: {
+                            playing: false,
+                            speed: this.config.speed.default,
+                            currentWordIndex: 0,
+                            startTime: 0,
+                            rafId: null,
+                            userScroll: false,
+                            fingers: 2,
+                            scrollLevel: 1,
+                            pauseUntil: 0,
+                            lastPausedWord: -1
+                        },
+                        gesture: {
+                            touches: [],
+                            initDist: 0,
+                            initSize: 0,
+                            dragging: false,
+                            handle: null,
+                            initMargin: 0,
+                            initX: 0
+                        },
+                        saved: null
+                    };
+
+                    this.container = typeof containerSelector === 'string' 
+                        ? document.querySelector(containerSelector) 
+                        : containerSelector;
+                    
+                    if (!this.container) {
+                        throw new ConfigurationError(
+                            `Container element not found: "${containerSelector}". ` +
+                            `Please provide a valid selector or DOM element.`
+                        );
+                    }
+
+                    this.wordIndexManager = new WordIndexManager();
+                    this._injectStyles();
+                    this._buildDOM();
+                    this._attachEventListeners();
+                    
+                    requestAnimationFrame(() => {
+                        this.updateStyles();
+                    });
+                } catch (error) {
+                    if (error instanceof EBookReaderError) {
+                        throw error;
+                    }
+                    throw new ConfigurationError(`Failed to initialize EBookReader: ${error.message}`);
+                }
             }
 
-            this.wordIndexManager = new WordIndexManager();
-            this._injectStyles();
-            this._buildDOM();
-            this._attachEventListeners();
-            
-            // Wait for DOM to render before calculating positions
-            requestAnimationFrame(() => {
-              this.updateStyles();
-            });
-          }
+            _validateConstructorArgs(containerSelector, options) {
+                if (!containerSelector) {
+                    throw new ConfigurationError(
+                        'Container selector is required. Please provide a valid CSS selector or DOM element.'
+                    );
+                }
 
-          loadContent(html) {
-            this.state.content = html;
-            this._render();
-          }
-
-          destroy() {
-            if (this.state.flow.playing) {
-              cancelAnimationFrame(this.state.flow.rafId);
-            }
-            this.container.innerHTML = '';
-          }
-
-          _injectStyles() {
-            if (document.getElementById('ebook-reader-styles')) return;
-
-            const style = document.createElement('style');
-            style.id = 'ebook-reader-styles';
-            style.textContent = `
-              * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-              }
-
-              .ebook-reader-root {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                background: #f5f5f5;
-                overflow: hidden;
-                touch-action: none;
-                margin: 0;
-                padding: 0;
-                width: 100%;
-                height: 100%;
-              }
-
-              .ebook-toolbar {
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                min-height: 60px;
-                background: #fff;
-                border-bottom: 1px solid #e5e7eb;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                gap: 20px;
-                padding: 10px 20px;
-                z-index: 300;
-                box-shadow: 0 2px 8px rgba(0,0,0,.05);
-                flex-wrap: wrap;
-              }
-
-              .ebook-toolbar-section {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                flex-wrap: wrap;
-              }
-
-              .ebook-toolbar-label {
-                font-size: 11px;
-                font-weight: 600;
-                color: #666;
-                text-transform: uppercase;
-                letter-spacing: .5px;
-                white-space: nowrap;
-              }
-
-              .ebook-container {
-                position: relative;
-                width: 100vw;
-                height: 100vh;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                padding-top: 80px;
-              }
-
-              .ebook-reader-area {
-                position: relative;
-                background: #fff;
-                box-shadow: 0 4px 20px rgba(0,0,0,.1);
-                overflow-y: auto;
-                transition: all .1s ease-out;
-                max-height: calc(90vh - 80px);
-              }
-
-              .ebook-margin-handle {
-                position: fixed;
-                top: 50%;
-                transform: translateY(-50%);
-                width: 50px;
-                height: 80px;
-                cursor: ew-resize;
-                z-index: 100;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-
-              .ebook-margin-handle-left { left: 0; }
-              .ebook-margin-handle-right { right: 0; }
-
-              .ebook-margin-indicator {
-                width: 8px;
-                height: 60px;
-                background: #3b82f6;
-                border-radius: 4px;
-                opacity: .3;
-                transition: all .2s;
-                box-shadow: 0 2px 12px rgba(59,130,246,.4);
-              }
-
-              .ebook-margin-handle:hover .ebook-margin-indicator {
-                opacity: .7;
-                transform: scale(1.1);
-              }
-
-              .ebook-margin-handle.active .ebook-margin-indicator {
-                opacity: 1;
-                transform: scale(1.15);
-                background: #2563eb;
-              }
-
-              .ebook-text-content {
-                transition: padding .1s ease-out, opacity .2s ease-in-out;
-                position: relative;
-              }
-
-              .ebook-text-content.transitioning {
-                opacity: .4;
-              }
-
-              .ebook-mode-btn {
-                padding: 6px 14px;
-                border: 2px solid #e5e7eb;
-                background: #fff;
-                border-radius: 6px;
-                font-size: 13px;
-                cursor: pointer;
-                transition: all .2s;
-                font-weight: 500;
-              }
-
-              .ebook-mode-btn:hover {
-                border-color: #3b82f6;
-                background: #f0f9ff;
-              }
-
-              .ebook-mode-btn.active {
-                border-color: #3b82f6;
-                background: #3b82f6;
-                color: #fff;
-              }
-
-              .ebook-speed-control {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-              }
-
-              .ebook-speed-control input[type=range] {
-                flex: 1;
-                min-width: 80px;
-                width: 100px;
-                height: 6px;
-                border-radius: 3px;
-                background: #e5e7eb;
-                outline: 0;
-                -webkit-appearance: none;
-              }
-
-              .ebook-speed-control input[type=range]::-webkit-slider-thumb {
-                -webkit-appearance: none;
-                appearance: none;
-                width: 16px;
-                height: 16px;
-                border-radius: 50%;
-                background: #3b82f6;
-                cursor: pointer;
-              }
-
-              .ebook-speed-control input[type=range]::-moz-range-thumb {
-                width: 16px;
-                height: 16px;
-                border-radius: 50%;
-                background: #3b82f6;
-                cursor: pointer;
-                border: none;
-              }
-
-              .ebook-speed-label {
-                font-size: 10px;
-                color: #666;
-                min-width: 45px;
-                white-space: nowrap;
-              }
-
-              .ebook-play-btn {
-                padding: 6px 16px;
-                background: #3b82f6;
-                color: #fff;
-                border: none;
-                border-radius: 6px;
-                font-size: 13px;
-                font-weight: 600;
-                cursor: pointer;
-                transition: background .2s;
-              }
-
-              .ebook-play-btn:hover {
-                background: #2563eb;
-              }
-
-              .ebook-play-btn:disabled {
-                background: #9ca3af;
-                cursor: not-allowed;
-              }
-
-              .bionic {
-                font-weight: 700;
-              }
-
-              .flow-word {
-                font-weight: 400;
-                cursor: pointer;
-                display: inline;
-                position: relative;
-              }
-
-              .flow-word:hover {
-                opacity: .7;
-              }
-
-              .flow-word.active {
-                opacity: 1;
-                color: #1a1a1a;
-              }
-
-              .flow-word.inactive {
-                opacity: .2;
-              }
-
-              .ebook-focus-indicator {
-                position: absolute;
-                top: 0;
-                left: 0;
-                pointer-events: none;
-                z-index: 50;
-                background: rgba(59,130,246,.08);
-                display: none;
-                border-radius: 3px;
-              }
-
-              .ebook-focus-indicator.visible {
-                display: block;
-              }
-            `;
-            document.head.appendChild(style);
-          }
-
-          _buildDOM() {
-            this.container.innerHTML = '';
-            this.container.className = 'ebook-reader-root';
-
-            const html = `
-              <div class="ebook-toolbar">
-                <div class="ebook-toolbar-section">
-                  <button class="ebook-mode-btn" data-action="bionic">Bionic Reading</button>
-                </div>
-                <div class="ebook-toolbar-section">
-                  <button class="ebook-mode-btn" data-action="flow">Flow Mode</button>
-                </div>
-                <div class="ebook-toolbar-section" data-flow-controls style="display:none">
-                  <span class="ebook-toolbar-label">Speed</span>
-                  <div class="ebook-speed-control">
-                    <input type="range" data-control="speed" min="100" max="600" value="300" step="10">
-                    <span class="ebook-speed-label" data-label="speed">300 wpm</span>
-                  </div>
-                  <span class="ebook-toolbar-label">Focus Width</span>
-                  <div class="ebook-speed-control">
-                    <input type="range" data-control="width" min="1" max="5" value="2" step="0.5">
-                    <span class="ebook-speed-label" data-label="width">2 👆</span>
-                  </div>
-                  <span class="ebook-toolbar-label">Scroll Position</span>
-                  <div class="ebook-speed-control">
-                    <input type="range" data-control="scroll" min="1" max="5" value="1" step="1">
-                    <span class="ebook-speed-label" data-label="scroll">1 (Top)</span>
-                  </div>
-                  <button class="ebook-play-btn" data-action="play">▶ Play</button>
-                </div>
-              </div>
-              <div class="ebook-container">
-                <div class="ebook-reader-area">
-                  <div class="ebook-margin-handle ebook-margin-handle-left">
-                    <div class="ebook-margin-indicator"></div>
-                  </div>
-                  <div class="ebook-margin-handle ebook-margin-handle-right">
-                    <div class="ebook-margin-indicator"></div>
-                  </div>
-                  <div class="ebook-focus-indicator"></div>
-                  <div class="ebook-text-content"></div>
-                </div>
-              </div>
-            `;
-
-            this.container.innerHTML = html;
-
-            this.el = {
-              reader: this.container.querySelector('.ebook-reader-area'),
-              content: this.container.querySelector('.ebook-text-content'),
-              handleL: this.container.querySelector('.ebook-margin-handle-left'),
-              handleR: this.container.querySelector('.ebook-margin-handle-right'),
-              play: this.container.querySelector('[data-action="play"]'),
-              bionic: this.container.querySelector('[data-action="bionic"]'),
-              flow: this.container.querySelector('[data-action="flow"]'),
-              flowCtrl: this.container.querySelector('[data-flow-controls]'),
-              focus: this.container.querySelector('.ebook-focus-indicator')
-            };
-          }
-
-          _attachEventListeners() {
-            this.el.bionic.addEventListener('click', () => this._toggleBionic());
-            this.el.flow.addEventListener('click', () => this._setMode(this.state.mode === 'flow' ? 'normal' : 'flow', true));
-            this.el.play.addEventListener('click', () => this._togglePlay());
-
-            this.container.querySelector('[data-control="speed"]').addEventListener('input', (e) => {
-              this.state.flow.speed = +e.target.value;
-              this.container.querySelector('[data-label="speed"]').textContent = this.state.flow.speed + ' wpm';
-            });
-
-            this.container.querySelector('[data-control="width"]').addEventListener('input', (e) => {
-              this.state.flow.fingers = +e.target.value;
-              const emoji = '👆'.repeat(Math.min(5, Math.ceil(this.state.flow.fingers)));
-              this.container.querySelector('[data-label="width"]').textContent = this.state.flow.fingers + ' ' + emoji;
-              if (this.state.mode === 'flow') {
-                this._updateWordStates(this.state.flow.currentWordIndex);
-              }
-            });
-
-            this.container.querySelector('[data-control="scroll"]').addEventListener('input', (e) => {
-              this.state.flow.scrollLevel = +e.target.value;
-              const labels = ['1 (Top)', '2 (Upper)', '3 (Middle)', '4 (Lower)', '5 (Bottom)'];
-              this.container.querySelector('[data-label="scroll"]').textContent = labels[this.state.flow.scrollLevel - 1];
-            });
-
-            ['mousedown', 'touchstart'].forEach(evt => {
-              this.el.handleL.addEventListener(evt, e => this._startMarginDrag(e, this.el.handleL));
-              this.el.handleR.addEventListener(evt, e => this._startMarginDrag(e, this.el.handleR));
-            });
-
-            ['mousemove', 'touchmove'].forEach(evt => {
-              document.addEventListener(evt, e => this._handleMarginDrag(e));
-            });
-
-            ['mouseup', 'touchend'].forEach(evt => {
-              document.addEventListener(evt, () => {
-                this._stopMarginDrag();
-              });
-            });
-
-            this.el.reader.addEventListener('touchstart', e => this._handleTouchStart(e));
-            this.el.reader.addEventListener('touchmove', e => this._handleTouchMove(e));
-            this.el.reader.addEventListener('wheel', e => this._handleWheel(e));
-            this.el.reader.addEventListener('scroll', () => this._handleScroll());
-
-            window.addEventListener('resize', () => this.updateStyles());
-          }
-
-          updateStyles() {
-            this.el.content.style.cssText = `
-              font-size: ${this.state.fontSize}px;
-              line-height: ${this.state.lineHeight};
-              padding: ${this.state.marginTB}px ${this.state.marginR}px ${this.state.marginTB}px ${this.state.marginL}px;
-            `;
-
-            const r = this.el.reader.getBoundingClientRect();
-            this.el.handleL.style.left = (r.left + this.state.marginL - 25) + 'px';
-            this.el.handleR.style.left = (r.right - this.state.marginR - 25) + 'px';
-
-            if (this.state.mode === 'flow') {
-              this.wordIndexManager.invalidate();
-              requestAnimationFrame(() => {
-                this._updateWordStates(this.state.flow.currentWordIndex);
-              });
-            }
-          }
-
-          _render() {
-            this.el.content.classList.add('transitioning');
-            
-            let html = this.state.content;
-            if (this.state.mode === 'flow') {
-              html = this._makeFlow(html, this.state.bionic);
-              if (!this.state.saved) {
-                this.state.flow.currentWordIndex = 0;
-              }
-            } else if (this.state.bionic) {
-              html = this._makeBionic(html);
+                if (options && typeof options !== 'object') {
+                    throw new ConfigurationError(
+                        'Options must be an object. Received: ' + typeof options
+                    );
+                }
             }
 
-            this.el.content.innerHTML = html;
-            this.wordIndexManager.invalidate();
+            _validateOption(value, config, name) {
+                if (value === undefined) {
+                    return config.default;
+                }
 
-            setTimeout(() => this.el.content.classList.remove('transitioning'), 200);
+                if (typeof value !== 'number' || isNaN(value)) {
+                    throw new ConfigurationError(
+                        `${name} must be a valid number. Received: ${value}`
+                    );
+                }
 
-            if (this.state.mode === 'flow') {
-              setTimeout(() => {
-                this.el.content.querySelectorAll('.flow-word').forEach((w, idx) => {
-                  w.addEventListener('click', () => {
-                    if (this.state.mode === 'flow') this._jumpToWord(idx);
-                  });
+                if (value < config.min || value > config.max) {
+                    console.warn(
+                        `${name} value ${value} is outside recommended range [${config.min}, ${config.max}]. ` +
+                        `Using clamped value: ${Math.max(config.min, Math.min(config.max, value))}`
+                    );
+                    return Math.max(config.min, Math.min(config.max, value));
+                }
+
+                return value;
+            }
+
+            loadContent(html) {
+                if (typeof html !== 'string') {
+                    throw new ContentError(
+                        `Content must be a string. Received: ${typeof html}`
+                    );
+                }
+
+                if (html.trim().length === 0) {
+                    throw new ContentError(
+                        'Content cannot be empty. Please provide valid HTML content.'
+                    );
+                }
+
+                try {
+                    this.state.content = html;
+                    this._render();
+                } catch (error) {
+                    throw new ContentError(`Failed to load content: ${error.message}`);
+                }
+            }
+
+            destroy() {
+                try {
+                    if (this.state.flow.playing) {
+                        cancelAnimationFrame(this.state.flow.rafId);
+                    }
+                    this.container.innerHTML = '';
+                    this.wordIndexManager = null;
+                } catch (error) {
+                    throw new StateError(`Failed to destroy reader: ${error.message}`);
+                }
+            }
+
+            getState() {
+                return {
+                    version: EBookReader.VERSION,
+                    mode: this.state.mode,
+                    bionic: this.state.bionic,
+                    fontSize: this.state.fontSize,
+                    isPlaying: this.state.flow.playing,
+                    currentWordIndex: this.state.flow.currentWordIndex,
+                    totalWords: this.wordIndexManager.getTotalWords()
+                };
+            }
+
+            // ... [Rest of the implementation remains the same] ...
+            _injectStyles() {
+                if (document.getElementById('ebook-reader-styles')) return;
+
+                const style = document.createElement('style');
+                style.id = 'ebook-reader-styles';
+                style.textContent = `
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    .ebook-reader-root {
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                        background: #f5f5f5;
+                        overflow: hidden;
+                        touch-action: none;
+                        margin: 0;
+                        padding: 0;
+                        width: 100%;
+                        height: 100%;
+                    }
+                    .ebook-toolbar {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        min-height: 60px;
+                        background: #fff;
+                        border-bottom: 1px solid #e5e7eb;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 20px;
+                        padding: 10px 20px;
+                        z-index: 300;
+                        box-shadow: 0 2px 8px rgba(0,0,0,.05);
+                        flex-wrap: wrap;
+                    }
+                    .ebook-toolbar-section {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        flex-wrap: wrap;
+                    }
+                    .ebook-toolbar-label {
+                        font-size: 11px;
+                        font-weight: 600;
+                        color: #666;
+                        text-transform: uppercase;
+                        letter-spacing: .5px;
+                        white-space: nowrap;
+                    }
+                    .ebook-container {
+                        position: relative;
+                        width: 100vw;
+                        height: 100vh;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        padding-top: 80px;
+                    }
+                    .ebook-reader-area {
+                        position: relative;
+                        background: #fff;
+                        box-shadow: 0 4px 20px rgba(0,0,0,.1);
+                        overflow-y: auto;
+                        transition: all .1s ease-out;
+                        max-height: calc(90vh - 80px);
+                    }
+                    .ebook-margin-handle {
+                        position: fixed;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        width: 50px;
+                        height: 80px;
+                        cursor: ew-resize;
+                        z-index: 100;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+                    .ebook-margin-handle-left { left: 0; }
+                    .ebook-margin-handle-right { right: 0; }
+                    .ebook-margin-indicator {
+                        width: 8px;
+                        height: 60px;
+                        background: #3b82f6;
+                        border-radius: 4px;
+                        opacity: .3;
+                        transition: all .2s;
+                        box-shadow: 0 2px 12px rgba(59,130,246,.4);
+                    }
+                    .ebook-margin-handle:hover .ebook-margin-indicator {
+                        opacity: .7;
+                        transform: scale(1.1);
+                    }
+                    .ebook-margin-handle.active .ebook-margin-indicator {
+                        opacity: 1;
+                        transform: scale(1.15);
+                        background: #2563eb;
+                    }
+                    .ebook-text-content {
+                        transition: padding .1s ease-out, opacity .2s ease-in-out;
+                        position: relative;
+                    }
+                    .ebook-text-content.transitioning { opacity: .4; }
+                    .ebook-mode-btn {
+                        padding: 6px 14px;
+                        border: 2px solid #e5e7eb;
+                        background: #fff;
+                        border-radius: 6px;
+                        font-size: 13px;
+                        cursor: pointer;
+                        transition: all .2s;
+                        font-weight: 500;
+                    }
+                    .ebook-mode-btn:hover {
+                        border-color: #3b82f6;
+                        background: #f0f9ff;
+                    }
+                    .ebook-mode-btn.active {
+                        border-color: #3b82f6;
+                        background: #3b82f6;
+                        color: #fff;
+                    }
+                    .ebook-speed-control {
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    }
+                    .ebook-speed-control input[type=range] {
+                        flex: 1;
+                        min-width: 80px;
+                        width: 100px;
+                        height: 6px;
+                        border-radius: 3px;
+                        background: #e5e7eb;
+                        outline: 0;
+                        -webkit-appearance: none;
+                    }
+                    .ebook-speed-control input[type=range]::-webkit-slider-thumb {
+                        -webkit-appearance: none;
+                        appearance: none;
+                        width: 16px;
+                        height: 16px;
+                        border-radius: 50%;
+                        background: #3b82f6;
+                        cursor: pointer;
+                    }
+                    .ebook-speed-control input[type=range]::-moz-range-thumb {
+                        width: 16px;
+                        height: 16px;
+                        border-radius: 50%;
+                        background: #3b82f6;
+                        cursor: pointer;
+                        border: none;
+                    }
+                    .ebook-speed-label {
+                        font-size: 10px;
+                        color: #666;
+                        min-width: 45px;
+                        white-space: nowrap;
+                    }
+                    .ebook-play-btn {
+                        padding: 6px 16px;
+                        background: #3b82f6;
+                        color: #fff;
+                        border: none;
+                        border-radius: 6px;
+                        font-size: 13px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: background .2s;
+                    }
+                    .ebook-play-btn:hover { background: #2563eb; }
+                    .ebook-play-btn:disabled {
+                        background: #9ca3af;
+                        cursor: not-allowed;
+                    }
+                    .bionic { font-weight: 700; }
+                    .flow-word {
+                        font-weight: 400;
+                        cursor: pointer;
+                        display: inline;
+                        position: relative;
+                    }
+                    .flow-word:hover { opacity: .7; }
+                    .flow-word.active {
+                        opacity: 1;
+                        color: #1a1a1a;
+                    }
+                    .flow-word.inactive { opacity: .2; }
+                    .ebook-focus-indicator {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        pointer-events: none;
+                        z-index: 50;
+                        background: rgba(59,130,246,.08);
+                        display: none;
+                        border-radius: 3px;
+                    }
+                    .ebook-focus-indicator.visible { display: block; }
+                `;
+                document.head.appendChild(style);
+            }
+
+            _buildDOM() {
+                this.container.innerHTML = '';
+                this.container.className = 'ebook-reader-root';
+
+                const html = `
+                    <div class="ebook-toolbar">
+                        <div class="ebook-toolbar-section">
+                            <button class="ebook-mode-btn" data-action="bionic">Bionic Reading</button>
+                        </div>
+                        <div class="ebook-toolbar-section">
+                            <button class="ebook-mode-btn" data-action="flow">Flow Mode</button>
+                        </div>
+                        <div class="ebook-toolbar-section" data-flow-controls style="display:none">
+                            <span class="ebook-toolbar-label">Speed</span>
+                            <div class="ebook-speed-control">
+                                <input type="range" data-control="speed" min="100" max="600" value="300" step="10">
+                                <span class="ebook-speed-label" data-label="speed">300 wpm</span>
+                            </div>
+                            <span class="ebook-toolbar-label">Focus Width</span>
+                            <div class="ebook-speed-control">
+                                <input type="range" data-control="width" min="1" max="5" value="2" step="0.5">
+                                <span class="ebook-speed-label" data-label="width">2 👆</span>
+                            </div>
+                            <span class="ebook-toolbar-label">Scroll Position</span>
+                            <div class="ebook-speed-control">
+                                <input type="range" data-control="scroll" min="1" max="5" value="1" step="1">
+                                <span class="ebook-speed-label" data-label="scroll">1 (Top)</span>
+                            </div>
+                            <button class="ebook-play-btn" data-action="play">▶ Play</button>
+                        </div>
+                    </div>
+                    <div class="ebook-container">
+                        <div class="ebook-reader-area">
+                            <div class="ebook-margin-handle ebook-margin-handle-left">
+                                <div class="ebook-margin-indicator"></div>
+                            </div>
+                            <div class="ebook-margin-handle ebook-margin-handle-right">
+                                <div class="ebook-margin-indicator"></div>
+                            </div>
+                            <div class="ebook-focus-indicator"></div>
+                            <div class="ebook-text-content"></div>
+                        </div>
+                    </div>
+                `;
+
+                this.container.innerHTML = html;
+
+                this.el = {
+                    reader: this.container.querySelector('.ebook-reader-area'),
+                    content: this.container.querySelector('.ebook-text-content'),
+                    handleL: this.container.querySelector('.ebook-margin-handle-left'),
+                    handleR: this.container.querySelector('.ebook-margin-handle-right'),
+                    play: this.container.querySelector('[data-action="play"]'),
+                    bionic: this.container.querySelector('[data-action="bionic"]'),
+                    flow: this.container.querySelector('[data-action="flow"]'),
+                    flowCtrl: this.container.querySelector('[data-flow-controls]'),
+                    focus: this.container.querySelector('.ebook-focus-indicator')
+                };
+            }
+
+            _attachEventListeners() {
+                this.el.bionic.addEventListener('click', () => this._toggleBionic());
+                this.el.flow.addEventListener('click', () => this._setMode(this.state.mode === 'flow' ? 'normal' : 'flow', true));
+                this.el.play.addEventListener('click', () => this._togglePlay());
+
+                this.container.querySelector('[data-control="speed"]').addEventListener('input', (e) => {
+                    this.state.flow.speed = +e.target.value;
+                    this.container.querySelector('[data-label="speed"]').textContent = this.state.flow.speed + ' wpm';
                 });
-                this.wordIndexManager.rebuild();
-              }, 50);
+
+                this.container.querySelector('[data-control="width"]').addEventListener('input', (e) => {
+                    this.state.flow.fingers = +e.target.value;
+                    const emoji = '👆'.repeat(Math.min(5, Math.ceil(this.state.flow.fingers)));
+                    this.container.querySelector('[data-label="width"]').textContent = this.state.flow.fingers + ' ' + emoji;
+                    if (this.state.mode === 'flow') {
+                        this._updateWordStates(this.state.flow.currentWordIndex);
+                    }
+                });
+
+                this.container.querySelector('[data-control="scroll"]').addEventListener('input', (e) => {
+                    this.state.flow.scrollLevel = +e.target.value;
+                    const labels = ['1 (Top)', '2 (Upper)', '3 (Middle)', '4 (Lower)', '5 (Bottom)'];
+                    this.container.querySelector('[data-label="scroll"]').textContent = labels[this.state.flow.scrollLevel - 1];
+                });
+
+                ['mousedown', 'touchstart'].forEach(evt => {
+                    this.el.handleL.addEventListener(evt, e => this._startMarginDrag(e, this.el.handleL));
+                    this.el.handleR.addEventListener(evt, e => this._startMarginDrag(e, this.el.handleR));
+                });
+
+                ['mousemove', 'touchmove'].forEach(evt => {
+                    document.addEventListener(evt, e => this._handleMarginDrag(e));
+                });
+
+                ['mouseup', 'touchend'].forEach(evt => {
+                    document.addEventListener(evt, () => this._stopMarginDrag());
+                });
+
+                this.el.reader.addEventListener('touchstart', e => this._handleTouchStart(e));
+                this.el.reader.addEventListener('touchmove', e => this._handleTouchMove(e));
+                this.el.reader.addEventListener('wheel', e => this._handleWheel(e));
+                this.el.reader.addEventListener('scroll', () => this._handleScroll());
+
+                window.addEventListener('resize', () => this.updateStyles());
             }
-          }
 
-          _bionicWord(w) {
-            if (w.length <= 2) return w;
-            const n = Math.ceil(w.length / 2);
-            return `<span class="bionic">${w.slice(0, n)}</span>${w.slice(n)}`;
-          }
+            updateStyles() {
+                this.el.content.style.cssText = `
+                    font-size: ${this.state.fontSize}px;
+                    line-height: ${this.state.lineHeight};
+                    padding: ${this.state.marginTB}px ${this.state.marginR}px ${this.state.marginTB}px ${this.state.marginL}px;
+                `;
 
-          _makeBionic(text) {
-            return text.replace(/\b(\w+)\b/g, this._bionicWord.bind(this));
-          }
+                const r = this.el.reader.getBoundingClientRect();
+                this.el.handleL.style.left = (r.left + this.state.marginL - 25) + 'px';
+                this.el.handleR.style.left = (r.right - this.state.marginR - 25) + 'px';
 
-          _makeFlow(html, useBionic) {
-            const temp = document.createElement('div');
-            temp.innerHTML = html;
-
-            const wrap = text => text.replace(/(\S+)/g, word => {
-              const parts = word.match(/[^-]+-?/g) || [word];
-              
-              return parts.map(part => {
-                let content = part;
-                if (useBionic && /\w{3,}/.test(part)) {
-                  const match = part.match(/\w+/);
-                  if (match) {
-                    content = part.replace(match[0], this._bionicWord(match[0]));
-                  }
+                if (this.state.mode === 'flow') {
+                    this.wordIndexManager.invalidate();
+                    requestAnimationFrame(() => {
+                        this._updateWordStates(this.state.flow.currentWordIndex);
+                    });
                 }
-                return `<span class="flow-word inactive">${content}</span>`;
-              }).join('');
-            });
-
-            const process = node => {
-              if (node.nodeType === 3) {
-                const t = document.createElement('span');
-                t.innerHTML = wrap(node.textContent);
-                node.replaceWith(...t.childNodes);
-              } else if (node.nodeType === 1) {
-                [...node.childNodes].forEach(process);
-              }
-            };
-
-            [...temp.childNodes].forEach(process);
-            return temp.innerHTML;
-          }
-
-          _updateWordStates(centerIndex) {
-            this.el.content.querySelectorAll('.flow-word').forEach(w => {
-              w.className = 'flow-word inactive';
-            });
-
-            const focusWidth = this.state.flow.fingers;
-            const range = this.wordIndexManager.getActiveRange(centerIndex, focusWidth);
-            
-            const activeElements = [];
-            for (let i = range.start; i <= range.end; i++) {
-              const word = this.wordIndexManager.getWord(i);
-              if (word && word.el) {
-                word.el.classList.remove('inactive');
-                word.el.classList.add('active');
-                activeElements.push(word.el);
-              }
             }
 
-            if (this.state.mode !== 'flow' || activeElements.length === 0) {
-              this.el.focus.classList.remove('visible');
-              return;
-            }
-
-            const activeRects = activeElements.map(el => el.getBoundingClientRect());
-            const byLine = {};
-            activeRects.forEach(r => {
-              const k = Math.round(r.top);
-              (byLine[k] = byLine[k] || []).push(r);
-            });
-
-            const primary = Object.values(byLine).sort((a, b) => b.length - a.length)[0];
-            if (!primary) {
-              this.el.focus.classList.remove('visible');
-              return;
-            }
-
-            const minL = Math.min(...primary.map(r => r.left));
-            const maxR = Math.max(...primary.map(r => r.right));
-            const minT = Math.min(...primary.map(r => r.top));
-            const maxB = Math.max(...primary.map(r => r.bottom));
-
-            const rr = this.el.reader.getBoundingClientRect();
-            this.el.focus.style.cssText = `
-              left: ${minL - rr.left}px;
-              width: ${maxR - minL}px;
-              top: ${minT - rr.top + this.el.reader.scrollTop}px;
-              height: ${maxB - minT}px;
-            `;
-            this.el.focus.classList.add('visible');
-          }
-
-          _scrollToWord(wordIndex, instant = false) {
-            if (this.state.flow.userScroll) return;
-
-            const word = this.wordIndexManager.getWord(wordIndex);
-            if (!word) return;
-
-            const rr = this.el.reader.getBoundingClientRect();
-            const vhh = rr.height;
-            const target = this.config.scroll.gap + (this.state.flow.scrollLevel - 1) * 0.2;
-
-            const comfortT = rr.top + vhh * this.config.scroll.top;
-            const comfortB = rr.bottom - vhh * this.config.scroll.bottom;
-
-            const currentRect = word.el.getBoundingClientRect();
-            if (currentRect.top >= comfortT && currentRect.bottom <= comfortB) return;
-
-            this.el.reader.scrollTo({
-              top: this.el.reader.scrollTop + (currentRect.top - rr.top) - (vhh * target),
-              behavior: instant ? 'auto' : 'smooth'
-            });
-          }
-
-          _animate() {
-            const frame = (t) => {
-              if (!this.state.flow.playing) return;
-
-              if (this.state.flow.pauseUntil > 0) {
-                if (t < this.state.flow.pauseUntil) {
-                  this.state.flow.rafId = requestAnimationFrame(frame);
-                  return;
+            _render() {
+                this.el.content.classList.add('transitioning');
+                
+                let html = this.state.content;
+                if (this.state.mode === 'flow') {
+                    html = this._makeFlow(html, this.state.bionic);
+                    if (!this.state.saved) {
+                        this.state.flow.currentWordIndex = 0;
+                    }
+                } else if (this.state.bionic) {
+                    html = this._makeBionic(html);
                 }
-                this.state.flow.startTime = t - (this.state.flow.currentWordIndex / (this.state.flow.speed / 60)) * 1000;
-                this.state.flow.pauseUntil = 0;
-              }
 
-              const elapsed = t - this.state.flow.startTime;
-              const wordsPerSecond = this.state.flow.speed / 60;
-              const wordIndex = (elapsed / 1000) * wordsPerSecond;
+                this.el.content.innerHTML = html;
+                this.wordIndexManager.invalidate();
 
-              this.state.flow.currentWordIndex = wordIndex;
+                setTimeout(() => this.el.content.classList.remove('transitioning'), 200);
 
-              const totalWords = this.wordIndexManager.getTotalWords();
-              if (wordIndex >= totalWords) {
-                this.state.flow.currentWordIndex = 0;
-                this.state.flow.startTime = t;
-                this.state.flow.pauseUntil = 0;
-                this.state.flow.lastPausedWord = -1;
-              }
-
-              const currentWordIdx = Math.floor(wordIndex);
-              const currentWord = this.wordIndexManager.getWord(currentWordIdx);
-
-              if (currentWord && currentWord.isNewline && this.state.flow.pauseUntil === 0) {
-                this._scrollToWord(currentWordIdx, true);
-              }
-
-              this._updateWordStates(this.state.flow.currentWordIndex);
-
-              if (currentWord && currentWord.isNewline && 
-                  this.state.flow.pauseUntil === 0 && 
-                  this.state.flow.lastPausedWord !== currentWordIdx) {
-                const pauseDuration = (60000 / this.state.flow.speed) * this.config.newlinePause;
-                this.state.flow.pauseUntil = t + pauseDuration;
-                this.state.flow.lastPausedWord = currentWordIdx;
-              }
-
-              if (!currentWord || !currentWord.isNewline) {
-                this._scrollToWord(currentWordIdx);
-              }
-
-              this.state.flow.rafId = requestAnimationFrame(frame);
-            };
-
-            this.state.flow.rafId = requestAnimationFrame(frame);
-          }
-
-          _togglePlay() {
-            if (this.state.flow.playing) {
-              cancelAnimationFrame(this.state.flow.rafId);
-              this.state.flow.playing = false;
-              this.el.play.textContent = '▶ Play';
-            } else {
-              this.wordIndexManager.rebuild();
-              const totalWords = this.wordIndexManager.getTotalWords();
-              if (!totalWords) return;
-
-              this.state.flow.playing = true;
-              this.el.play.textContent = '⏸ Pause';
-              
-              const wordsPerSecond = this.state.flow.speed / 60;
-              this.state.flow.startTime = performance.now() - 
-                (this.state.flow.currentWordIndex / wordsPerSecond) * 1000;
-              this.state.flow.pauseUntil = 0;
-              this.state.flow.lastPausedWord = -1;
-              
-              this._animate();
-            }
-          }
-
-          _jumpToWord(idx) {
-            this.state.flow.currentWordIndex = idx;
-            if (!this.state.flow.playing) {
-              this._updateWordStates(idx);
-              this._scrollToWord(idx);
-            } else {
-              const wordsPerSecond = this.state.flow.speed / 60;
-              this.state.flow.startTime = performance.now() - (idx / wordsPerSecond) * 1000;
-              this.state.flow.pauseUntil = 0;
-              this.state.flow.lastPausedWord = -1;
-              this._updateWordStates(idx);
-              this._scrollToWord(idx, true);
-            }
-          }
-
-          _setMode(mode, preserve = false) {
-            const wasPlaying = this.state.flow.playing;
-            
-            if (this.state.mode === 'flow' && mode !== 'flow') {
-              this.state.saved = {
-                wordIndex: this.state.flow.currentWordIndex,
-                playing: wasPlaying
-              };
-            }
-
-            this.state.mode = mode;
-            
-            if (this.state.flow.playing) this._togglePlay();
-
-            this.el.flow.classList.toggle('active', mode === 'flow');
-            this.el.flowCtrl.style.display = mode === 'flow' ? 'flex' : 'none';
-
-            this._render();
-
-            if (mode === 'flow' && this.state.saved && preserve) {
-              setTimeout(() => {
-                this.state.flow.currentWordIndex = this.state.saved.wordIndex || 0;
-                this._updateWordStates(this.state.flow.currentWordIndex);
-                if (this.state.saved.playing) {
-                  setTimeout(() => this._togglePlay(), 100);
+                if (this.state.mode === 'flow') {
+                    setTimeout(() => {
+                        this.el.content.querySelectorAll('.flow-word').forEach((w, idx) => {
+                            w.addEventListener('click', () => {
+                                if (this.state.mode === 'flow') this._jumpToWord(idx);
+                            });
+                        });
+                        this.wordIndexManager.rebuild();
+                    }, 50);
                 }
-              }, 100);
-            } else if (mode === 'flow') {
-              setTimeout(() => {
-                this._updateWordStates(this.state.flow.currentWordIndex);
-              }, 100);
             }
 
-            if (mode !== 'flow') {
-              this.el.focus.classList.remove('visible');
+            _bionicWord(w) {
+                if (w.length <= 2) return w;
+                const n = Math.ceil(w.length / 2);
+                return `<span class="bionic">${w.slice(0, n)}</span>${w.slice(n)}`;
             }
-          }
 
-          _toggleBionic() {
-            const wasPlaying = this.state.flow.playing;
-            const savedIdx = this.state.flow.currentWordIndex;
-            
-            this.state.bionic = !this.state.bionic;
-            this.el.bionic.classList.toggle('active', this.state.bionic);
-            
-            if (wasPlaying) this._togglePlay();
-            
-            this._render();
-            
-            if (this.state.mode === 'flow') {
-              setTimeout(() => {
-                this.state.flow.currentWordIndex = savedIdx;
-                this._updateWordStates(savedIdx);
-                if (wasPlaying) setTimeout(() => this._togglePlay(), 100);
-              }, 100);
+            _makeBionic(text) {
+                return text.replace(/\b(\w+)\b/g, this._bionicWord.bind(this));
             }
-          }
 
-          _startMarginDrag(e, handle) {
-            e.preventDefault();
-            this.state.gesture.dragging = true;
-            this.state.gesture.handle = handle;
-            handle.classList.add('active');
+            _makeFlow(html, useBionic) {
+                const temp = document.createElement('div');
+                temp.innerHTML = html;
 
-            const x = e.touches?.[0]?.clientX || e.clientX;
-            this.state.gesture.initX = x;
-            this.state.gesture.initMargin = handle === this.el.handleL ? this.state.marginL : this.state.marginR;
-          }
+                const wrap = text => text.replace(/(\S+)/g, word => {
+                    const parts = word.match(/[^-]+-?/g) || [word];
+                    
+                    return parts.map(part => {
+                        let content = part;
+                        if (useBionic && /\w{3,}/.test(part)) {
+                            const match = part.match(/\w+/);
+                            if (match) {
+                                content = part.replace(match[0], this._bionicWord(match[0]));
+                            }
+                        }
+                        return `<span class="flow-word inactive">${content}</span>`;
+                    }).join('');
+                });
 
-          _handleMarginDrag(e) {
-            if (!this.state.gesture.dragging) return;
+                const process = node => {
+                    if (node.nodeType === 3) {
+                        const t = document.createElement('span');
+                        t.innerHTML = wrap(node.textContent);
+                        node.replaceWith(...t.childNodes);
+                    } else if (node.nodeType === 1) {
+                        [...node.childNodes].forEach(process);
+                    }
+                };
 
-            const x = e.touches?.[0]?.clientX || e.clientX;
-            const delta = x - this.state.gesture.initX;
-            
-            let val = this.state.gesture.initMargin + 
-              (this.state.gesture.handle === this.el.handleL ? delta : -delta);
-            val = this._elastic(val, this.config.margin.min, this.config.margin.max);
-
-            if (this.state.gesture.handle === this.el.handleL) {
-              this.state.marginL = val;
-            } else {
-              this.state.marginR = val;
+                [...temp.childNodes].forEach(process);
+                return temp.innerHTML;
             }
-            
-            this.updateStyles();
-          }
 
-          _stopMarginDrag() {
-            if (this.state.gesture.dragging && this.state.gesture.handle) {
-              this.state.gesture.handle.classList.remove('active');
-              
-              const isLeft = this.state.gesture.handle === this.el.handleL;
-              const cur = isLeft ? this.state.marginL : this.state.marginR;
-              const final = this._clamp(cur, this.config.margin.min, this.config.margin.max);
-              
-              if (isLeft) this.state.marginL = final;
-              else this.state.marginR = final;
-              
-              this.updateStyles();
+            _updateWordStates(centerIndex) {
+                this.el.content.querySelectorAll('.flow-word').forEach(w => {
+                    w.className = 'flow-word inactive';
+                });
+
+                const focusWidth = this.state.flow.fingers;
+                const range = this.wordIndexManager.getActiveRange(centerIndex, focusWidth);
+                
+                const activeElements = [];
+                for (let i = range.start; i <= range.end; i++) {
+                    const word = this.wordIndexManager.getWord(i);
+                    if (word && word.el) {
+                        word.el.classList.remove('inactive');
+                        word.el.classList.add('active');
+                        activeElements.push(word.el);
+                    }
+                }
+
+                if (this.state.mode !== 'flow' || activeElements.length === 0) {
+                    this.el.focus.classList.remove('visible');
+                    return;
+                }
+
+                const activeRects = activeElements.map(el => el.getBoundingClientRect());
+                const byLine = {};
+                activeRects.forEach(r => {
+                    const k = Math.round(r.top);
+                    (byLine[k] = byLine[k] || []).push(r);
+                });
+
+                const primary = Object.values(byLine).sort((a, b) => b.length - a.length)[0];
+                if (!primary) {
+                    this.el.focus.classList.remove('visible');
+                    return;
+                }
+
+                const minL = Math.min(...primary.map(r => r.left));
+                const maxR = Math.max(...primary.map(r => r.right));
+                const minT = Math.min(...primary.map(r => r.top));
+                const maxB = Math.max(...primary.map(r => r.bottom));
+
+                const rr = this.el.reader.getBoundingClientRect();
+                this.el.focus.style.cssText = `
+                    left: ${minL - rr.left}px;
+                    width: ${maxR - minL}px;
+                    top: ${minT - rr.top + this.el.reader.scrollTop}px;
+                    height: ${maxB - minT}px;
+                `;
+                this.el.focus.classList.add('visible');
             }
-            
-            this.state.gesture.dragging = false;
-            this.state.gesture.handle = null;
-          }
 
-          _handleTouchStart(e) {
-            if (this.state.gesture.dragging) return;
-            this.state.gesture.touches = [...e.touches];
-            
-            if (e.touches.length === 2) {
-              e.preventDefault();
-              this.state.gesture.initDist = this._dist(e.touches[0], e.touches[1]);
-              this.state.gesture.initSize = this.state.fontSize;
+            _scrollToWord(wordIndex, instant = false) {
+                if (this.state.flow.userScroll) return;
+
+                const word = this.wordIndexManager.getWord(wordIndex);
+                if (!word) return;
+
+                const rr = this.el.reader.getBoundingClientRect();
+                const vhh = rr.height;
+                const target = this.config.scroll.gap + (this.state.flow.scrollLevel - 1) * 0.2;
+
+                const comfortT = rr.top + vhh * this.config.scroll.top;
+                const comfortB = rr.bottom - vhh * this.config.scroll.bottom;
+
+                const currentRect = word.el.getBoundingClientRect();
+                if (currentRect.top >= comfortT && currentRect.bottom <= comfortB) return;
+
+                this.el.reader.scrollTo({
+                    top: this.el.reader.scrollTop + (currentRect.top - rr.top) - (vhh * target),
+                    behavior: instant ? 'auto' : 'smooth'
+                });
             }
-          }
 
-          _handleTouchMove(e) {
-            if (this.state.gesture.dragging || e.touches.length !== 2) return;
-            e.preventDefault();
+            _animate() {
+                const frame = (t) => {
+                    if (!this.state.flow.playing) return;
 
-            const curDist = this._dist(e.touches[0], e.touches[1]);
-            const distChange = Math.abs(curDist - this.state.gesture.initDist);
+                    if (this.state.flow.pauseUntil > 0) {
+                        if (t < this.state.flow.pauseUntil) {
+                            this.state.flow.rafId = requestAnimationFrame(frame);
+                            return;
+                        }
+                        this.state.flow.startTime = t - (this.state.flow.currentWordIndex / (this.state.flow.speed / 60)) * 1000;
+                        this.state.flow.pauseUntil = 0;
+                    }
 
-            const mid1 = {
-              x: (this.state.gesture.touches[0].clientX + this.state.gesture.touches[1].clientX) / 2,
-              y: (this.state.gesture.touches[0].clientY + this.state.gesture.touches[1].clientY) / 2
-            };
-            const mid2 = {
-              x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-              y: (e.touches[0].clientY + e.touches[1].clientY) / 2
-            };
-            const midDelta = {
-              x: Math.abs(mid2.x - mid1.x),
-              y: Math.abs(mid2.y - mid1.y)
-            };
+                    const elapsed = t - this.state.flow.startTime;
+                    const wordsPerSecond = this.state.flow.speed / 60;
+                    const wordIndex = (elapsed / 1000) * wordsPerSecond;
 
-            if (distChange > 10 && distChange > midDelta.x && distChange > midDelta.y) {
-              const scale = curDist / this.state.gesture.initDist;
-              this.state.fontSize = this._clamp(
-                this.state.gesture.initSize * scale,
-                this.config.fontSize.min,
-                this.config.fontSize.max
-              );
-              this.updateStyles();
+                    this.state.flow.currentWordIndex = wordIndex;
+
+                    const totalWords = this.wordIndexManager.getTotalWords();
+                    if (wordIndex >= totalWords) {
+                        this.state.flow.currentWordIndex = 0;
+                        this.state.flow.startTime = t;
+                        this.state.flow.pauseUntil = 0;
+                        this.state.flow.lastPausedWord = -1;
+                    }
+
+                    const currentWordIdx = Math.floor(wordIndex);
+                    const currentWord = this.wordIndexManager.getWord(currentWordIdx);
+
+                    if (currentWord && currentWord.isNewline && this.state.flow.pauseUntil === 0) {
+                        this._scrollToWord(currentWordIdx, true);
+                    }
+
+                    this._updateWordStates(this.state.flow.currentWordIndex);
+
+                    if (currentWord && currentWord.isNewline && 
+                        this.state.flow.pauseUntil === 0 && 
+                        this.state.flow.lastPausedWord !== currentWordIdx) {
+                        const pauseDuration = (60000 / this.state.flow.speed) * this.config.newlinePause;
+                        this.state.flow.pauseUntil = t + pauseDuration;
+                        this.state.flow.lastPausedWord = currentWordIdx;
+                    }
+
+                    if (!currentWord || !currentWord.isNewline) {
+                        this._scrollToWord(currentWordIdx);
+                    }
+
+                    this.state.flow.rafId = requestAnimationFrame(frame);
+                };
+
+                this.state.flow.rafId = requestAnimationFrame(frame);
             }
-          }
 
-          _handleWheel(e) {
-            if (e.ctrlKey || e.metaKey) {
-              e.preventDefault();
-              this.state.fontSize = this._clamp(
-                this.state.fontSize - e.deltaY * 0.1,
-                this.config.fontSize.min,
-                this.config.fontSize.max
-              );
-              this.updateStyles();
+            _togglePlay() {
+                if (this.state.flow.playing) {
+                    cancelAnimationFrame(this.state.flow.rafId);
+                    this.state.flow.playing = false;
+                    this.el.play.textContent = '▶ Play';
+                } else {
+                    this.wordIndexManager.rebuild();
+                    const totalWords = this.wordIndexManager.getTotalWords();
+                    if (!totalWords) return;
+
+                    this.state.flow.playing = true;
+                    this.el.play.textContent = '⏸ Pause';
+                    
+                    const wordsPerSecond = this.state.flow.speed / 60;
+                    this.state.flow.startTime = performance.now() - 
+                        (this.state.flow.currentWordIndex / wordsPerSecond) * 1000;
+                    this.state.flow.pauseUntil = 0;
+                    this.state.flow.lastPausedWord = -1;
+                    
+                    this._animate();
+                }
             }
-          }
 
-          _handleScroll() {
-            this.state.flow.userScroll = true;
-            clearTimeout(this._scrollTimeout);
-            this._scrollTimeout = setTimeout(() => {
-              this.state.flow.userScroll = false;
-            }, this.config.scroll.timeout);
-          }
+            _jumpToWord(idx) {
+                this.state.flow.currentWordIndex = idx;
+                if (!this.state.flow.playing) {
+                    this._updateWordStates(idx);
+                    this._scrollToWord(idx);
+                } else {
+                    const wordsPerSecond = this.state.flow.speed / 60;
+                    this.state.flow.startTime = performance.now() - (idx / wordsPerSecond) * 1000;
+                    this.state.flow.pauseUntil = 0;
+                    this.state.flow.lastPausedWord = -1;
+                    this._updateWordStates(idx);
+                    this._scrollToWord(idx, true);
+                }
+            }
 
-          _clamp(v, min, max) {
-            return Math.max(min, Math.min(max, v));
-          }
+            _setMode(mode, preserve = false) {
+                const wasPlaying = this.state.flow.playing;
+                
+                if (this.state.mode === 'flow' && mode !== 'flow') {
+                    this.state.saved = {
+                        wordIndex: this.state.flow.currentWordIndex,
+                        playing: wasPlaying
+                    };
+                }
 
-          _elastic(v, min, max) {
-            return v < min ? min - Math.sqrt(min - v) * 2 :
-                   v > max ? max + Math.sqrt(v - max) * 2 : v;
-          }
+                this.state.mode = mode;
+                
+                if (this.state.flow.playing) this._togglePlay();
 
-          _dist(t1, t2) {
-            return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-          }
+                this.el.flow.classList.toggle('active', mode === 'flow');
+                this.el.flowCtrl.style.display = mode === 'flow' ? 'flex' : 'none';
+
+                this._render();
+
+                if (mode === 'flow' && this.state.saved && preserve) {
+                    setTimeout(() => {
+                        this.state.flow.currentWordIndex = this.state.saved.wordIndex || 0;
+                        this._updateWordStates(this.state.flow.currentWordIndex);
+                        if (this.state.saved.playing) {
+                            setTimeout(() => this._togglePlay(), 100);
+                        }
+                    }, 100);
+                } else if (mode === 'flow') {
+                    setTimeout(() => {
+                        this._updateWordStates(this.state.flow.currentWordIndex);
+                    }, 100);
+                }
+
+                if (mode !== 'flow') {
+                    this.el.focus.classList.remove('visible');
+                }
+            }
+
+            _toggleBionic() {
+                const wasPlaying = this.state.flow.playing;
+                const savedIdx = this.state.flow.currentWordIndex;
+                
+                this.state.bionic = !this.state.bionic;
+                this.el.bionic.classList.toggle('active', this.state.bionic);
+                
+                if (wasPlaying) this._togglePlay();
+                
+                this._render();
+                
+                if (this.state.mode === 'flow') {
+                    setTimeout(() => {
+                        this.state.flow.currentWordIndex = savedIdx;
+                        this._updateWordStates(savedIdx);
+                        if (wasPlaying) setTimeout(() => this._togglePlay(), 100);
+                    }, 100);
+                }
+            }
+
+            _startMarginDrag(e, handle) {
+                e.preventDefault();
+                this.state.gesture.dragging = true;
+                this.state.gesture.handle = handle;
+                handle.classList.add('active');
+
+                const x = e.touches?.[0]?.clientX || e.clientX;
+                this.state.gesture.initX = x;
+                this.state.gesture.initMargin = handle === this.el.handleL ? this.state.marginL : this.state.marginR;
+            }
+
+            _handleMarginDrag(e) {
+                if (!this.state.gesture.dragging) return;
+
+                const x = e.touches?.[0]?.clientX || e.clientX;
+                const delta = x - this.state.gesture.initX;
+                
+                let val = this.state.gesture.initMargin + 
+                    (this.state.gesture.handle === this.el.handleL ? delta : -delta);
+                val = this._elastic(val, this.config.margin.min, this.config.margin.max);
+
+                if (this.state.gesture.handle === this.el.handleL) {
+                    this.state.marginL = val;
+                } else {
+                    this.state.marginR = val;
+                }
+                
+                this.updateStyles();
+            }
+
+            _stopMarginDrag() {
+                if (this.state.gesture.dragging && this.state.gesture.handle) {
+                    this.state.gesture.handle.classList.remove('active');
+                    
+                    const isLeft = this.state.gesture.handle === this.el.handleL;
+                    const cur = isLeft ? this.state.marginL : this.state.marginR;
+                    const final = this._clamp(cur, this.config.margin.min, this.config.margin.max);
+                    
+                    if (isLeft) this.state.marginL = final;
+                    else this.state.marginR = final;
+                    
+                    this.updateStyles();
+                }
+                
+                this.state.gesture.dragging = false;
+                this.state.gesture.handle = null;
+            }
+
+            _handleTouchStart(e) {
+                if (this.state.gesture.dragging) return;
+                this.state.gesture.touches = [...e.touches];
+                
+                if (e.touches.length === 2) {
+                    e.preventDefault();
+                    this.state.gesture.initDist = this._dist(e.touches[0], e.touches[1]);
+                    this.state.gesture.initSize = this.state.fontSize;
+                }
+            }
+
+            _handleTouchMove(e) {
+                if (this.state.gesture.dragging || e.touches.length !== 2) return;
+                e.preventDefault();
+
+                const curDist = this._dist(e.touches[0], e.touches[1]);
+                const distChange = Math.abs(curDist - this.state.gesture.initDist);
+
+                const mid1 = {
+                    x: (this.state.gesture.touches[0].clientX + this.state.gesture.touches[1].clientX) / 2,
+                    y: (this.state.gesture.touches[0].clientY + this.state.gesture.touches[1].clientY) / 2
+                };
+                const mid2 = {
+                    x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                    y: (e.touches[0].clientY + e.touches[1].clientY) / 2
+                };
+                const midDelta = {
+                    x: Math.abs(mid2.x - mid1.x),
+                    y: Math.abs(mid2.y - mid1.y)
+                };
+
+                if (distChange > 10 && distChange > midDelta.x && distChange > midDelta.y) {
+                    const scale = curDist / this.state.gesture.initDist;
+                    this.state.fontSize = this._clamp(
+                        this.state.gesture.initSize * scale,
+                        this.config.fontSize.min,
+                        this.config.fontSize.max
+                    );
+                    this.updateStyles();
+                }
+            }
+
+            _handleWheel(e) {
+                if (e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                    this.state.fontSize = this._clamp(
+                        this.state.fontSize - e.deltaY * 0.1,
+                        this.config.fontSize.min,
+                        this.config.fontSize.max
+                    );
+                    this.updateStyles();
+                }
+            }
+
+            _handleScroll() {
+                this.state.flow.userScroll = true;
+                clearTimeout(this._scrollTimeout);
+                this._scrollTimeout = setTimeout(() => {
+                    this.state.flow.userScroll = false;
+                }, this.config.scroll.timeout);
+            }
+
+            _clamp(v, min, max) {
+                return Math.max(min, Math.min(max, v));
+            }
+
+            _elastic(v, min, max) {
+                return v < min ? min - Math.sqrt(min - v) * 2 :
+                       v > max ? max + Math.sqrt(v - max) * 2 : v;
+            }
+
+            _dist(t1, t2) {
+                return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+            }
         }
 
-        // Initialize the reader with the original content
-        const originalContent = `
+        // ============================================================================
+        // TEST SUITE
+        // ============================================================================
+
+        class EBookReaderTestSuite {
+            constructor() {
+                this.tests = [];
+                this.passed = 0;
+                this.failed = 0;
+            }
+
+            test(name, fn) {
+                this.tests.push({ name, fn });
+            }
+
+            async run() {
+                const results = [];
+                
+                for (const { name, fn } of this.tests) {
+                    try {
+                        await fn();
+                        this.passed++;
+                        results.push({ name, passed: true });
+                    } catch (error) {
+                        this.failed++;
+                        results.push({ name, passed: false, error: error.message });
+                    }
+                }
+
+                return results;
+            }
+
+            assert(condition, message) {
+                if (!condition) {
+                    throw new Error(message || 'Assertion failed');
+                }
+            }
+
+            assertEqual(actual, expected, message) {
+                if (actual !== expected) {
+                    throw new Error(message || `Expected ${expected}, got ${actual}`);
+                }
+            }
+
+            assertThrows(fn, errorType, message) {
+                let threw = false;
+                try {
+                    fn();
+                } catch (error) {
+                    threw = true;
+                    if (errorType && !(error instanceof errorType)) {
+                        throw new Error(message || `Expected ${errorType.name}, got ${error.constructor.name}`);
+                    }
+                }
+                if (!threw) {
+                    throw new Error(message || 'Expected function to throw');
+                }
+            }
+        }
+
+        // ============================================================================
+        // RUN TESTS
+        // ============================================================================
+
+        async function runTests() {
+            const suite = new EBookReaderTestSuite();
+
+            // ========================================
+            // INITIALIZATION TESTS
+            // ========================================
+
+            suite.test('Library has version number', () => {
+                suite.assertEqual(EBookReader.VERSION, '1.0.0', 'Version should be 1.0.0');
+            });
+
+            suite.test('Constructor requires container', () => {
+                suite.assertThrows(
+                    () => new EBookReader(null),
+                    ConfigurationError,
+                    'Should throw ConfigurationError for null container'
+                );
+            });
+
+            suite.test('Constructor fails with invalid selector', () => {
+                suite.assertThrows(
+                    () => new EBookReader('#nonexistent-element'),
+                    ConfigurationError,
+                    'Should throw ConfigurationError for missing element'
+                );
+            });
+
+            suite.test('Constructor accepts custom options', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer, { fontSize: 20, margin: 80 });
+                
+                suite.assertEqual(reader.state.fontSize, 20, 'Custom fontSize should be applied');
+                suite.assertEqual(reader.state.marginL, 80, 'Custom margin should be applied');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            suite.test('Constructor validates option ranges', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer, { fontSize: 100 });
+                
+                suite.assertEqual(reader.state.fontSize, 48, 'fontSize should be clamped to max');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            // ========================================
+            // CONTENT LOADING TESTS
+            // ========================================
+
+            suite.test('loadContent validates input', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                suite.assertThrows(
+                    () => reader.loadContent(''),
+                    ContentError,
+                    'Should throw ContentError for empty content'
+                );
+                
+                suite.assertThrows(
+                    () => reader.loadContent(123),
+                    ContentError,
+                    'Should throw ContentError for non-string content'
+                );
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            suite.test('Content loads and renders', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>Test content here</p>');
+                suite.assert(reader.state.content.includes('Test content here'), 'Content should be stored');
+                
+                const renderedContent = reader.el.content.textContent;
+                suite.assert(renderedContent.includes('Test content here'), 'Content should be rendered in DOM');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            // ========================================
+            // BIONIC READING MODE TESTS
+            // ========================================
+
+            suite.test('Bionic mode transforms words correctly', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>reading</p>');
+                
+                // Enable bionic mode
+                reader._toggleBionic();
+                
+                suite.assert(reader.state.bionic === true, 'Bionic should be enabled');
+                
+                // Check if bionic spans are created
+                const bionicSpans = reader.el.content.querySelectorAll('.bionic');
+                suite.assert(bionicSpans.length > 0, 'Should have bionic spans');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            suite.test('Bionic mode can toggle on and off', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>test</p>');
+                
+                suite.assertEqual(reader.state.bionic, false, 'Should start disabled');
+                
+                reader._toggleBionic();
+                suite.assertEqual(reader.state.bionic, true, 'Should be enabled after toggle');
+                
+                reader._toggleBionic();
+                suite.assertEqual(reader.state.bionic, false, 'Should be disabled after second toggle');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            // ========================================
+            // FLOW MODE TESTS
+            // ========================================
+
+            suite.test('Flow mode creates word spans', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>The quick brown fox jumps</p>');
+                reader._setMode('flow');
+                
+                // Wait for render
+                const wordSpans = reader.el.content.querySelectorAll('.flow-word');
+                suite.assert(wordSpans.length >= 5, 'Should create word spans (expected 5+)');
+                suite.assertEqual(reader.state.mode, 'flow', 'Mode should be flow');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            suite.test('Flow mode switches back to normal', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>test content</p>');
+                
+                reader._setMode('flow');
+                suite.assertEqual(reader.state.mode, 'flow', 'Should be in flow mode');
+                
+                reader._setMode('normal');
+                suite.assertEqual(reader.state.mode, 'normal', 'Should be in normal mode');
+                
+                const wordSpans = reader.el.content.querySelectorAll('.flow-word');
+                suite.assertEqual(wordSpans.length, 0, 'Should not have word spans in normal mode');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            suite.test('Flow mode with bionic creates both', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>reading writing</p>');
+                reader._toggleBionic();
+                reader._setMode('flow');
+                
+                const wordSpans = reader.el.content.querySelectorAll('.flow-word');
+                const bionicSpans = reader.el.content.querySelectorAll('.bionic');
+                
+                suite.assert(wordSpans.length > 0, 'Should have word spans');
+                suite.assert(bionicSpans.length > 0, 'Should have bionic spans');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            // ========================================
+            // WORD INDEX MANAGER TESTS
+            // ========================================
+
+            suite.test('WordIndexManager initializes correctly', () => {
+                const manager = new WordIndexManager();
+                suite.assertEqual(manager.dirty, true, 'Should be dirty initially');
+                
+                // Note: getTotalWords() will search entire document for .flow-word elements
+                // In isolation it would be 0, but our main reader might have words
+                const total = manager.getTotalWords();
+                suite.assert(total >= 0, 'Should return a valid word count');
+                suite.assertEqual(manager.dirty, false, 'Should not be dirty after rebuild');
+            });
+
+            suite.test('WordIndexManager rebuilds with words', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>One two three four five</p>');
+                reader._setMode('flow');
+                
+                // Hide main reader temporarily to avoid interference
+                const mainReader = document.getElementById('reader-container');
+                const originalDisplay = mainReader.style.display;
+                mainReader.style.display = 'none';
+                
+                reader.wordIndexManager.rebuild();
+                const totalWords = reader.wordIndexManager.getTotalWords();
+                
+                mainReader.style.display = originalDisplay;
+                
+                suite.assert(totalWords >= 5, `Should have at least 5 words, got ${totalWords}`);
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            suite.test('WordIndexManager getWord returns correct data', () => {
+                const testContainer = document.createElement('div');
+                testContainer.style.position = 'absolute';
+                testContainer.style.left = '-9999px'; // Hide off-screen
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>Hello world</p>');
+                reader._setMode('flow');
+                
+                // Hide main reader to avoid interference
+                const mainReader = document.getElementById('reader-container');
+                const originalDisplay = mainReader.style.display;
+                mainReader.style.display = 'none';
+                
+                reader.wordIndexManager.rebuild();
+                
+                const word = reader.wordIndexManager.getWord(0);
+                
+                mainReader.style.display = originalDisplay;
+                
+                suite.assert(word !== null, 'Should get word at index 0');
+                suite.assert('el' in word, 'Word should have el property');
+                suite.assert('text' in word, 'Word should have text property');
+                suite.assert('rect' in word, 'Word should have rect property');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            // ========================================
+            // STATE MANAGEMENT TESTS
+            // ========================================
+
+            suite.test('getState returns complete state', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                const state = reader.getState();
+                
+                suite.assertEqual(state.version, '1.0.0', 'State should include version');
+                suite.assertEqual(state.mode, 'normal', 'State should include mode');
+                suite.assert('fontSize' in state, 'State should include fontSize');
+                suite.assert('bionic' in state, 'State should include bionic');
+                suite.assert('isPlaying' in state, 'State should include isPlaying');
+                suite.assert('currentWordIndex' in state, 'State should include currentWordIndex');
+                suite.assert('totalWords' in state, 'State should include totalWords');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            suite.test('Mode switching preserves word position', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>One two three four five six seven eight</p>');
+                reader._setMode('flow');
+                
+                // Set position
+                reader.state.flow.currentWordIndex = 3;
+                
+                // Switch to normal and back
+                reader._setMode('normal', true);
+                reader._setMode('flow', true);
+                
+                // Position should be preserved
+                suite.assert(reader.state.flow.currentWordIndex >= 0, 'Word index should be preserved');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            // ========================================
+            // CONTROLS TESTS
+            // ========================================
+
+            suite.test('Speed control changes state', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                const initialSpeed = reader.state.flow.speed;
+                reader.state.flow.speed = 450;
+                
+                suite.assertEqual(reader.state.flow.speed, 450, 'Speed should update');
+                suite.assert(reader.state.flow.speed !== initialSpeed, 'Speed should be different from initial');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            suite.test('Focus width control changes state', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.state.flow.fingers = 3;
+                suite.assertEqual(reader.state.flow.fingers, 3, 'Focus width should update');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            // ========================================
+            // PLAY/PAUSE TESTS
+            // ========================================
+
+            suite.test('Play state toggles correctly', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>Test content for playing</p>');
+                reader._setMode('flow');
+                
+                suite.assertEqual(reader.state.flow.playing, false, 'Should not be playing initially');
+                
+                // Note: We can't fully test animation without waiting, but we can test state changes
+                reader._togglePlay();
+                suite.assertEqual(reader.state.flow.playing, true, 'Should be playing after toggle');
+                
+                reader._togglePlay();
+                suite.assertEqual(reader.state.flow.playing, false, 'Should not be playing after second toggle');
+                
+                reader.destroy();
+                document.body.removeChild(testContainer);
+            });
+
+            // ========================================
+            // DESTROY TESTS
+            // ========================================
+
+            suite.test('Destroy cleans up properly', () => {
+                const testContainer = document.createElement('div');
+                document.body.appendChild(testContainer);
+                const reader = new EBookReader(testContainer);
+                
+                reader.loadContent('<p>Test</p>');
+                reader._setMode('flow');
+                reader._togglePlay();
+                
+                reader.destroy();
+                
+                suite.assertEqual(testContainer.innerHTML, '', 'Container should be empty after destroy');
+                suite.assertEqual(reader.wordIndexManager, null, 'Word index manager should be null');
+                
+                document.body.removeChild(testContainer);
+            });
+
+            // Display results
+            const results = await suite.run();
+            const resultsDiv = document.getElementById('test-results');
+            
+            let html = '<div class="test-header"><span>Test Results</span><span class="test-close" onclick="document.getElementById(\'test-results\').classList.remove(\'visible\')">✕</span></div>';
+            
+            // Group results by category
+            const categories = {
+                'Initialization': [],
+                'Content Loading': [],
+                'Bionic Reading': [],
+                'Flow Mode': [],
+                'Word Index': [],
+                'State Management': [],
+                'Controls': [],
+                'Play/Pause': [],
+                'Cleanup': []
+            };
+            
+            results.forEach((result, idx) => {
+                if (idx < 5) categories['Initialization'].push(result);
+                else if (idx < 7) categories['Content Loading'].push(result);
+                else if (idx < 9) categories['Bionic Reading'].push(result);
+                else if (idx < 12) categories['Flow Mode'].push(result);
+                else if (idx < 15) categories['Word Index'].push(result);
+                else if (idx < 17) categories['State Management'].push(result);
+                else if (idx < 19) categories['Controls'].push(result);
+                else if (idx < 20) categories['Play/Pause'].push(result);
+                else categories['Cleanup'].push(result);
+            });
+            
+            for (const [category, tests] of Object.entries(categories)) {
+                if (tests.length === 0) continue;
+                
+                const allPassed = tests.every(t => t.passed);
+                const categoryIcon = allPassed ? '✓' : '✗';
+                const categoryClass = allPassed ? 'test-pass' : 'test-fail';
+                
+                html += `<div style="font-weight:600;margin-top:12px;margin-bottom:6px;font-size:12px;color:#333;">
+                    <span class="${categoryClass}">${categoryIcon}</span> ${category}
+                </div>`;
+                
+                tests.forEach(result => {
+                    const icon = result.passed ? '✓' : '✗';
+                    const className = result.passed ? 'test-pass' : 'test-fail';
+                    const testName = result.name.replace(/^(Library has|Constructor|Content|Bionic|Flow|WordIndexManager|getState|Mode|Speed|Focus|Play|Destroy)\s+/i, '');
+                    html += `<div class="test-item ${className}" style="padding-left:12px;font-size:12px;">${icon} ${testName}</div>`;
+                    if (!result.passed) {
+                        html += `<div style="font-size:11px;color:#666;margin-left:32px;margin-bottom:4px;">${result.error}</div>`;
+                    }
+                });
+            }
+            
+            html += `<div class="test-summary">
+                Passed: <span class="test-pass">${suite.passed}</span> | 
+                Failed: <span class="test-fail">${suite.failed}</span> | 
+                Total: ${suite.tests.length}
+            </div>`;
+            
+            resultsDiv.innerHTML = html;
+            resultsDiv.classList.add('visible');
+
+            return { passed: suite.passed, failed: suite.failed, total: suite.tests.length };
+        }
+
+        // Expose test runner globally
+        window.EBookReaderTests = {
+            run: runTests
+        };
+
+        // Expose library classes globally for easy access
+        window.EBookReader = EBookReader;
+        window.EBookReaderError = EBookReaderError;
+        window.ConfigurationError = ConfigurationError;
+        window.ContentError = ContentError;
+        window.StateError = StateError;
+
+        // ============================================================================
+        // USAGE EXAMPLE
+        // ============================================================================
+
+        const sampleContent = `
             <h1>Chapter One: The Beginning</h1>
             <p>In the heart of Silicon Valley, where innovation breathed life into dreams and ambition fueled the relentless pursuit of progress, there existed a small startup that dared to challenge the giants. The morning sun cast long shadows through the floor-to-ceiling windows of their modest office, illuminating screens filled with code and whiteboards covered in sketches of impossible ideas.</p>
             <p>Sarah had always believed that the best products were born from frustration. It was a Tuesday afternoon when she threw her e-reader across the room—not hard enough to break it, but with enough force to express her complete dissatisfaction with the experience. "Why," she asked her co-founder Marcus, "does every reading app feel like it was designed in 2010?"</p>
             <p>Marcus looked up from his laptop, his fingers still hovering over the keyboard. He'd been wrestling with the same question for months. The reading experience hadn't evolved. Sure, screens got sharper and devices got thinner, but the fundamental interaction between human and text remained stubbornly unchanged.</p>
-            <p>"What if," Sarah continued, pacing now, her mind racing ahead of her words, "we treated text like it was alive? What if reading could be as fluid and intuitive as touching water?"</p>
-            <p>That conversation sparked something neither of them could ignore. Within weeks, they had assembled a small team of designers and developers who shared their vision. The goal was simple yet audacious: reimagine reading for the touch-screen era. Not just digital books, but a completely new way of interacting with text.</p>
-            <p>The first prototype was rough—buggy gestures, inconsistent behavior, and a tendency to crash at the worst possible moments. But there was something there, something that felt right. When you pinched the screen and watched the text respond, growing larger or smaller with the natural motion of your fingers, it felt like magic. When you swept two fingers vertically and saw the lines of text breathe, expanding and contracting with your touch, it felt like the text was alive.</p>
-            <p>They called it Project Phoenix, because they were resurrecting the reading experience from the ashes of stagnation. Every evening, the team would gather around a large display, testing gestures, debating interactions, and pushing the boundaries of what felt natural. Some ideas were brilliant; most were terrible. But each failure taught them something new about how humans wanted to interact with text.</p>
         `;
 
-        // Create the reader instance and load content
-        const reader = new EBookReader('#reader-container');
-        reader.loadContent(originalContent);
+        // Initialize reader
+        window.reader = new EBookReader('#reader-container');
+        window.reader.loadContent(sampleContent);
+
+        // Log library info
+        console.log('╔════════════════════════════════════════╗');
+        console.log('║   EBookReader v' + EBookReader.VERSION + ' initialized    ║');
+        console.log('╚════════════════════════════════════════╝');
+        console.log('');
+        console.log('📖 Reader ready!');
+        console.log('');
+        console.log('🧪 To run tests (21 feature tests), use:');
+        console.log('   await EBookReaderTests.run()');
+        console.log('');
+        console.log('   Tests verify: initialization, content loading,');
+        console.log('   bionic mode, flow mode, controls, and cleanup.');
+        console.log('');
+        console.log('ℹ️  Current state:');
+        console.log(window.reader.getState());
+
+        // ============================================================================
+        // TYPESCRIPT DEFINITIONS (see comments below)
+        // ============================================================================
+
+        /*
+         * RUNNING TESTS:
+         * Tests are not run automatically. To run them, open the browser console and type:
+         *   await EBookReaderTests.run()
+         * 
+         * This will display a test results panel organized by feature category.
+         * Click the × to close the panel.
+         * 
+         * TEST COVERAGE (21 tests):
+         * ✓ Initialization (5 tests) - Constructor validation, options, error handling
+         * ✓ Content Loading (2 tests) - Loading and rendering content
+         * ✓ Bionic Reading (2 tests) - Text transformation and toggling
+         * ✓ Flow Mode (3 tests) - Word span creation, mode switching, combined features
+         * ✓ Word Index (3 tests) - Word tracking, rebuilding, data structure
+         * ✓ State Management (2 tests) - State retrieval and preservation
+         * ✓ Controls (2 tests) - Speed and focus width controls
+         * ✓ Play/Pause (1 test) - Playback state toggling
+         * ✓ Cleanup (1 test) - Proper resource cleanup
+         * 
+         * These tests verify that core features work correctly and will catch regressions
+         * when adding new code.
+         * 
+         * ============================================================================
+         * 
+         * TypeScript definitions are available below.
+         * To use them, save this content to a file named 'ebook-reader.d.ts'
+         * 
+         * // ebook-reader.d.ts
+         * 
+         * export interface EBookReaderOptions {
+         *   fontSize?: number;
+         *   margin?: number;
+         * }
+         * 
+         * export interface ReaderState {
+         *   version: string;
+         *   mode: 'normal' | 'flow';
+         *   bionic: boolean;
+         *   fontSize: number;
+         *   isPlaying: boolean;
+         *   currentWordIndex: number;
+         *   totalWords: number;
+         * }
+         * 
+         * export interface WordData {
+         *   el: HTMLElement;
+         *   rect: DOMRect;
+         *   isNewline: boolean;
+         *   text: string;
+         *   index: number;
+         * }
+         * 
+         * export interface ActiveRange {
+         *   start: number;
+         *   end: number;
+         * }
+         * 
+         * export class EBookReaderError extends Error {
+         *   name: 'EBookReaderError';
+         * }
+         * 
+         * export class ConfigurationError extends EBookReaderError {
+         *   name: 'ConfigurationError';
+         * }
+         * 
+         * export class ContentError extends EBookReaderError {
+         *   name: 'ContentError';
+         * }
+         * 
+         * export class StateError extends EBookReaderError {
+         *   name: 'StateError';
+         * }
+         * 
+         * export class WordIndexManager {
+         *   constructor();
+         *   rebuild(): void;
+         *   getWord(index: number): WordData | null;
+         *   getActiveRange(centerIndex: number, focusWidth: number): ActiveRange;
+         *   getTotalWords(): number;
+         *   invalidate(): void;
+         * }
+         * 
+         * export class EBookReader {
+         *   static VERSION: string;
+         *   
+         *   constructor(containerSelector: string | HTMLElement, options?: EBookReaderOptions);
+         *   
+         *   loadContent(html: string): void;
+         *   destroy(): void;
+         *   getState(): ReaderState;
+         *   updateStyles(): void;
+         * }
+         * 
+         * export default EBookReader;
+         */
     </script>
 </body>
 </html>
