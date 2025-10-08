@@ -351,7 +351,7 @@
                             initDist: 0,
                             initSize: 0,
                             dragging: false,
-                            handle: null,
+                            side: null,
                             initMargin: 0,
                             initX: 0
                         },
@@ -390,6 +390,18 @@
                     
                     requestAnimationFrame(() => {
                         this.updateStyles();
+                        // Initialize drag zone sizes
+                        if (this.el.dragZoneL && this.el.dragZoneR && this.el.content) {
+                            const contentHeight = this.el.content.scrollHeight;
+                            const leftWidth = Math.max(60, this.state.marginL);
+                            const rightWidth = Math.max(60, this.state.marginR);
+                            
+                            this.el.dragZoneL.style.width = leftWidth + 'px';
+                            this.el.dragZoneL.style.height = contentHeight + 'px';
+                            
+                            this.el.dragZoneR.style.width = rightWidth + 'px';
+                            this.el.dragZoneR.style.height = contentHeight + 'px';
+                        }
                     });
                 } catch (error) {
                     if (error instanceof EBookReaderError) {
@@ -589,41 +601,34 @@
                         transition: all .1s ease-out;
                         max-height: 85vh;
                     }
-                    .ebook-margin-handle {
-                        position: fixed;
-                        top: 50%;
-                        transform: translateY(-50%);
-                        width: 50px;
-                        height: 80px;
+                    .ebook-drag-zone {
+                        position: absolute;
+                        top: 0;
+                        height: 100%;
                         cursor: ew-resize;
                         z-index: 100;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
+                        transition: background .2s, border-color .2s;
+                        border: 1px dashed transparent;
+                        pointer-events: auto;
                     }
-                    .ebook-margin-handle-left { left: 0; }
-                    .ebook-margin-handle-right { right: 0; }
-                    .ebook-margin-indicator {
-                        width: 8px;
-                        height: 60px;
-                        background: #3b82f6;
-                        border-radius: 4px;
-                        opacity: .3;
-                        transition: all .2s;
-                        box-shadow: 0 2px 12px rgba(59,130,246,.4);
+                    .ebook-drag-zone-left {
+                        left: 0;
                     }
-                    .ebook-margin-handle:hover .ebook-margin-indicator {
-                        opacity: .7;
-                        transform: scale(1.1);
+                    .ebook-drag-zone-right {
+                        right: 0;
                     }
-                    .ebook-margin-handle.active .ebook-margin-indicator {
-                        opacity: 1;
-                        transform: scale(1.15);
-                        background: #2563eb;
+                    .ebook-drag-zone:hover {
+                        background: rgba(59, 130, 246, 0.08);
+                        border-color: rgba(59, 130, 246, 0.2);
+                    }
+                    .ebook-drag-zone.active {
+                        background: rgba(59, 130, 246, 0.15);
+                        border-color: rgba(59, 130, 246, 0.4);
                     }
                     .ebook-text-content {
                         transition: padding .1s ease-out, opacity .2s ease-in-out;
                         position: relative;
+                        min-height: 100%;
                     }
                     .ebook-text-content.transitioning { opacity: .4; }
                     .bionic { font-weight: 700; }
@@ -660,12 +665,8 @@
 
                 const html = `
                     <div class="ebook-reader-area">
-                        <div class="ebook-margin-handle ebook-margin-handle-left">
-                            <div class="ebook-margin-indicator"></div>
-                        </div>
-                        <div class="ebook-margin-handle ebook-margin-handle-right">
-                            <div class="ebook-margin-indicator"></div>
-                        </div>
+                        <div class="ebook-drag-zone ebook-drag-zone-left" style="width: 60px;"></div>
+                        <div class="ebook-drag-zone ebook-drag-zone-right" style="width: 60px;"></div>
                         <div class="ebook-focus-indicator"></div>
                         <div class="ebook-text-content"></div>
                     </div>
@@ -676,16 +677,16 @@
                 this.el = {
                     reader: this.container.querySelector('.ebook-reader-area'),
                     content: this.container.querySelector('.ebook-text-content'),
-                    handleL: this.container.querySelector('.ebook-margin-handle-left'),
-                    handleR: this.container.querySelector('.ebook-margin-handle-right'),
+                    dragZoneL: this.container.querySelector('.ebook-drag-zone-left'),
+                    dragZoneR: this.container.querySelector('.ebook-drag-zone-right'),
                     focus: this.container.querySelector('.ebook-focus-indicator')
                 };
             }
 
             _attachEventListeners() {
                 ['mousedown', 'touchstart'].forEach(evt => {
-                    this.el.handleL.addEventListener(evt, e => this._startMarginDrag(e, this.el.handleL));
-                    this.el.handleR.addEventListener(evt, e => this._startMarginDrag(e, this.el.handleR));
+                    this.el.dragZoneL.addEventListener(evt, e => this._startMarginDrag(e, 'left'));
+                    this.el.dragZoneR.addEventListener(evt, e => this._startMarginDrag(e, 'right'));
                 });
 
                 ['mousemove', 'touchmove'].forEach(evt => {
@@ -713,9 +714,18 @@
                     padding: ${this.state.marginTB}px ${this.state.marginR}px ${this.state.marginTB}px ${this.state.marginL}px;
                 `;
 
-                const r = this.el.reader.getBoundingClientRect();
-                this.el.handleL.style.left = (r.left + this.state.marginL - 25) + 'px';
-                this.el.handleR.style.left = (r.right - this.state.marginR - 25) + 'px';
+                // Update drag zone widths and heights to match content
+                const leftWidth = Math.max(60, this.state.marginL);
+                const rightWidth = Math.max(60, this.state.marginR);
+                
+                // Get full content height including scrollable area
+                const contentHeight = this.el.content.scrollHeight;
+                
+                this.el.dragZoneL.style.width = leftWidth + 'px';
+                this.el.dragZoneL.style.height = contentHeight + 'px';
+                
+                this.el.dragZoneR.style.width = rightWidth + 'px';
+                this.el.dragZoneR.style.height = contentHeight + 'px';
 
                 if (this.state.mode === 'flow' && this.wordIndexManager) {
                     this.wordIndexManager.invalidate();
@@ -751,6 +761,13 @@
                 setTimeout(() => {
                     if (!this._destroyed && this.el && this.el.content) {
                         this.el.content.classList.remove('transitioning');
+                        
+                        // Update drag zone heights after content renders
+                        const contentHeight = this.el.content.scrollHeight;
+                        if (this.el.dragZoneL && this.el.dragZoneR) {
+                            this.el.dragZoneL.style.height = contentHeight + 'px';
+                            this.el.dragZoneR.style.height = contentHeight + 'px';
+                        }
                     }
                 }, 200);
 
@@ -1052,15 +1069,17 @@
                 }
             }
 
-            _startMarginDrag(e, handle) {
+            _startMarginDrag(e, side) {
                 e.preventDefault();
                 this.state.gesture.dragging = true;
-                this.state.gesture.handle = handle;
-                handle.classList.add('active');
+                this.state.gesture.side = side;
+                
+                const zone = side === 'left' ? this.el.dragZoneL : this.el.dragZoneR;
+                zone.classList.add('active');
 
                 const x = e.touches?.[0]?.clientX || e.clientX;
                 this.state.gesture.initX = x;
-                this.state.gesture.initMargin = handle === this.el.handleL ? this.state.marginL : this.state.marginR;
+                this.state.gesture.initMargin = side === 'left' ? this.state.marginL : this.state.marginR;
             }
 
             _handleMarginDrag(e) {
@@ -1070,34 +1089,51 @@
                 const delta = x - this.state.gesture.initX;
                 
                 let val = this.state.gesture.initMargin + 
-                    (this.state.gesture.handle === this.el.handleL ? delta : -delta);
+                    (this.state.gesture.side === 'left' ? delta : -delta);
                 val = this._elastic(val, this.config.margin.min, this.config.margin.max);
 
-                if (this.state.gesture.handle === this.el.handleL) {
+                const contentHeight = this.el.content.scrollHeight;
+
+                if (this.state.gesture.side === 'left') {
                     this.state.marginL = val;
+                    // Update drag zone dimensions in real-time
+                    this.el.dragZoneL.style.width = Math.max(60, val) + 'px';
+                    this.el.dragZoneL.style.height = contentHeight + 'px';
                 } else {
                     this.state.marginR = val;
+                    // Update drag zone dimensions in real-time
+                    this.el.dragZoneR.style.width = Math.max(60, val) + 'px';
+                    this.el.dragZoneR.style.height = contentHeight + 'px';
                 }
                 
                 this.updateStyles();
             }
 
             _stopMarginDrag() {
-                if (this.state.gesture.dragging && this.state.gesture.handle) {
-                    this.state.gesture.handle.classList.remove('active');
+                if (this.state.gesture.dragging) {
+                    const zone = this.state.gesture.side === 'left' ? this.el.dragZoneL : this.el.dragZoneR;
+                    if (zone) zone.classList.remove('active');
                     
-                    const isLeft = this.state.gesture.handle === this.el.handleL;
+                    const isLeft = this.state.gesture.side === 'left';
                     const cur = isLeft ? this.state.marginL : this.state.marginR;
                     const final = this._clamp(cur, this.config.margin.min, this.config.margin.max);
+                    const contentHeight = this.el.content.scrollHeight;
                     
-                    if (isLeft) this.state.marginL = final;
-                    else this.state.marginR = final;
+                    if (isLeft) {
+                        this.state.marginL = final;
+                        this.el.dragZoneL.style.width = Math.max(60, final) + 'px';
+                        this.el.dragZoneL.style.height = contentHeight + 'px';
+                    } else {
+                        this.state.marginR = final;
+                        this.el.dragZoneR.style.width = Math.max(60, final) + 'px';
+                        this.el.dragZoneR.style.height = contentHeight + 'px';
+                    }
                     
                     this.updateStyles();
                 }
                 
                 this.state.gesture.dragging = false;
-                this.state.gesture.handle = null;
+                this.state.gesture.side = null;
             }
 
             _handleTouchStart(e) {
@@ -1890,7 +1926,7 @@
         console.log('');
         console.log('🎯 WHAT LIBRARY INCLUDES:');
         console.log('   ✓ Reading area with text');
-        console.log('   ✓ Margin drag handles (integral to UX)');
+        console.log('   ✓ Draggable margins (hover edges to resize)');
         console.log('   ✓ Focus highlight indicator');
         console.log('   ✓ Touch gestures (pinch-zoom)');
         console.log('');
