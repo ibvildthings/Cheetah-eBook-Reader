@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EBookReader v2.0.0 - Ultra Smooth</title>
+    <title>EBookReader v2.1.0 - Modern Themes</title>
     <style>
         body {
             margin: 0;
@@ -85,6 +85,7 @@
             gap: 20px;
             align-items: center;
             flex-wrap: wrap;
+            transition: background 0.3s, border-color 0.3s;
         }
 
         .demo-btn {
@@ -120,6 +121,36 @@
             font-weight: 600;
         }
 
+        .theme-picker {
+            display: flex;
+            gap: 8px;
+            padding: 4px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+
+        .theme-btn {
+            padding: 6px 12px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all .2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .theme-btn:hover {
+            background: rgba(0,0,0,0.05);
+        }
+
+        .theme-btn.active {
+            background: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
         #reader-container {
             width: 100vw;
             height: 100vh;
@@ -135,6 +166,15 @@
     <div class="demo-toolbar">
         <button class="demo-btn" id="btn-bionic">Bionic Reading</button>
         <button class="demo-btn" id="btn-flow">Flow Mode</button>
+        
+        <div class="theme-picker">
+            <button class="theme-btn active" data-theme="light">☀️ Light</button>
+            <button class="theme-btn" data-theme="dark">🌙 Dark</button>
+            <button class="theme-btn" data-theme="sepia">📜 Sepia</button>
+            <button class="theme-btn" data-theme="gray">⚪ Gray</button>
+        </div>
+        
+        <button class="demo-btn" id="btn-auto-theme">🔄 Auto</button>
         
         <div class="demo-control" id="flow-controls" style="display:none;">
             <span class="demo-label">Speed:</span>
@@ -158,11 +198,11 @@
 
     <script>
         /**
-         * EBookReader Core Library v2.0.0
-         * Pure reading functionality - NO UI components
+         * EBookReader Core Library v2.1.0
+         * Pure reading functionality with modern theming
          * 
          * @license MIT
-         * @version 2.0.0
+         * @version 2.1.0
          */
 
         // ============================================================================
@@ -196,6 +236,81 @@
                 this.name = 'StateError';
             }
         }
+
+        // ============================================================================
+        // THEME SYSTEM
+        // ============================================================================
+
+        const THEMES = {
+            light: {
+                name: 'Light',
+                background: '#F5F5F5',
+                contentBg: '#FFFFFF',
+                text: '#1A1A1A',
+                textSecondary: '#666666',
+                accent: '#3B82F6',
+                accentHover: '#2563EB',
+                border: '#E5E7EB',
+                shadow: 'rgba(0, 0, 0, 0.1)',
+                dragZone: 'rgba(59, 130, 246, 0.08)',
+                dragZoneBorder: 'rgba(59, 130, 246, 0.2)',
+                dragZoneActive: 'rgba(59, 130, 246, 0.15)',
+                dragZoneActiveBorder: 'rgba(59, 130, 246, 0.4)',
+                focusIndicator: 'rgba(59, 130, 246, 0.12)',
+                bionic: '#000000'
+            },
+            dark: {
+                name: 'Dark',
+                background: '#0F0F0F',
+                contentBg: '#1A1A1A',
+                text: '#E8E8E8',
+                textSecondary: '#A0A0A0',
+                accent: '#60A5FA',
+                accentHover: '#3B82F6',
+                border: '#2A2A2A',
+                shadow: 'rgba(0, 0, 0, 0.5)',
+                dragZone: 'rgba(96, 165, 250, 0.1)',
+                dragZoneBorder: 'rgba(96, 165, 250, 0.25)',
+                dragZoneActive: 'rgba(96, 165, 250, 0.18)',
+                dragZoneActiveBorder: 'rgba(96, 165, 250, 0.5)',
+                focusIndicator: 'rgba(96, 165, 250, 0.15)',
+                bionic: '#FFFFFF'
+            },
+            sepia: {
+                name: 'Sepia',
+                background: '#E8D7C3',
+                contentBg: '#FBF4E9',
+                text: '#3D2E1F',
+                textSecondary: '#5C4B37',
+                accent: '#B8860B',
+                accentHover: '#8B6914',
+                border: '#D4C4B0',
+                shadow: 'rgba(61, 46, 31, 0.15)',
+                dragZone: 'rgba(184, 134, 11, 0.08)',
+                dragZoneBorder: 'rgba(184, 134, 11, 0.2)',
+                dragZoneActive: 'rgba(184, 134, 11, 0.15)',
+                dragZoneActiveBorder: 'rgba(184, 134, 11, 0.4)',
+                focusIndicator: 'rgba(184, 134, 11, 0.12)',
+                bionic: '#1A1410'
+            },
+            gray: {
+                name: 'Gray',
+                background: '#E8E8E8',
+                contentBg: '#F5F5F5',
+                text: '#2C2C2C',
+                textSecondary: '#666666',
+                accent: '#6B7280',
+                accentHover: '#4B5563',
+                border: '#D1D5DB',
+                shadow: 'rgba(0, 0, 0, 0.08)',
+                dragZone: 'rgba(107, 114, 128, 0.08)',
+                dragZoneBorder: 'rgba(107, 114, 128, 0.2)',
+                dragZoneActive: 'rgba(107, 114, 128, 0.15)',
+                dragZoneActiveBorder: 'rgba(107, 114, 128, 0.4)',
+                focusIndicator: 'rgba(107, 114, 128, 0.12)',
+                bionic: '#000000'
+            }
+        };
 
         // ============================================================================
         // WORD INDEX MANAGER
@@ -305,7 +420,7 @@
         // ============================================================================
 
         class EBookReader {
-            static VERSION = '2.0.0';
+            static VERSION = '2.1.0';
 
             constructor(containerSelector, options = {}) {
                 try {
@@ -320,9 +435,8 @@
                         scroll: {
                             timeout: 1500,
                             gap: 0.1,
-                            // Comfort zone approach - only scroll when word drifts outside zone
-                            comfortZoneTop: 0.15,      // 15% from top
-                            comfortZoneBottom: 0.70    // 70% from top (30% from bottom)
+                            comfortZoneTop: 0.15,
+                            comfortZoneBottom: 0.70
                         }
                     };
 
@@ -334,6 +448,8 @@
                         marginTB: 40,
                         mode: 'normal',
                         bionic: false,
+                        theme: 'light',
+                        autoTheme: false,
                         content: '',
                         flow: {
                             playing: false,
@@ -359,12 +475,13 @@
                         saved: null
                     };
 
-                    // Event callbacks (external UI can subscribe)
+                    // Event callbacks
                     this.callbacks = {
                         onModeChange: [],
                         onBionicChange: [],
                         onPlayChange: [],
                         onSpeedChange: [],
+                        onThemeChange: [],
                         onStateChange: []
                     };
 
@@ -381,17 +498,23 @@
                     this.wordIndexManager = new WordIndexManager();
                     this._destroyed = false;
                     
-                    // Bind event handlers so we can remove them later
+                    // Bind event handlers
                     this._resizeHandler = () => this.updateStyles();
                     this._scrollHandler = () => this._handleScroll();
+                    this._systemThemeHandler = (e) => this._handleSystemThemeChange(e);
                     
                     this._injectStyles();
                     this._buildDOM();
                     this._attachEventListeners();
                     
+                    // Setup auto theme listener
+                    this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                    this.mediaQuery.addEventListener('change', this._systemThemeHandler);
+                    
                     requestAnimationFrame(() => {
                         this.updateStyles();
-                        // Initialize drag zone sizes
+                        this._applyTheme(this.state.theme);
+                        
                         if (this.el.dragZoneL && this.el.dragZoneR && this.el.content) {
                             const contentHeight = this.el.content.scrollHeight;
                             const leftWidth = Math.max(60, this.state.marginL);
@@ -413,7 +536,7 @@
             }
 
             // ========================================
-            // PUBLIC API (for external UI)
+            // PUBLIC API
             // ========================================
 
             loadContent(html) {
@@ -441,6 +564,41 @@
                     this._toggleBionic();
                     this._emit('onBionicChange', enabled);
                 }
+            }
+
+            setTheme(themeName) {
+                if (!THEMES[themeName]) {
+                    throw new Error(`Invalid theme: ${themeName}. Valid themes: ${Object.keys(THEMES).join(', ')}`);
+                }
+                this.state.theme = themeName;
+                this.state.autoTheme = false;
+                this._applyTheme(themeName);
+                this._emit('onThemeChange', { theme: themeName, auto: false });
+            }
+
+            setAutoTheme(enabled) {
+                this.state.autoTheme = enabled;
+                if (enabled) {
+                    const isDark = this.mediaQuery.matches;
+                    const autoTheme = isDark ? 'dark' : 'light';
+                    this._applyTheme(autoTheme);
+                    this._emit('onThemeChange', { theme: autoTheme, auto: true });
+                } else {
+                    this._applyTheme(this.state.theme);
+                    this._emit('onThemeChange', { theme: this.state.theme, auto: false });
+                }
+            }
+
+            getTheme() {
+                const currentTheme = this.state.autoTheme 
+                    ? (this.mediaQuery.matches ? 'dark' : 'light')
+                    : this.state.theme;
+                return {
+                    current: currentTheme,
+                    selected: this.state.theme,
+                    auto: this.state.autoTheme,
+                    colors: THEMES[currentTheme]
+                };
             }
 
             setSpeed(wpm) {
@@ -497,6 +655,7 @@
                     version: EBookReader.VERSION,
                     mode: this.state.mode,
                     bionic: this.state.bionic,
+                    theme: this.getTheme(),
                     fontSize: this.state.fontSize,
                     isPlaying: this.state.flow.playing,
                     currentWordIndex: this.state.flow.currentWordIndex,
@@ -521,24 +680,21 @@
 
             destroy() {
                 try {
-                    // Stop any playing animation
                     if (this.state.flow.playing) {
                         cancelAnimationFrame(this.state.flow.rafId);
                     }
                     
-                    // Remove event listeners to prevent errors after destroy
                     window.removeEventListener('resize', this._resizeHandler);
+                    this.mediaQuery.removeEventListener('change', this._systemThemeHandler);
                     
                     if (this.el && this.el.reader) {
                         this.el.reader.removeEventListener('scroll', this._scrollHandler);
                     }
                     
-                    // Clear container
                     if (this.container) {
                         this.container.innerHTML = '';
                     }
                     
-                    // Mark as destroyed
                     this._destroyed = true;
                     this.wordIndexManager = null;
                 } catch (error) {
@@ -577,6 +733,52 @@
                 return value;
             }
 
+            _handleSystemThemeChange(e) {
+                if (this.state.autoTheme && !this._destroyed) {
+                    const autoTheme = e.matches ? 'dark' : 'light';
+                    this._applyTheme(autoTheme);
+                    this._emit('onThemeChange', { theme: autoTheme, auto: true });
+                }
+            }
+
+            _applyTheme(themeName) {
+                if (!THEMES[themeName] || !this.el || !this.el.reader) return;
+                
+                const theme = THEMES[themeName];
+                const root = this.container.querySelector('.ebook-reader-root');
+                const reader = this.el.reader;
+                const content = this.el.content;
+                
+                if (root) {
+                    root.style.background = theme.background;
+                }
+                
+                if (reader) {
+                    reader.style.background = theme.contentBg;
+                    reader.style.boxShadow = `0 4px 20px ${theme.shadow}`;
+                }
+                
+                if (content) {
+                    content.style.color = theme.text;
+                }
+                
+                // Update bionic color
+                const bionicElements = content ? content.querySelectorAll('.bionic') : [];
+                bionicElements.forEach(el => {
+                    el.style.color = theme.bionic;
+                });
+                
+                // Update CSS custom properties for dynamic styling
+                if (this.container) {
+                    this.container.style.setProperty('--theme-accent', theme.accent);
+                    this.container.style.setProperty('--theme-drag-zone', theme.dragZone);
+                    this.container.style.setProperty('--theme-drag-zone-border', theme.dragZoneBorder);
+                    this.container.style.setProperty('--theme-drag-zone-active', theme.dragZoneActive);
+                    this.container.style.setProperty('--theme-drag-zone-active-border', theme.dragZoneActiveBorder);
+                    this.container.style.setProperty('--theme-focus', theme.focusIndicator);
+                }
+            }
+
             _injectStyles() {
                 if (document.getElementById('ebook-reader-styles')) return;
 
@@ -593,13 +795,14 @@
                         display: flex;
                         justify-content: center;
                         align-items: center;
+                        transition: background 0.3s ease;
                     }
                     .ebook-reader-area {
                         position: relative;
                         background: #fff;
                         box-shadow: 0 4px 20px rgba(0,0,0,.1);
                         overflow-y: auto;
-                        transition: all .1s ease-out;
+                        transition: all .3s ease;
                         max-height: 85vh;
                     }
                     .ebook-drag-zone {
@@ -619,30 +822,33 @@
                         right: 0;
                     }
                     .ebook-drag-zone:hover {
-                        background: rgba(59, 130, 246, 0.08);
-                        border-color: rgba(59, 130, 246, 0.2);
+                        background: var(--theme-drag-zone, rgba(59, 130, 246, 0.08));
+                        border-color: var(--theme-drag-zone-border, rgba(59, 130, 246, 0.2));
                     }
                     .ebook-drag-zone.active {
-                        background: rgba(59, 130, 246, 0.15);
-                        border-color: rgba(59, 130, 246, 0.4);
+                        background: var(--theme-drag-zone-active, rgba(59, 130, 246, 0.15));
+                        border-color: var(--theme-drag-zone-active-border, rgba(59, 130, 246, 0.4));
                     }
                     .ebook-text-content {
-                        transition: padding .1s ease-out, opacity .2s ease-in-out;
+                        transition: padding .1s ease-out, opacity .2s ease-in-out, color .3s ease;
                         position: relative;
                         min-height: 100%;
                     }
                     .ebook-text-content.transitioning { opacity: .4; }
-                    .bionic { font-weight: 700; }
+                    .bionic { 
+                        font-weight: 700;
+                        transition: color 0.3s ease;
+                    }
                     .flow-word {
                         font-weight: 400;
                         cursor: pointer;
                         display: inline;
                         position: relative;
+                        transition: opacity 0.2s ease;
                     }
                     .flow-word:hover { opacity: .7; }
                     .flow-word.active {
                         opacity: 1;
-                        color: #1a1a1a;
                     }
                     .flow-word.inactive { opacity: .2; }
                     .ebook-focus-indicator {
@@ -651,9 +857,10 @@
                         left: 0;
                         pointer-events: none;
                         z-index: 50;
-                        background: rgba(59,130,246,.08);
+                        background: var(--theme-focus, rgba(59,130,246,.08));
                         display: none;
                         border-radius: 3px;
+                        transition: background 0.3s ease;
                     }
                     .ebook-focus-indicator.visible { display: block; }
                 `;
@@ -713,13 +920,12 @@
                     font-size: ${this.state.fontSize}px;
                     line-height: ${this.state.lineHeight};
                     padding: ${this.state.marginTB}px ${this.state.marginR}px ${this.state.marginTB}px ${this.state.marginL}px;
+                    color: inherit;
+                    transition: padding .1s ease-out, opacity .2s ease-in-out, color .3s ease;
                 `;
 
-                // Update drag zone widths and heights to match content
                 const leftWidth = Math.max(60, this.state.marginL);
                 const rightWidth = Math.max(60, this.state.marginR);
-                
-                // Get full content height including scrollable area
                 const contentHeight = this.el.content.scrollHeight;
                 
                 this.el.dragZoneL.style.width = leftWidth + 'px';
@@ -763,12 +969,17 @@
                     if (!this._destroyed && this.el && this.el.content) {
                         this.el.content.classList.remove('transitioning');
                         
-                        // Update drag zone heights after content renders
                         const contentHeight = this.el.content.scrollHeight;
                         if (this.el.dragZoneL && this.el.dragZoneR) {
                             this.el.dragZoneL.style.height = contentHeight + 'px';
                             this.el.dragZoneR.style.height = contentHeight + 'px';
                         }
+                        
+                        // Reapply theme to new content
+                        const currentTheme = this.state.autoTheme 
+                            ? (this.mediaQuery.matches ? 'dark' : 'light')
+                            : this.state.theme;
+                        this._applyTheme(currentTheme);
                     }
                 }, 200);
 
@@ -887,7 +1098,6 @@
                 if (this._destroyed || !this.wordIndexManager || this.state.flow.userScroll) return;
                 if (!this.el || !this.el.reader) return;
 
-                // Get current word position with interpolation
                 const currentIdx = Math.floor(wordIndex);
                 const nextIdx = currentIdx + 1;
                 const fraction = wordIndex - currentIdx;
@@ -897,7 +1107,6 @@
                 
                 if (!currentWord) return;
 
-                // Calculate interpolated word position
                 let wordTop = currentWord.el.getBoundingClientRect().top;
                 if (nextWord && fraction > 0) {
                     const nextTop = nextWord.el.getBoundingClientRect().top;
@@ -907,27 +1116,21 @@
                 const readerRect = this.el.reader.getBoundingClientRect();
                 const viewportHeight = readerRect.height;
                 
-                // Define comfort zone boundaries
                 const comfortZoneTop = readerRect.top + (viewportHeight * this.config.scroll.comfortZoneTop);
                 const comfortZoneBottom = readerRect.top + (viewportHeight * this.config.scroll.comfortZoneBottom);
                 
-                // Check if word is outside comfort zone
                 if (wordTop < comfortZoneTop || wordTop > comfortZoneBottom) {
-                    // Calculate target position based on scroll level
                     const targetRatio = this.config.scroll.gap + (this.state.flow.scrollLevel - 1) * 0.2;
                     const targetY = readerRect.top + (viewportHeight * targetRatio);
                     
-                    // Calculate how much to scroll
                     const scrollAdjustment = wordTop - targetY;
                     const targetScroll = this.el.reader.scrollTop + scrollAdjustment;
                     
-                    // Let browser handle smooth scrolling
                     this.el.reader.scrollTo({
                         top: targetScroll,
                         behavior: 'smooth'
                     });
                 }
-                // If inside comfort zone, do nothing - this is the key to smoothness!
             }
 
             _animate() {
@@ -960,9 +1163,7 @@
                     const currentWordIdx = Math.floor(wordIndex);
                     const currentWord = this.wordIndexManager.getWord(currentWordIdx);
 
-                    // Check if we need to scroll (only when word exits comfort zone)
                     this._scrollToWordIfNeeded(wordIndex);
-
                     this._updateWordStates(wordIndex);
 
                     if (currentWord && currentWord.isNewline && 
@@ -1008,7 +1209,6 @@
                 
                 this.state.flow.currentWordIndex = idx;
                 
-                // Instant jump - calculate ideal scroll position and jump there
                 const word = this.wordIndexManager.getWord(idx);
                 if (word && this.el && this.el.reader) {
                     const rr = this.el.reader.getBoundingClientRect();
@@ -1254,6 +1454,321 @@
         window.StateError = StateError;
 
         // ============================================================================
+        // AUTOMATED TEST SUITE
+        // ============================================================================
+
+        class TestRunner {
+            constructor() {
+                this.results = [];
+                this.testContainer = null;
+            }
+
+            async run() {
+                console.log('🧪 Running Test Suite...\n');
+                
+                await this.testInitialization();
+                await this.testThemeSystem();
+                await this.testAutoTheme();
+                await this.testModeChanges();
+                await this.testBionicMode();
+                await this.testFlowMode();
+                await this.testErrorHandling();
+                
+                this.displayResults();
+            }
+
+            test(name, fn) {
+                try {
+                    fn();
+                    this.results.push({ name, status: 'pass' });
+                    console.log(`✅ ${name}`);
+                } catch (error) {
+                    this.results.push({ name, status: 'fail', error: error.message });
+                    console.error(`❌ ${name}: ${error.message}`);
+                }
+            }
+
+            async testInitialization() {
+                console.log('\n📦 Testing Initialization...');
+                
+                this.test('Creates reader instance', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    if (!reader) throw new Error('Failed to create reader');
+                    reader.destroy();
+                });
+
+                this.test('Validates container selector', () => {
+                    try {
+                        new EBookReader(null);
+                        throw new Error('Should have thrown error');
+                    } catch (e) {
+                        if (!(e instanceof ConfigurationError)) throw e;
+                    }
+                });
+
+                this.test('Validates options', () => {
+                    const container = document.createElement('div');
+                    try {
+                        new EBookReader(container, 'invalid');
+                        throw new Error('Should have thrown error');
+                    } catch (e) {
+                        if (!(e instanceof ConfigurationError)) throw e;
+                    }
+                });
+            }
+
+            async testThemeSystem() {
+                console.log('\n🎨 Testing Theme System...');
+                
+                this.test('Sets light theme', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.setTheme('light');
+                    const theme = reader.getTheme();
+                    if (theme.current !== 'light') throw new Error('Theme not set');
+                    reader.destroy();
+                });
+
+                this.test('Sets dark theme', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.setTheme('dark');
+                    const theme = reader.getTheme();
+                    if (theme.current !== 'dark') throw new Error('Theme not set');
+                    reader.destroy();
+                });
+
+                this.test('Sets sepia theme', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.setTheme('sepia');
+                    const theme = reader.getTheme();
+                    if (theme.current !== 'sepia') throw new Error('Theme not set');
+                    reader.destroy();
+                });
+
+                this.test('Sets gray theme', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.setTheme('gray');
+                    const theme = reader.getTheme();
+                    if (theme.current !== 'gray') throw new Error('Theme not set');
+                    reader.destroy();
+                });
+
+                this.test('Rejects invalid theme', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    try {
+                        reader.setTheme('invalid');
+                        throw new Error('Should have thrown error');
+                    } catch (e) {
+                        if (!e.message.includes('Invalid theme')) throw e;
+                    }
+                    reader.destroy();
+                });
+
+                this.test('Theme change emits event', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    let eventFired = false;
+                    reader.on('onThemeChange', () => { eventFired = true; });
+                    reader.setTheme('dark');
+                    if (!eventFired) throw new Error('Event not fired');
+                    reader.destroy();
+                });
+            }
+
+            async testAutoTheme() {
+                console.log('\n🔄 Testing Auto Theme...');
+                
+                this.test('Enables auto theme', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.setAutoTheme(true);
+                    const theme = reader.getTheme();
+                    if (!theme.auto) throw new Error('Auto theme not enabled');
+                    reader.destroy();
+                });
+
+                this.test('Disables auto theme', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.setAutoTheme(true);
+                    reader.setAutoTheme(false);
+                    const theme = reader.getTheme();
+                    if (theme.auto) throw new Error('Auto theme not disabled');
+                    reader.destroy();
+                });
+
+                this.test('Manual theme disables auto', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.setAutoTheme(true);
+                    reader.setTheme('sepia');
+                    const theme = reader.getTheme();
+                    if (theme.auto) throw new Error('Auto should be disabled');
+                    reader.destroy();
+                });
+            }
+
+            async testModeChanges() {
+                console.log('\n🔀 Testing Mode Changes...');
+                
+                this.test('Switches to flow mode', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.loadContent('<p>Test content</p>');
+                    reader.setMode('flow');
+                    if (reader.getState().mode !== 'flow') throw new Error('Mode not changed');
+                    reader.destroy();
+                });
+
+                this.test('Theme persists across modes', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.loadContent('<p>Test content</p>');
+                    reader.setTheme('sepia');
+                    reader.setMode('flow');
+                    const theme = reader.getTheme();
+                    if (theme.current !== 'sepia') throw new Error('Theme not persisted');
+                    reader.destroy();
+                });
+            }
+
+            async testBionicMode() {
+                console.log('\n⚡ Testing Bionic Mode...');
+                
+                this.test('Enables bionic reading', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.loadContent('<p>Test content</p>');
+                    reader.setBionic(true);
+                    if (!reader.getState().bionic) throw new Error('Bionic not enabled');
+                    reader.destroy();
+                });
+
+                this.test('Theme works with bionic', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.loadContent('<p>Test content</p>');
+                    reader.setTheme('dark');
+                    reader.setBionic(true);
+                    const state = reader.getState();
+                    if (!state.bionic || state.theme.current !== 'dark') {
+                        throw new Error('Theme + bionic not working');
+                    }
+                    reader.destroy();
+                });
+            }
+
+            async testFlowMode() {
+                console.log('\n🌊 Testing Flow Mode...');
+                
+                this.test('Sets speed', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.setSpeed(400);
+                    if (reader.getState().speed !== 400) throw new Error('Speed not set');
+                    reader.destroy();
+                });
+
+                this.test('Sets focus width', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.setFocusWidth(3);
+                    if (reader.getState().focusWidth !== 3) throw new Error('Focus not set');
+                    reader.destroy();
+                });
+
+                this.test('Sets scroll level', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.setScrollLevel(3);
+                    if (reader.getState().scrollLevel !== 3) throw new Error('Scroll level not set');
+                    reader.destroy();
+                });
+            }
+
+            async testErrorHandling() {
+                console.log('\n🚨 Testing Error Handling...');
+                
+                this.test('Rejects empty content', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    try {
+                        reader.loadContent('');
+                        throw new Error('Should have thrown error');
+                    } catch (e) {
+                        if (!(e instanceof ContentError)) throw e;
+                    }
+                    reader.destroy();
+                });
+
+                this.test('Rejects invalid mode', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    try {
+                        reader.setMode('invalid');
+                        throw new Error('Should have thrown error');
+                    } catch (e) {
+                        if (!e.message.includes('Mode must be')) throw e;
+                    }
+                    reader.destroy();
+                });
+
+                this.test('Rejects invalid speed', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    try {
+                        reader.setSpeed(9999);
+                        throw new Error('Should have thrown error');
+                    } catch (e) {
+                        if (!e.message.includes('Speed must be')) throw e;
+                    }
+                    reader.destroy();
+                });
+            }
+
+            displayResults() {
+                const passed = this.results.filter(r => r.status === 'pass').length;
+                const failed = this.results.filter(r => r.status === 'fail').length;
+                const total = this.results.length;
+
+                console.log('\n' + '='.repeat(50));
+                console.log('📊 TEST RESULTS');
+                console.log('='.repeat(50));
+                console.log(`Total: ${total} | Passed: ${passed} | Failed: ${failed}`);
+                console.log(`Success Rate: ${((passed/total)*100).toFixed(1)}%`);
+                console.log('='.repeat(50) + '\n');
+
+                // Display in UI panel
+                const panel = document.getElementById('test-results');
+                if (panel) {
+                    panel.innerHTML = `
+                        <div class="test-header">
+                            <span>Test Results</span>
+                            <span class="test-close" onclick="document.getElementById('test-results').classList.remove('visible')">✕</span>
+                        </div>
+                        ${this.results.map(r => `
+                            <div class="test-item">
+                                <span class="${r.status === 'pass' ? 'test-pass' : 'test-fail'}">
+                                    ${r.status === 'pass' ? '✓' : '✗'}
+                                </span>
+                                <span>${r.name}</span>
+                            </div>
+                        `).join('')}
+                        <div class="test-summary">
+                            ${passed}/${total} passed (${((passed/total)*100).toFixed(1)}%)
+                        </div>
+                    `;
+                    panel.classList.add('visible');
+                }
+            }
+        }
+
+        // ============================================================================
         // EXAMPLE: EXTERNAL UI CONTROLLER
         // ============================================================================
 
@@ -1267,26 +1782,6 @@
             <p>"This is it," she whispered, looking up at Marcus with wide eyes. "This is what we've been searching for."</p>
             <p>Marcus leaned over her shoulder, watching the prototype in action. For the first time in months, he smiled. Really smiled. Not the forced grin of another failed demo, but the genuine expression of someone who knew they'd created something special.</p>
             <p>They called it Flow Mode. The name came naturally—it was exactly how reading felt when everything worked perfectly. No friction. No distraction. Just you and the words, moving together in perfect harmony.</p>
-            <p>The technology behind it was complex. Machine learning algorithms predicted reading patterns. Eye-tracking data refined the timing. Natural language processing identified logical pause points. But the experience was effortless. That was the magic.</p>
-            <p>Launch day arrived faster than they expected. Sarah stood at the window of their small office, watching the city wake up. In a few hours, they would release Flow Mode to the world. Years of work, countless sleepless nights, and more coffee than she cared to count—all culminating in this moment.</p>
-            <p>"Ready?" Marcus asked, his finger hovering over the deployment button.</p>
-            <p>Sarah took a deep breath. "Ready."</p>
-            <p>The first users started trickling in within minutes. Then dozens. Then hundreds. The server metrics climbed steadily as readers around the world discovered a new way to experience text. Comments began appearing in their feedback channels:</p>
-            <p>"I just read an entire chapter without looking away once."</p>
-            <p>"This is how I've always wanted to read."</p>
-            <p>"Where has this been all my life?"</p>
-            <p>By noon, they had a thousand users. By evening, ten thousand. The numbers kept climbing. Sarah and Marcus watched in amazement as their little experiment transformed into something bigger than they'd ever imagined.</p>
-            <p>But the real validation came from an unexpected source. A teacher in rural Ohio sent them an email about a student with dyslexia. Flow Mode had changed everything. For the first time, this student could keep up with classmates. The words no longer jumbled together. Reading became not just possible, but enjoyable.</p>
-            <p>Sarah read the email three times, tears streaming down her face. This was why they built it. Not for the metrics or the user growth, but for moments like this. For the people who struggled with traditional reading, who felt left behind by static text on unchanging pages.</p>
-            <p>The coming months brought new challenges. Scaling servers. Managing growth. Hiring a team. The startup life demanded everything from them. Early mornings bled into late nights. Weekends became indistinguishable from weekdays. But they never lost sight of why they started.</p>
-            <p>They added new features. Bionic reading mode that emphasized key parts of words. Customizable focus widths for different reading styles. Scroll positioning that adapted to individual preferences. Each addition was tested meticulously, refined endlessly, perfected obsessively.</p>
-            <p>Users responded enthusiastically. The community grew. Discussions sparked about reading techniques, optimal speeds, best practices. People shared their experiences, compared settings, helped newcomers find their flow. It became more than just an app—it became a movement.</p>
-            <p>Sarah still remembered the day they hit a million users. She and Marcus stood in their now much larger office, surrounded by a team of talented engineers and designers, watching the counter tick over. They'd come so far from that rainy November evening.</p>
-            <p>"You know what the best part is?" Marcus said, pulling up their latest feedback report. "Ninety-seven percent retention rate. People aren't just trying it—they're sticking with it. It's becoming part of their daily routine."</p>
-            <p>Sarah nodded, but her attention was elsewhere. She was reading through support tickets, looking for problems to solve, improvements to make. There was always more work to do. Always another way to make the experience better.</p>
-            <p>That evening, as the office emptied and the city lights began to twinkle below, Sarah opened the app on her phone. She loaded her favorite book and hit play. The words flowed across the screen in perfect rhythm, highlighting and scrolling exactly as she expected. After building it for so long, she sometimes forgot to just use it.</p>
-            <p>But now, reading with Flow Mode felt like coming home. The technology faded into the background. The interface became invisible. There was only her and the story, moving together through the narrative with effortless grace.</p>
-            <p>This was what they'd created. Not just an app or a product or a company. They'd built a bridge between readers and stories, making the connection smoother, stronger, more profound. And they were just getting started.</p>
         `;
 
         // Initialize core library
@@ -1297,6 +1792,7 @@
         const btnBionic = document.getElementById('btn-bionic');
         const btnFlow = document.getElementById('btn-flow');
         const btnPlay = document.getElementById('btn-play');
+        const btnAutoTheme = document.getElementById('btn-auto-theme');
         const flowControls = document.getElementById('flow-controls');
         const speedSlider = document.getElementById('speed-slider');
         const speedLabel = document.getElementById('speed-label');
@@ -1304,8 +1800,44 @@
         const focusLabel = document.getElementById('focus-label');
         const scrollSlider = document.getElementById('scroll-slider');
         const scrollLabel = document.getElementById('scroll-label');
+        const themeButtons = document.querySelectorAll('.theme-btn');
+        const toolbar = document.querySelector('.demo-toolbar');
 
-        // Wire up buttons to library API
+        // Update toolbar theme
+        function updateToolbarTheme(themeName) {
+            const theme = reader.getTheme();
+            const colors = theme.colors;
+            toolbar.style.background = colors.contentBg;
+            toolbar.style.borderBottom = `1px solid ${colors.border}`;
+            toolbar.style.color = colors.text;
+        }
+
+        // Wire up theme buttons
+        themeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const themeName = btn.dataset.theme;
+                reader.setTheme(themeName);
+                
+                themeButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                btnAutoTheme.classList.remove('active');
+                
+                updateToolbarTheme(themeName);
+            });
+        });
+
+        // Auto theme button
+        btnAutoTheme.addEventListener('click', () => {
+            const isActive = btnAutoTheme.classList.contains('active');
+            reader.setAutoTheme(!isActive);
+            btnAutoTheme.classList.toggle('active');
+            
+            if (!isActive) {
+                themeButtons.forEach(b => b.classList.remove('active'));
+            }
+        });
+
+        // Other UI buttons
         btnBionic.addEventListener('click', () => {
             reader.setBionic(!reader.getState().bionic);
             btnBionic.classList.toggle('active');
@@ -1318,7 +1850,6 @@
             btnFlow.classList.toggle('active', newMode === 'flow');
             flowControls.style.display = newMode === 'flow' ? 'flex' : 'none';
             
-            // Auto-play when entering flow mode
             if (newMode === 'flow') {
                 setTimeout(() => reader.play(), 150);
             }
@@ -1350,22 +1881,34 @@
             btnPlay.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
         });
 
+        reader.on('onThemeChange', (data) => {
+            updateToolbarTheme(data.theme);
+        });
+
+        // Run tests after a short delay
+        setTimeout(() => {
+            const tester = new TestRunner();
+            tester.run();
+        }, 1000);
+
         // Log initialization
         console.log('╔═══════════════════════════════════════╗');
-        console.log('║ EBookReader v' + EBookReader.VERSION + ' - COMFORT ZONE  ║');
+        console.log('║ EBookReader v' + EBookReader.VERSION + ' - MODERN THEMES ║');
         console.log('╚═══════════════════════════════════════╝');
         console.log('');
-        console.log('🎯 COMFORT ZONE SCROLLING:');
-        console.log('   • Word floats freely in zone (15%-70%)');
-        console.log('   • Only scrolls when exiting zone');
-        console.log('   • Browser handles smooth scroll');
-        console.log('   • 90% no scroll = perfectly smooth');
-        console.log('   • 10% gentle corrections');
+        console.log('🎨 THEME SYSTEM:');
+        console.log('   • Light - Clean & modern');
+        console.log('   • Dark - Deep & comfortable');
+        console.log('   • Sepia - Warm & paper-like');
+        console.log('   • Gray - Cool & subtle');
+        console.log('   • Auto - Follows system preference');
         console.log('');
-        console.log('✨ WHY IT\'S SMOOTH:');
-        console.log('   ✓ Less is more - scroll only when needed');
-        console.log('   ✓ Browser\'s native smooth scroll');
-        console.log('   ✓ No micro-corrections or jitter');
+        console.log('✨ ALL UI ELEMENTS THEMED:');
+        console.log('   ✓ Background & content area');
+        console.log('   ✓ Text & bionic emphasis');
+        console.log('   ✓ Drag zones & borders');
+        console.log('   ✓ Focus indicator');
+        console.log('   ✓ Shadows & accents');
     </script>
 </body>
 </html>
