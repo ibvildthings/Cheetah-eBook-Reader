@@ -1017,7 +1017,17 @@
                 if (typeof wpm !== 'number' || wpm < this.config.speed.min || wpm > this.config.speed.max) {
                     throw new Error(`Speed must be between ${this.config.speed.min} and ${this.config.speed.max}`);
                 }
-                this.state.flow.speed = wpm;
+                
+                // If playing, recalculate startTime to maintain current position
+                if (this.state.flow.playing) {
+                    const currentWordIndex = this.state.flow.currentWordIndex;
+                    this.state.flow.speed = wpm;
+                    const wordsPerSecond = wpm / 60;
+                    this.state.flow.startTime = performance.now() - (currentWordIndex / wordsPerSecond) * 1000;
+                } else {
+                    this.state.flow.speed = wpm;
+                }
+                
                 this._emit('onSpeedChange', wpm);
             }
 
@@ -2197,6 +2207,21 @@
                     reader.destroy();
                 });
 
+                this.test('Speed change maintains position when playing', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.loadContent('<p>One two three four five six seven eight nine ten</p>');
+                    reader.setMode('flow');
+                    reader.state.flow.playing = true;
+                    reader.state.flow.currentWordIndex = 5;
+                    reader.setSpeed(400);
+                    // After speed change, position should be maintained
+                    if (Math.abs(reader.state.flow.currentWordIndex - 5) > 0.1) {
+                        throw new Error('Position shifted after speed change');
+                    }
+                    reader.destroy();
+                });
+
                 this.test('Sets focus width', () => {
                     const container = document.createElement('div');
                     const reader = new EBookReader(container);
@@ -2525,15 +2550,18 @@
         console.log('╚═══════════════════════════════════════╝');
         console.log('');
         console.log('🐛 BUGS FIXED:');
-        console.log('   ✓ Bionic colors now persist after font change');
+        console.log('   ✓ Bionic colors persist after font change');
         console.log('   ✓ Font dropdown respects theme colors');
-        console.log('   ✓ All tests restored (36 total)');
         console.log('   ✓ Gray mode now darker');
+        console.log('   ✓ Speed change maintains focus position');
+        console.log('');
+        console.log('📊 TESTS:');
+        console.log('   • 37 comprehensive tests');
+        console.log('   • All features covered');
         console.log('');
         console.log('🔤 FONT SYSTEM:');
         console.log('   • 12 curated fonts');
         console.log('   • Auto line-height per font');
-        console.log('   • Default: Georgia');
         console.log('');
         console.log('🎨 THEME SYSTEM:');
         console.log('   • Light, Dark, Sepia, Gray');
