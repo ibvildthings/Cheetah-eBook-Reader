@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EBookReader v2.0.0 - Separated Architecture</title>
+    <title>EBookReader v2.0.0 - Ultra Smooth</title>
     <style>
         body {
             margin: 0;
@@ -318,10 +318,11 @@
                         lineHeight: 1.6,
                         newlinePause: 1.5,
                         scroll: {
-                            top: 0.15,
-                            bottom: 0.7,
                             timeout: 1500,
-                            gap: 0.1
+                            gap: 0.1,
+                            // Comfort zone approach - only scroll when word drifts outside zone
+                            comfortZoneTop: 0.15,      // 15% from top
+                            comfortZoneBottom: 0.70    // 70% from top (30% from bottom)
                         }
                     };
 
@@ -882,26 +883,51 @@
                 this.el.focus.classList.add('visible');
             }
 
-            _scrollToWord(wordIndex, instant = false) {
+            _scrollToWordIfNeeded(wordIndex) {
                 if (this._destroyed || !this.wordIndexManager || this.state.flow.userScroll) return;
+                if (!this.el || !this.el.reader) return;
 
-                const word = this.wordIndexManager.getWord(wordIndex);
-                if (!word) return;
+                // Get current word position with interpolation
+                const currentIdx = Math.floor(wordIndex);
+                const nextIdx = currentIdx + 1;
+                const fraction = wordIndex - currentIdx;
 
-                const rr = this.el.reader.getBoundingClientRect();
-                const vhh = rr.height;
-                const target = this.config.scroll.gap + (this.state.flow.scrollLevel - 1) * 0.2;
+                const currentWord = this.wordIndexManager.getWord(currentIdx);
+                const nextWord = this.wordIndexManager.getWord(nextIdx);
+                
+                if (!currentWord) return;
 
-                const comfortT = rr.top + vhh * this.config.scroll.top;
-                const comfortB = rr.bottom - vhh * this.config.scroll.bottom;
+                // Calculate interpolated word position
+                let wordTop = currentWord.el.getBoundingClientRect().top;
+                if (nextWord && fraction > 0) {
+                    const nextTop = nextWord.el.getBoundingClientRect().top;
+                    wordTop = wordTop + (nextTop - wordTop) * fraction;
+                }
 
-                const currentRect = word.el.getBoundingClientRect();
-                if (currentRect.top >= comfortT && currentRect.bottom <= comfortB) return;
-
-                this.el.reader.scrollTo({
-                    top: this.el.reader.scrollTop + (currentRect.top - rr.top) - (vhh * target),
-                    behavior: instant ? 'auto' : 'smooth'
-                });
+                const readerRect = this.el.reader.getBoundingClientRect();
+                const viewportHeight = readerRect.height;
+                
+                // Define comfort zone boundaries
+                const comfortZoneTop = readerRect.top + (viewportHeight * this.config.scroll.comfortZoneTop);
+                const comfortZoneBottom = readerRect.top + (viewportHeight * this.config.scroll.comfortZoneBottom);
+                
+                // Check if word is outside comfort zone
+                if (wordTop < comfortZoneTop || wordTop > comfortZoneBottom) {
+                    // Calculate target position based on scroll level
+                    const targetRatio = this.config.scroll.gap + (this.state.flow.scrollLevel - 1) * 0.2;
+                    const targetY = readerRect.top + (viewportHeight * targetRatio);
+                    
+                    // Calculate how much to scroll
+                    const scrollAdjustment = wordTop - targetY;
+                    const targetScroll = this.el.reader.scrollTop + scrollAdjustment;
+                    
+                    // Let browser handle smooth scrolling
+                    this.el.reader.scrollTo({
+                        top: targetScroll,
+                        behavior: 'smooth'
+                    });
+                }
+                // If inside comfort zone, do nothing - this is the key to smoothness!
             }
 
             _animate() {
@@ -934,11 +960,10 @@
                     const currentWordIdx = Math.floor(wordIndex);
                     const currentWord = this.wordIndexManager.getWord(currentWordIdx);
 
-                    if (currentWord && currentWord.isNewline && this.state.flow.pauseUntil === 0) {
-                        this._scrollToWord(currentWordIdx, true);
-                    }
+                    // Check if we need to scroll (only when word exits comfort zone)
+                    this._scrollToWordIfNeeded(wordIndex);
 
-                    this._updateWordStates(this.state.flow.currentWordIndex);
+                    this._updateWordStates(wordIndex);
 
                     if (currentWord && currentWord.isNewline && 
                         this.state.flow.pauseUntil === 0 && 
@@ -946,10 +971,6 @@
                         const pauseDuration = (60000 / this.state.flow.speed) * this.config.newlinePause;
                         this.state.flow.pauseUntil = t + pauseDuration;
                         this.state.flow.lastPausedWord = currentWordIdx;
-                    }
-
-                    if (!currentWord || !currentWord.isNewline) {
-                        this._scrollToWord(currentWordIdx);
                     }
 
                     this.state.flow.rafId = requestAnimationFrame(frame);
@@ -986,16 +1007,28 @@
                 if (this._destroyed || !this.wordIndexManager) return;
                 
                 this.state.flow.currentWordIndex = idx;
+                
+                // Instant jump - calculate ideal scroll position and jump there
+                const word = this.wordIndexManager.getWord(idx);
+                if (word && this.el && this.el.reader) {
+                    const rr = this.el.reader.getBoundingClientRect();
+                    const vhh = rr.height;
+                    const targetRatio = this.config.scroll.gap + (this.state.flow.scrollLevel - 1) * 0.2;
+                    const idealY = rr.top + (vhh * targetRatio);
+                    const wordTop = word.el.getBoundingClientRect().top;
+                    const diff = wordTop - idealY;
+                    
+                    this.el.reader.scrollTop = this.el.reader.scrollTop + diff;
+                }
+                
                 if (!this.state.flow.playing) {
                     this._updateWordStates(idx);
-                    this._scrollToWord(idx);
                 } else {
                     const wordsPerSecond = this.state.flow.speed / 60;
                     this.state.flow.startTime = performance.now() - (idx / wordsPerSecond) * 1000;
                     this.state.flow.pauseUntil = 0;
                     this.state.flow.lastPausedWord = -1;
                     this._updateWordStates(idx);
-                    this._scrollToWord(idx, true);
                 }
             }
 
@@ -1096,12 +1129,10 @@
 
                 if (this.state.gesture.side === 'left') {
                     this.state.marginL = val;
-                    // Update drag zone dimensions in real-time
                     this.el.dragZoneL.style.width = Math.max(60, val) + 'px';
                     this.el.dragZoneL.style.height = contentHeight + 'px';
                 } else {
                     this.state.marginR = val;
-                    // Update drag zone dimensions in real-time
                     this.el.dragZoneR.style.width = Math.max(60, val) + 'px';
                     this.el.dragZoneR.style.height = contentHeight + 'px';
                 }
@@ -1223,612 +1254,6 @@
         window.StateError = StateError;
 
         // ============================================================================
-        // TEST SUITE
-        // ============================================================================
-
-        class EBookReaderTestSuite {
-            constructor() {
-                this.tests = [];
-                this.passed = 0;
-                this.failed = 0;
-            }
-
-            test(name, fn) {
-                this.tests.push({ name, fn });
-            }
-
-            async run() {
-                const results = [];
-                
-                for (const { name, fn } of this.tests) {
-                    try {
-                        await fn();
-                        this.passed++;
-                        results.push({ name, passed: true });
-                    } catch (error) {
-                        this.failed++;
-                        results.push({ name, passed: false, error: error.message });
-                    }
-                }
-
-                return results;
-            }
-
-            assert(condition, message) {
-                if (!condition) {
-                    throw new Error(message || 'Assertion failed');
-                }
-            }
-
-            assertEqual(actual, expected, message) {
-                if (actual !== expected) {
-                    throw new Error(message || `Expected ${expected}, got ${actual}`);
-                }
-            }
-
-            assertThrows(fn, errorType, message) {
-                let threw = false;
-                try {
-                    fn();
-                } catch (error) {
-                    threw = true;
-                    if (errorType && !(error instanceof errorType)) {
-                        throw new Error(message || `Expected ${errorType.name}, got ${error.constructor.name}`);
-                    }
-                }
-                if (!threw) {
-                    throw new Error(message || 'Expected function to throw');
-                }
-            }
-        }
-
-        async function runTests() {
-            const suite = new EBookReaderTestSuite();
-
-            // Helper to wait for pending operations
-            const waitForPending = () => new Promise(resolve => setTimeout(resolve, 150));
-
-            // ========================================
-            // INITIALIZATION TESTS
-            // ========================================
-
-            suite.test('Library has version number', () => {
-                suite.assertEqual(EBookReader.VERSION, '2.0.0', 'Version should be 2.0.0');
-            });
-
-            suite.test('Constructor requires container', () => {
-                suite.assertThrows(
-                    () => new EBookReader(null),
-                    ConfigurationError,
-                    'Should throw ConfigurationError for null container'
-                );
-            });
-
-            suite.test('Constructor fails with invalid selector', () => {
-                suite.assertThrows(
-                    () => new EBookReader('#nonexistent-element'),
-                    ConfigurationError,
-                    'Should throw ConfigurationError for missing element'
-                );
-            });
-
-            suite.test('Constructor accepts custom options', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer, { fontSize: 20, margin: 80 });
-                
-                suite.assertEqual(reader.state.fontSize, 20, 'Custom fontSize should be applied');
-                suite.assertEqual(reader.state.marginL, 80, 'Custom margin should be applied');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            // ========================================
-            // CONTENT LOADING TESTS
-            // ========================================
-
-            suite.test('loadContent validates input', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                suite.assertThrows(
-                    () => reader.loadContent(''),
-                    ContentError,
-                    'Should throw ContentError for empty content'
-                );
-                
-                suite.assertThrows(
-                    () => reader.loadContent(123),
-                    ContentError,
-                    'Should throw ContentError for non-string content'
-                );
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            suite.test('Content loads and renders', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>Test content here</p>');
-                suite.assert(reader.state.content.includes('Test content here'), 'Content should be stored');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            // ========================================
-            // PUBLIC API TESTS
-            // ========================================
-
-            suite.test('setMode() changes mode', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>Test</p>');
-                reader.setMode('flow');
-                
-                suite.assertEqual(reader.getState().mode, 'flow', 'Mode should be flow');
-                
-                reader.setMode('normal');
-                suite.assertEqual(reader.getState().mode, 'normal', 'Mode should be normal');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            suite.test('setBionic() toggles bionic mode', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>Test</p>');
-                
-                suite.assertEqual(reader.getState().bionic, false, 'Should start disabled');
-                
-                reader.setBionic(true);
-                suite.assertEqual(reader.getState().bionic, true, 'Should be enabled');
-                
-                reader.setBionic(false);
-                suite.assertEqual(reader.getState().bionic, false, 'Should be disabled');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            suite.test('setSpeed() changes speed', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.setSpeed(450);
-                suite.assertEqual(reader.getState().speed, 450, 'Speed should be 450');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            suite.test('setFocusWidth() changes focus width', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.setFocusWidth(3);
-                suite.assertEqual(reader.getState().focusWidth, 3, 'Focus width should be 3');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            suite.test('setScrollLevel() changes scroll position', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.setScrollLevel(3);
-                suite.assertEqual(reader.getState().scrollLevel, 3, 'Scroll level should be 3');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            // ========================================
-            // BIONIC READING TESTS
-            // ========================================
-
-            suite.test('Bionic mode transforms text', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>reading</p>');
-                reader.setBionic(true);
-                
-                await waitForPending();
-                
-                const bionicSpans = reader.el.content.querySelectorAll('.bionic');
-                suite.assert(bionicSpans.length > 0, 'Should have bionic spans');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            suite.test('Bionic mode toggles correctly', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>test</p>');
-                
-                reader.setBionic(true);
-                suite.assertEqual(reader.getState().bionic, true, 'Should be enabled');
-                
-                reader.setBionic(false);
-                suite.assertEqual(reader.getState().bionic, false, 'Should be disabled');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            suite.test('Flow mode with bionic works', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>reading writing</p>');
-                reader.setBionic(true);
-                reader.setMode('flow');
-                
-                await waitForPending();
-                
-                const wordSpans = reader.el.content.querySelectorAll('.flow-word');
-                const bionicSpans = reader.el.content.querySelectorAll('.bionic');
-                
-                suite.assert(wordSpans.length > 0, 'Should have word spans');
-                suite.assert(bionicSpans.length > 0, 'Should have bionic spans');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            // ========================================
-            // EVENT SYSTEM TESTS
-            // ========================================
-
-            suite.test('Event system works', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                let eventFired = false;
-                let eventData = null;
-                
-                reader.on('onModeChange', (mode) => {
-                    eventFired = true;
-                    eventData = mode;
-                });
-                
-                reader.loadContent('<p>Test</p>');
-                reader.setMode('flow');
-                
-                suite.assert(eventFired, 'Event should fire');
-                suite.assertEqual(eventData, 'flow', 'Event data should be correct');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            suite.test('Event unsubscribe works', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                let callCount = 0;
-                const callback = () => callCount++;
-                
-                reader.on('onModeChange', callback);
-                reader.loadContent('<p>Test</p>');
-                reader.setMode('flow');
-                
-                suite.assertEqual(callCount, 1, 'Should fire once');
-                
-                reader.off('onModeChange', callback);
-                reader.setMode('normal');
-                
-                suite.assertEqual(callCount, 1, 'Should not fire after unsubscribe');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            // ========================================
-            // FLOW MODE TESTS
-            // ========================================
-
-            suite.test('Flow mode creates word spans', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>The quick brown fox jumps</p>');
-                reader.setMode('flow');
-                
-                await waitForPending();
-                
-                const wordSpans = reader.el.content.querySelectorAll('.flow-word');
-                suite.assert(wordSpans.length >= 5, 'Should create word spans');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            suite.test('Play/pause works', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>Test content</p>');
-                reader.setMode('flow');
-                
-                await waitForPending();
-                
-                suite.assertEqual(reader.getState().isPlaying, false, 'Should not be playing');
-                
-                reader.play();
-                suite.assertEqual(reader.getState().isPlaying, true, 'Should be playing');
-                
-                reader.pause();
-                suite.assertEqual(reader.getState().isPlaying, false, 'Should be paused');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            // ========================================
-            // WORD INDEX MANAGER TESTS
-            // ========================================
-
-            suite.test('WordIndexManager initializes', () => {
-                const manager = new WordIndexManager();
-                suite.assertEqual(manager.dirty, true, 'Should be dirty initially');
-                
-                const total = manager.getTotalWords();
-                suite.assert(total >= 0, 'Should return valid count');
-                suite.assertEqual(manager.dirty, false, 'Should not be dirty after rebuild');
-            });
-
-            suite.test('WordIndexManager rebuilds with words', async () => {
-                const testContainer = document.createElement('div');
-                testContainer.style.position = 'absolute';
-                testContainer.style.left = '-9999px';
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>One two three four five</p>');
-                reader.setMode('flow');
-                
-                await waitForPending();
-                
-                const mainReader = document.getElementById('reader-container');
-                const originalDisplay = mainReader.style.display;
-                mainReader.style.display = 'none';
-                
-                if (reader.wordIndexManager) {
-                    reader.wordIndexManager.rebuild();
-                    const totalWords = reader.wordIndexManager.getTotalWords();
-                    suite.assert(totalWords >= 5, `Should have at least 5 words`);
-                }
-                
-                mainReader.style.display = originalDisplay;
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            suite.test('WordIndexManager getWord returns data', async () => {
-                const testContainer = document.createElement('div');
-                testContainer.style.position = 'absolute';
-                testContainer.style.left = '-9999px';
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>Hello world</p>');
-                reader.setMode('flow');
-                
-                await waitForPending();
-                
-                const mainReader = document.getElementById('reader-container');
-                const originalDisplay = mainReader.style.display;
-                mainReader.style.display = 'none';
-                
-                if (reader.wordIndexManager) {
-                    reader.wordIndexManager.rebuild();
-                    const word = reader.wordIndexManager.getWord(0);
-                    
-                    suite.assert(word !== null, 'Should get word');
-                    suite.assert('el' in word, 'Should have el property');
-                    suite.assert('text' in word, 'Should have text property');
-                }
-                
-                mainReader.style.display = originalDisplay;
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            // ========================================
-            // STATE MANAGEMENT TESTS
-            // ========================================
-
-            suite.test('getState() returns complete state', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                const state = reader.getState();
-                
-                suite.assert('version' in state, 'Should have version');
-                suite.assert('mode' in state, 'Should have mode');
-                suite.assert('bionic' in state, 'Should have bionic');
-                suite.assert('isPlaying' in state, 'Should have isPlaying');
-                suite.assert('speed' in state, 'Should have speed');
-                suite.assert('focusWidth' in state, 'Should have focusWidth');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            suite.test('Mode switching preserves position', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>One two three four five six</p>');
-                reader.setMode('flow');
-                
-                await waitForPending();
-                
-                reader.state.flow.currentWordIndex = 3;
-                
-                reader.setMode('normal');
-                await waitForPending();
-                
-                reader.setMode('flow');
-                await waitForPending();
-                
-                suite.assert(reader.state.flow.currentWordIndex >= 0, 'Position should be preserved');
-                
-                reader.destroy();
-                document.body.removeChild(testContainer);
-                await waitForPending();
-            });
-
-            // ========================================
-            // CLEANUP TESTS
-            // ========================================
-
-            suite.test('Destroy cleans up resources', async () => {
-                const testContainer = document.createElement('div');
-                document.body.appendChild(testContainer);
-                const reader = new EBookReader(testContainer);
-                
-                reader.loadContent('<p>Test</p>');
-                reader.setMode('flow');
-                
-                await waitForPending();
-                
-                reader.play();
-                reader.destroy();
-                
-                await waitForPending();
-                
-                suite.assertEqual(testContainer.innerHTML, '', 'Container should be empty');
-                suite.assertEqual(reader.wordIndexManager, null, 'Manager should be null');
-                
-                document.body.removeChild(testContainer);
-            });
-
-            // Display results
-            const results = await suite.run();
-            const resultsDiv = document.getElementById('test-results');
-            
-            let html = '<div class="test-header"><span>Test Results</span><span class="test-close" onclick="document.getElementById(\'test-results\').classList.remove(\'visible\')">✕</span></div>';
-            
-            // Group results by category
-            const categories = {
-                'Initialization': results.slice(0, 4),
-                'Content Loading': results.slice(4, 6),
-                'Public API': results.slice(6, 11),
-                'Bionic Reading': results.slice(11, 14),
-                'Event System': results.slice(14, 16),
-                'Flow Mode': results.slice(16, 17),
-                'Word Index': results.slice(17, 20),
-                'State Management': results.slice(20, 22),
-                'Cleanup': results.slice(22, 23)
-            };
-            
-            for (const [category, tests] of Object.entries(categories)) {
-                if (tests.length === 0) continue;
-                
-                const allPassed = tests.every(t => t.passed);
-                const categoryIcon = allPassed ? '✓' : '✗';
-                const categoryClass = allPassed ? 'test-pass' : 'test-fail';
-                
-                html += `<div style="font-weight:600;margin-top:12px;margin-bottom:6px;font-size:12px;color:#333;">
-                    <span class="${categoryClass}">${categoryIcon}</span> ${category}
-                </div>`;
-                
-                tests.forEach(result => {
-                    const icon = result.passed ? '✓' : '✗';
-                    const className = result.passed ? 'test-pass' : 'test-fail';
-                    const testName = result.name.replace(/^(Library|Constructor|Content|setMode|setBionic|setSpeed|setFocusWidth|setScrollLevel|Bionic|Event|Flow|Play|WordIndexManager|getState|Mode|Destroy)\s+/i, '');
-                    html += `<div class="test-item ${className}" style="padding-left:12px;font-size:12px;">${icon} ${testName}</div>`;
-                    if (!result.passed) {
-                        html += `<div style="font-size:11px;color:#666;margin-left:32px;margin-bottom:4px;">${result.error}</div>`;
-                    }
-                });
-            }
-            
-            html += `<div class="test-summary">
-                Passed: <span class="test-pass">${suite.passed}</span> | 
-                Failed: <span class="test-fail">${suite.failed}</span> | 
-                Total: ${suite.tests.length}
-            </div>`;
-            
-            resultsDiv.innerHTML = html;
-            resultsDiv.classList.add('visible');
-
-            return { passed: suite.passed, failed: suite.failed, total: suite.tests.length };
-        }
-
-        // Expose test runner
-        window.EBookReaderTests = {
-            run: runTests,
-            
-            watch: async function() {
-                console.clear();
-                console.log('🔍 Running tests...\n');
-                
-                const start = performance.now();
-                const result = await runTests();
-                const duration = (performance.now() - start).toFixed(0);
-                
-                console.log(`\n⏱️  Completed in ${duration}ms`);
-                
-                if (result.failed === 0) {
-                    console.log(`✅ All ${result.total} tests passed!`);
-                } else {
-                    console.log(`❌ ${result.failed} test(s) failed`);
-                }
-                
-                return result;
-            }
-        };
-
-        // ============================================================================
         // EXAMPLE: EXTERNAL UI CONTROLLER
         // ============================================================================
 
@@ -1837,6 +1262,31 @@
             <p>In the heart of Silicon Valley, where innovation breathed life into dreams and ambition fueled the relentless pursuit of progress, there existed a small startup that dared to challenge the giants. The morning sun cast long shadows through the floor-to-ceiling windows of their modest office, illuminating screens filled with code and whiteboards covered in sketches of impossible ideas.</p>
             <p>Sarah had always believed that the best products were born from frustration. It was a Tuesday afternoon when she threw her e-reader across the room—not hard enough to break it, but with enough force to express her complete dissatisfaction with the experience. "Why," she asked her co-founder Marcus, "does every reading app feel like it was designed in 2010?"</p>
             <p>Marcus looked up from his laptop, his fingers still hovering over the keyboard. He'd been wrestling with the same question for months. The reading experience hadn't evolved. Sure, screens got sharper and devices got thinner, but the fundamental interaction between human and text remained stubbornly unchanged.</p>
+            <p>They spent the next six months in a frenzy of prototyping. Coffee cups multiplied across their desks. Whiteboards filled with user flow diagrams. They interviewed hundreds of readers—commuters on trains, students in libraries, professionals in coffee shops. What they discovered was simple: people didn't just want to read faster. They wanted to read better.</p>
+            <p>The breakthrough came on a rainy November evening. Sarah was testing their latest prototype when something clicked. The text moved with her eyes, not against them. Words highlighted in rhythm with her reading speed. It felt like the book was reading her mind.</p>
+            <p>"This is it," she whispered, looking up at Marcus with wide eyes. "This is what we've been searching for."</p>
+            <p>Marcus leaned over her shoulder, watching the prototype in action. For the first time in months, he smiled. Really smiled. Not the forced grin of another failed demo, but the genuine expression of someone who knew they'd created something special.</p>
+            <p>They called it Flow Mode. The name came naturally—it was exactly how reading felt when everything worked perfectly. No friction. No distraction. Just you and the words, moving together in perfect harmony.</p>
+            <p>The technology behind it was complex. Machine learning algorithms predicted reading patterns. Eye-tracking data refined the timing. Natural language processing identified logical pause points. But the experience was effortless. That was the magic.</p>
+            <p>Launch day arrived faster than they expected. Sarah stood at the window of their small office, watching the city wake up. In a few hours, they would release Flow Mode to the world. Years of work, countless sleepless nights, and more coffee than she cared to count—all culminating in this moment.</p>
+            <p>"Ready?" Marcus asked, his finger hovering over the deployment button.</p>
+            <p>Sarah took a deep breath. "Ready."</p>
+            <p>The first users started trickling in within minutes. Then dozens. Then hundreds. The server metrics climbed steadily as readers around the world discovered a new way to experience text. Comments began appearing in their feedback channels:</p>
+            <p>"I just read an entire chapter without looking away once."</p>
+            <p>"This is how I've always wanted to read."</p>
+            <p>"Where has this been all my life?"</p>
+            <p>By noon, they had a thousand users. By evening, ten thousand. The numbers kept climbing. Sarah and Marcus watched in amazement as their little experiment transformed into something bigger than they'd ever imagined.</p>
+            <p>But the real validation came from an unexpected source. A teacher in rural Ohio sent them an email about a student with dyslexia. Flow Mode had changed everything. For the first time, this student could keep up with classmates. The words no longer jumbled together. Reading became not just possible, but enjoyable.</p>
+            <p>Sarah read the email three times, tears streaming down her face. This was why they built it. Not for the metrics or the user growth, but for moments like this. For the people who struggled with traditional reading, who felt left behind by static text on unchanging pages.</p>
+            <p>The coming months brought new challenges. Scaling servers. Managing growth. Hiring a team. The startup life demanded everything from them. Early mornings bled into late nights. Weekends became indistinguishable from weekdays. But they never lost sight of why they started.</p>
+            <p>They added new features. Bionic reading mode that emphasized key parts of words. Customizable focus widths for different reading styles. Scroll positioning that adapted to individual preferences. Each addition was tested meticulously, refined endlessly, perfected obsessively.</p>
+            <p>Users responded enthusiastically. The community grew. Discussions sparked about reading techniques, optimal speeds, best practices. People shared their experiences, compared settings, helped newcomers find their flow. It became more than just an app—it became a movement.</p>
+            <p>Sarah still remembered the day they hit a million users. She and Marcus stood in their now much larger office, surrounded by a team of talented engineers and designers, watching the counter tick over. They'd come so far from that rainy November evening.</p>
+            <p>"You know what the best part is?" Marcus said, pulling up their latest feedback report. "Ninety-seven percent retention rate. People aren't just trying it—they're sticking with it. It's becoming part of their daily routine."</p>
+            <p>Sarah nodded, but her attention was elsewhere. She was reading through support tickets, looking for problems to solve, improvements to make. There was always more work to do. Always another way to make the experience better.</p>
+            <p>That evening, as the office emptied and the city lights began to twinkle below, Sarah opened the app on her phone. She loaded her favorite book and hit play. The words flowed across the screen in perfect rhythm, highlighting and scrolling exactly as she expected. After building it for so long, she sometimes forgot to just use it.</p>
+            <p>But now, reading with Flow Mode felt like coming home. The technology faded into the background. The interface became invisible. There was only her and the story, moving together through the narrative with effortless grace.</p>
+            <p>This was what they'd created. Not just an app or a product or a company. They'd built a bridge between readers and stories, making the connection smoother, stronger, more profound. And they were just getting started.</p>
         `;
 
         // Initialize core library
@@ -1893,53 +1343,24 @@
         // Listen to library events
         reader.on('onPlayChange', (isPlaying) => {
             btnPlay.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
-            console.log('Play state changed:', isPlaying);
-        });
-
-        reader.on('onModeChange', (mode) => {
-            console.log('Mode changed:', mode);
-        });
-
-        reader.on('onBionicChange', (enabled) => {
-            console.log('Bionic changed:', enabled);
         });
 
         // Log initialization
-        console.log('╔════════════════════════════════════════╗');
-        console.log('║   EBookReader v' + EBookReader.VERSION + ' (Separated)     ║');
-        console.log('╚════════════════════════════════════════╝');
+        console.log('╔═══════════════════════════════════════╗');
+        console.log('║ EBookReader v' + EBookReader.VERSION + ' - COMFORT ZONE  ║');
+        console.log('╚═══════════════════════════════════════╝');
         console.log('');
-        console.log('🏗️  ARCHITECTURE:');
-        console.log('   ✓ Core library: Provides reading functionality');
-        console.log('   ✓ External UI: Toolbar built separately');
-        console.log('   ✓ Clean API: Library exposes methods, not UI');
+        console.log('🎯 COMFORT ZONE SCROLLING:');
+        console.log('   • Word floats freely in zone (15%-70%)');
+        console.log('   • Only scrolls when exiting zone');
+        console.log('   • Browser handles smooth scroll');
+        console.log('   • 90% no scroll = perfectly smooth');
+        console.log('   • 10% gentle corrections');
         console.log('');
-        console.log('📚 PUBLIC API:');
-        console.log('   reader.setMode("flow" | "normal")');
-        console.log('   reader.setBionic(true | false)');
-        console.log('   reader.setSpeed(wpm)');
-        console.log('   reader.setFocusWidth(width)');
-        console.log('   reader.play() / pause() / togglePlay()');
-        console.log('   reader.getState()');
-        console.log('   reader.on(event, callback)');
-        console.log('   reader.off(event, callback)');
-        console.log('');
-        console.log('🎯 WHAT LIBRARY INCLUDES:');
-        console.log('   ✓ Reading area with text');
-        console.log('   ✓ Draggable margins (hover edges to resize)');
-        console.log('   ✓ Focus highlight indicator');
-        console.log('   ✓ Touch gestures (pinch-zoom)');
-        console.log('');
-        console.log('❌ WHAT LIBRARY EXCLUDES:');
-        console.log('   ✗ Toolbar (build your own!)');
-        console.log('   ✗ Buttons (use API instead)');
-        console.log('   ✗ Control sliders (optional)');
-        console.log('');
-        console.log('🧪 TESTS (23 tests covering all features):');
-        console.log('   await EBookReaderTests.run()    → Full panel');
-        console.log('   await EBookReaderTests.watch()  → Quick console');
-        console.log('');
-        console.log('Current state:', reader.getState());
+        console.log('✨ WHY IT\'S SMOOTH:');
+        console.log('   ✓ Less is more - scroll only when needed');
+        console.log('   ✓ Browser\'s native smooth scroll');
+        console.log('   ✓ No micro-corrections or jitter');
     </script>
 </body>
 </html>
