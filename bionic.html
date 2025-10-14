@@ -1317,6 +1317,11 @@
             reader.setMode(newMode);
             btnFlow.classList.toggle('active', newMode === 'flow');
             flowControls.style.display = newMode === 'flow' ? 'flex' : 'none';
+            
+            // Auto-play when entering flow mode
+            if (newMode === 'flow') {
+                setTimeout(() => reader.play(), 150);
+            }
         });
 
         btnPlay.addEventListener('click', () => {
