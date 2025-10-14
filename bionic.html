@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EBookReader v2.1.0 - Modern Themes</title>
+    <title>EBookReader v2.2.1 - Fixed</title>
     <style>
         body {
             margin: 0;
@@ -70,7 +70,7 @@
             font-weight: 600;
         }
         
-        /* Example UI Styles (NOT part of library) */
+        /* Example UI Styles */
         .demo-toolbar {
             position: fixed;
             top: 0;
@@ -151,6 +151,67 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
+        .font-picker {
+            position: relative;
+        }
+
+        .font-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            margin-top: 8px;
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            min-width: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+            z-index: 400;
+            transition: background 0.3s, border-color 0.3s, color 0.3s;
+        }
+
+        .font-dropdown.visible {
+            display: block;
+        }
+
+        .font-category {
+            padding: 8px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-top: 1px solid #e5e7eb;
+            transition: color 0.3s, border-color 0.3s;
+        }
+
+        .font-category:first-child {
+            border-top: none;
+        }
+
+        .font-option {
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: background 0.15s;
+            font-size: 15px;
+        }
+
+        .font-option:hover {
+            background: #f5f5f5;
+        }
+
+        .font-option.active {
+            background: #eff6ff;
+            color: #3b82f6;
+        }
+
+        .font-option.loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
         #reader-container {
             width: 100vw;
             height: 100vh;
@@ -162,7 +223,7 @@
     <!-- Test Results Panel -->
     <div id="test-results"></div>
     
-    <!-- External UI (NOT part of library) -->
+    <!-- External UI -->
     <div class="demo-toolbar">
         <button class="demo-btn" id="btn-bionic">Bionic Reading</button>
         <button class="demo-btn" id="btn-flow">Flow Mode</button>
@@ -175,6 +236,11 @@
         </div>
         
         <button class="demo-btn" id="btn-auto-theme">🔄 Auto</button>
+        
+        <div class="font-picker">
+            <button class="demo-btn" id="btn-font">Aa Georgia ▼</button>
+            <div class="font-dropdown" id="font-dropdown"></div>
+        </div>
         
         <div class="demo-control" id="flow-controls" style="display:none;">
             <span class="demo-label">Speed:</span>
@@ -193,16 +259,16 @@
         </div>
     </div>
 
-    <!-- Library only needs this container -->
+    <!-- Library container -->
     <div id="reader-container"></div>
 
     <script>
         /**
-         * EBookReader Core Library v2.1.0
-         * Pure reading functionality with modern theming
+         * EBookReader Core Library v2.2.1
+         * Pure reading functionality with modern theming and fonts
          * 
          * @license MIT
-         * @version 2.1.0
+         * @version 2.2.1
          */
 
         // ============================================================================
@@ -237,6 +303,134 @@
             }
         }
 
+        class FontError extends EBookReaderError {
+            constructor(message) {
+                super(message);
+                this.name = 'FontError';
+            }
+        }
+
+        // ============================================================================
+        // FONT REGISTRY
+        // ============================================================================
+
+        const FONTS = {
+            // SERIF
+            georgia: {
+                name: 'Georgia',
+                family: 'Georgia, serif',
+                category: 'serif',
+                lineHeight: 1.7,
+                source: 'system',
+                weights: [400, 700]
+            },
+            merriweather: {
+                name: 'Merriweather',
+                family: "'Merriweather', serif",
+                category: 'serif',
+                lineHeight: 1.8,
+                source: 'google',
+                googleFont: 'Merriweather:wght@400;700',
+                weights: [400, 700]
+            },
+            lora: {
+                name: 'Lora',
+                family: "'Lora', serif",
+                category: 'serif',
+                lineHeight: 1.75,
+                source: 'google',
+                googleFont: 'Lora:wght@400;700',
+                weights: [400, 700]
+            },
+            crimson: {
+                name: 'Crimson Pro',
+                family: "'Crimson Pro', serif",
+                category: 'serif',
+                lineHeight: 1.7,
+                source: 'google',
+                googleFont: 'Crimson+Pro:wght@400;700',
+                weights: [400, 700]
+            },
+            baskerville: {
+                name: 'Libre Baskerville',
+                family: "'Libre Baskerville', serif",
+                category: 'serif',
+                lineHeight: 1.8,
+                source: 'google',
+                googleFont: 'Libre+Baskerville:wght@400;700',
+                weights: [400, 700]
+            },
+            
+            // SANS SERIF
+            inter: {
+                name: 'Inter',
+                family: "'Inter', sans-serif",
+                category: 'sans',
+                lineHeight: 1.6,
+                source: 'google',
+                googleFont: 'Inter:wght@400;700',
+                weights: [400, 700]
+            },
+            opensans: {
+                name: 'Open Sans',
+                family: "'Open Sans', sans-serif",
+                category: 'sans',
+                lineHeight: 1.65,
+                source: 'google',
+                googleFont: 'Open+Sans:wght@400;700',
+                weights: [400, 700]
+            },
+            sourcesans: {
+                name: 'Source Sans 3',
+                family: "'Source Sans 3', sans-serif",
+                category: 'sans',
+                lineHeight: 1.6,
+                source: 'google',
+                googleFont: 'Source+Sans+3:wght@400;700',
+                weights: [400, 700]
+            },
+            nunito: {
+                name: 'Nunito Sans',
+                family: "'Nunito Sans', sans-serif",
+                category: 'sans',
+                lineHeight: 1.65,
+                source: 'google',
+                googleFont: 'Nunito+Sans:wght@400;700',
+                weights: [400, 700]
+            },
+            
+            // MONOSPACE
+            jetbrains: {
+                name: 'JetBrains Mono',
+                family: "'JetBrains Mono', monospace",
+                category: 'mono',
+                lineHeight: 1.7,
+                source: 'google',
+                googleFont: 'JetBrains+Mono:wght@400;700',
+                weights: [400, 700]
+            },
+            fira: {
+                name: 'Fira Mono',
+                family: "'Fira Mono', monospace",
+                category: 'mono',
+                lineHeight: 1.7,
+                source: 'google',
+                googleFont: 'Fira+Mono:wght@400;700',
+                weights: [400, 700]
+            },
+            
+            // SLAB
+            robotoslab: {
+                name: 'Roboto Slab',
+                family: "'Roboto Slab', serif",
+                category: 'slab',
+                lineHeight: 1.7,
+                source: 'google',
+                googleFont: 'Roboto+Slab:wght@400;700',
+                weights: [400, 700]
+            }
+        };
+
         // ============================================================================
         // THEME SYSTEM
         // ============================================================================
@@ -257,7 +451,13 @@
                 dragZoneActive: 'rgba(59, 130, 246, 0.15)',
                 dragZoneActiveBorder: 'rgba(59, 130, 246, 0.4)',
                 focusIndicator: 'rgba(59, 130, 246, 0.12)',
-                bionic: '#000000'
+                bionic: '#000000',
+                // Dropdown specific
+                dropdownBg: '#FFFFFF',
+                dropdownText: '#1A1A1A',
+                dropdownBorder: '#E5E7EB',
+                dropdownHover: '#F5F5F5',
+                dropdownCategoryText: '#666666'
             },
             dark: {
                 name: 'Dark',
@@ -274,7 +474,13 @@
                 dragZoneActive: 'rgba(96, 165, 250, 0.18)',
                 dragZoneActiveBorder: 'rgba(96, 165, 250, 0.5)',
                 focusIndicator: 'rgba(96, 165, 250, 0.15)',
-                bionic: '#FFFFFF'
+                bionic: '#FFFFFF',
+                // Dropdown specific
+                dropdownBg: '#1A1A1A',
+                dropdownText: '#E8E8E8',
+                dropdownBorder: '#2A2A2A',
+                dropdownHover: '#2A2A2A',
+                dropdownCategoryText: '#A0A0A0'
             },
             sepia: {
                 name: 'Sepia',
@@ -291,24 +497,36 @@
                 dragZoneActive: 'rgba(184, 134, 11, 0.15)',
                 dragZoneActiveBorder: 'rgba(184, 134, 11, 0.4)',
                 focusIndicator: 'rgba(184, 134, 11, 0.12)',
-                bionic: '#1A1410'
+                bionic: '#1A1410',
+                // Dropdown specific
+                dropdownBg: '#FBF4E9',
+                dropdownText: '#3D2E1F',
+                dropdownBorder: '#D4C4B0',
+                dropdownHover: '#F0E6D8',
+                dropdownCategoryText: '#5C4B37'
             },
             gray: {
                 name: 'Gray',
-                background: '#E8E8E8',
-                contentBg: '#F5F5F5',
+                background: '#C8C8C8',
+                contentBg: '#E8E8E8',
                 text: '#2C2C2C',
                 textSecondary: '#666666',
                 accent: '#6B7280',
                 accentHover: '#4B5563',
-                border: '#D1D5DB',
-                shadow: 'rgba(0, 0, 0, 0.08)',
+                border: '#B8B8B8',
+                shadow: 'rgba(0, 0, 0, 0.12)',
                 dragZone: 'rgba(107, 114, 128, 0.08)',
                 dragZoneBorder: 'rgba(107, 114, 128, 0.2)',
                 dragZoneActive: 'rgba(107, 114, 128, 0.15)',
                 dragZoneActiveBorder: 'rgba(107, 114, 128, 0.4)',
                 focusIndicator: 'rgba(107, 114, 128, 0.12)',
-                bionic: '#000000'
+                bionic: '#000000',
+                // Dropdown specific
+                dropdownBg: '#E8E8E8',
+                dropdownText: '#2C2C2C',
+                dropdownBorder: '#B8B8B8',
+                dropdownHover: '#D8D8D8',
+                dropdownCategoryText: '#666666'
             }
         };
 
@@ -416,11 +634,109 @@
         }
 
         // ============================================================================
-        // CORE EBOOK READER (NO UI)
+        // FONT LOADER
+        // ============================================================================
+
+        class FontLoader {
+            constructor() {
+                this.loadedFonts = new Set();
+                this.loadingFonts = new Map();
+                this.fontTimeouts = new Map();
+            }
+
+            async loadFont(fontKey) {
+                const font = FONTS[fontKey];
+                
+                if (!font) {
+                    throw new FontError(`Font not found: ${fontKey}`);
+                }
+
+                if (font.source === 'system') {
+                    this.loadedFonts.add(fontKey);
+                    return true;
+                }
+
+                if (this.loadedFonts.has(fontKey)) {
+                    return true;
+                }
+
+                if (this.loadingFonts.has(fontKey)) {
+                    return this.loadingFonts.get(fontKey);
+                }
+
+                const loadPromise = this._loadGoogleFont(fontKey, font);
+                this.loadingFonts.set(fontKey, loadPromise);
+
+                try {
+                    await loadPromise;
+                    this.loadedFonts.add(fontKey);
+                    this.loadingFonts.delete(fontKey);
+                    return true;
+                } catch (error) {
+                    this.loadingFonts.delete(fontKey);
+                    throw new FontError(`Failed to load font ${font.name}: ${error.message}`);
+                }
+            }
+
+            async _loadGoogleFont(fontKey, font) {
+                return new Promise((resolve, reject) => {
+                    const existingLink = document.querySelector(`link[data-font="${fontKey}"]`);
+                    if (existingLink) {
+                        resolve();
+                        return;
+                    }
+
+                    const link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = `https://fonts.googleapis.com/css2?family=${font.googleFont}&display=swap`;
+                    link.setAttribute('data-font', fontKey);
+
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Font load timeout'));
+                    }, 5000);
+
+                    this.fontTimeouts.set(fontKey, timeout);
+
+                    link.onload = async () => {
+                        try {
+                            await document.fonts.ready;
+                            await new Promise(r => setTimeout(r, 100));
+                            
+                            clearTimeout(timeout);
+                            this.fontTimeouts.delete(fontKey);
+                            resolve();
+                        } catch (error) {
+                            clearTimeout(timeout);
+                            this.fontTimeouts.delete(fontKey);
+                            reject(error);
+                        }
+                    };
+
+                    link.onerror = () => {
+                        clearTimeout(timeout);
+                        this.fontTimeouts.delete(fontKey);
+                        reject(new Error('Failed to load font stylesheet'));
+                    };
+
+                    document.head.appendChild(link);
+                });
+            }
+
+            isLoaded(fontKey) {
+                return this.loadedFonts.has(fontKey);
+            }
+
+            isLoading(fontKey) {
+                return this.loadingFonts.has(fontKey);
+            }
+        }
+
+        // ============================================================================
+        // CORE EBOOK READER
         // ============================================================================
 
         class EBookReader {
-            static VERSION = '2.1.0';
+            static VERSION = '2.2.1';
 
             constructor(containerSelector, options = {}) {
                 try {
@@ -430,7 +746,6 @@
                         fontSize: { min: 12, default: 18, max: 48 },
                         margin: { min: 10, default: 60, max: 400 },
                         speed: { min: 100, default: 300, max: 600 },
-                        lineHeight: 1.6,
                         newlinePause: 1.5,
                         scroll: {
                             timeout: 1500,
@@ -442,7 +757,9 @@
 
                     this.state = {
                         fontSize: this._validateOption(options.fontSize, this.config.fontSize, 'fontSize'),
-                        lineHeight: this.config.lineHeight,
+                        font: 'georgia',
+                        lineHeight: FONTS.georgia.lineHeight,
+                        fontLoading: false,
                         marginL: this._validateOption(options.margin, this.config.margin, 'margin'),
                         marginR: this._validateOption(options.margin, this.config.margin, 'margin'),
                         marginTB: 40,
@@ -475,13 +792,15 @@
                         saved: null
                     };
 
-                    // Event callbacks
                     this.callbacks = {
                         onModeChange: [],
                         onBionicChange: [],
                         onPlayChange: [],
                         onSpeedChange: [],
                         onThemeChange: [],
+                        onFontChange: [],
+                        onFontLoading: [],
+                        onFontLoaded: [],
                         onStateChange: []
                     };
 
@@ -496,9 +815,9 @@
                     }
 
                     this.wordIndexManager = new WordIndexManager();
+                    this.fontLoader = new FontLoader();
                     this._destroyed = false;
                     
-                    // Bind event handlers
                     this._resizeHandler = () => this.updateStyles();
                     this._scrollHandler = () => this._handleScroll();
                     this._systemThemeHandler = (e) => this._handleSystemThemeChange(e);
@@ -507,7 +826,6 @@
                     this._buildDOM();
                     this._attachEventListeners();
                     
-                    // Setup auto theme listener
                     this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
                     this.mediaQuery.addEventListener('change', this._systemThemeHandler);
                     
@@ -536,7 +854,101 @@
             }
 
             // ========================================
-            // PUBLIC API
+            // PUBLIC API - FONT METHODS
+            // ========================================
+
+            async setFont(fontKey) {
+                if (!FONTS[fontKey]) {
+                    throw new FontError(`Invalid font: ${fontKey}. Valid fonts: ${Object.keys(FONTS).join(', ')}`);
+                }
+
+                const font = FONTS[fontKey];
+                
+                try {
+                    this.state.fontLoading = true;
+                    this._emit('onFontLoading', fontKey);
+
+                    await this.fontLoader.loadFont(fontKey);
+
+                    this.state.font = fontKey;
+                    this.state.lineHeight = font.lineHeight;
+                    this.state.fontLoading = false;
+
+                    this.updateStyles();
+                    
+                    // CRITICAL FIX: Reapply theme after font change to fix bionic colors
+                    const currentTheme = this.state.autoTheme 
+                        ? (this.mediaQuery.matches ? 'dark' : 'light')
+                        : this.state.theme;
+                    this._applyTheme(currentTheme);
+
+                    this._emit('onFontLoaded', fontKey);
+                    this._emit('onFontChange', this.getFont());
+
+                    if (this.state.mode === 'flow' && this.wordIndexManager) {
+                        this.wordIndexManager.invalidate();
+                        setTimeout(() => {
+                            if (!this._destroyed && this.wordIndexManager) {
+                                this._updateWordStates(this.state.flow.currentWordIndex);
+                            }
+                        }, 150);
+                    }
+                } catch (error) {
+                    this.state.fontLoading = false;
+                    
+                    if (fontKey !== 'georgia') {
+                        console.warn(`Font load failed, falling back to Georgia: ${error.message}`);
+                        await this.setFont('georgia');
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+
+            getFont() {
+                const fontKey = this.state.font;
+                const font = FONTS[fontKey];
+                return {
+                    key: fontKey,
+                    name: font.name,
+                    family: font.family,
+                    category: font.category,
+                    lineHeight: font.lineHeight,
+                    source: font.source,
+                    loaded: this.fontLoader.isLoaded(fontKey),
+                    loading: this.state.fontLoading
+                };
+            }
+
+            getFonts() {
+                return Object.keys(FONTS).map(key => ({
+                    key,
+                    ...FONTS[key],
+                    loaded: this.fontLoader.isLoaded(key),
+                    loading: this.fontLoader.isLoading(key)
+                }));
+            }
+
+            getAvailableFonts() {
+                const fonts = this.getFonts();
+                const grouped = {
+                    serif: [],
+                    sans: [],
+                    mono: [],
+                    slab: []
+                };
+
+                fonts.forEach(font => {
+                    if (grouped[font.category]) {
+                        grouped[font.category].push(font);
+                    }
+                });
+
+                return grouped;
+            }
+
+            // ========================================
+            // PUBLIC API - OTHER METHODS
             // ========================================
 
             loadContent(html) {
@@ -656,6 +1068,7 @@
                     mode: this.state.mode,
                     bionic: this.state.bionic,
                     theme: this.getTheme(),
+                    font: this.getFont(),
                     fontSize: this.state.fontSize,
                     isPlaying: this.state.flow.playing,
                     currentWordIndex: this.state.flow.currentWordIndex,
@@ -697,6 +1110,7 @@
                     
                     this._destroyed = true;
                     this.wordIndexManager = null;
+                    this.fontLoader = null;
                 } catch (error) {
                     throw new StateError(`Failed to destroy reader: ${error.message}`);
                 }
@@ -762,13 +1176,12 @@
                     content.style.color = theme.text;
                 }
                 
-                // Update bionic color
+                // Apply bionic color
                 const bionicElements = content ? content.querySelectorAll('.bionic') : [];
                 bionicElements.forEach(el => {
                     el.style.color = theme.bionic;
                 });
                 
-                // Update CSS custom properties for dynamic styling
                 if (this.container) {
                     this.container.style.setProperty('--theme-accent', theme.accent);
                     this.container.style.setProperty('--theme-drag-zone', theme.dragZone);
@@ -830,7 +1243,7 @@
                         border-color: var(--theme-drag-zone-active-border, rgba(59, 130, 246, 0.4));
                     }
                     .ebook-text-content {
-                        transition: padding .1s ease-out, opacity .2s ease-in-out, color .3s ease;
+                        transition: padding .1s ease-out, opacity .2s ease-in-out, color .3s ease, font-family .2s ease;
                         position: relative;
                         min-height: 100%;
                     }
@@ -916,12 +1329,15 @@
             updateStyles() {
                 if (this._destroyed || !this.el || !this.el.content) return;
                 
+                const font = FONTS[this.state.font];
+                
                 this.el.content.style.cssText = `
+                    font-family: ${font.family};
                     font-size: ${this.state.fontSize}px;
                     line-height: ${this.state.lineHeight};
                     padding: ${this.state.marginTB}px ${this.state.marginR}px ${this.state.marginTB}px ${this.state.marginL}px;
                     color: inherit;
-                    transition: padding .1s ease-out, opacity .2s ease-in-out, color .3s ease;
+                    transition: padding .1s ease-out, opacity .2s ease-in-out, color .3s ease, font-family .2s ease;
                 `;
 
                 const leftWidth = Math.max(60, this.state.marginL);
@@ -975,7 +1391,6 @@
                             this.el.dragZoneR.style.height = contentHeight + 'px';
                         }
                         
-                        // Reapply theme to new content
                         const currentTheme = this.state.autoTheme 
                             ? (this.mediaQuery.matches ? 'dark' : 'light')
                             : this.state.theme;
@@ -1452,6 +1867,7 @@
         window.ConfigurationError = ConfigurationError;
         window.ContentError = ContentError;
         window.StateError = StateError;
+        window.FontError = FontError;
 
         // ============================================================================
         // AUTOMATED TEST SUITE
@@ -1460,7 +1876,6 @@
         class TestRunner {
             constructor() {
                 this.results = [];
-                this.testContainer = null;
             }
 
             async run() {
@@ -1469,6 +1884,7 @@
                 await this.testInitialization();
                 await this.testThemeSystem();
                 await this.testAutoTheme();
+                await this.testFontSystem();
                 await this.testModeChanges();
                 await this.testBionicMode();
                 await this.testFlowMode();
@@ -1515,6 +1931,14 @@
                     } catch (e) {
                         if (!(e instanceof ConfigurationError)) throw e;
                     }
+                });
+
+                this.test('Default font is Georgia', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    const font = reader.getFont();
+                    if (font.key !== 'georgia') throw new Error('Default font not Georgia');
+                    reader.destroy();
                 });
             }
 
@@ -1613,6 +2037,81 @@
                 });
             }
 
+            async testFontSystem() {
+                console.log('\n🔤 Testing Font System...');
+                
+                this.test('Gets all fonts', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    const fonts = reader.getFonts();
+                    if (fonts.length !== 12) throw new Error('Should have 12 fonts');
+                    reader.destroy();
+                });
+
+                this.test('Gets grouped fonts', () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    const grouped = reader.getAvailableFonts();
+                    if (!grouped.serif || !grouped.sans || !grouped.mono || !grouped.slab) {
+                        throw new Error('Missing font categories');
+                    }
+                    reader.destroy();
+                });
+
+                this.test('System font loads instantly', async () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    await reader.setFont('georgia');
+                    const font = reader.getFont();
+                    if (font.key !== 'georgia' || !font.loaded) {
+                        throw new Error('Georgia not loaded');
+                    }
+                    reader.destroy();
+                });
+
+                this.test('Font change adjusts line height', async () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    await reader.setFont('georgia');
+                    const lh1 = reader.state.lineHeight;
+                    await reader.setFont('inter');
+                    const lh2 = reader.state.lineHeight;
+                    if (lh1 === lh2) throw new Error('Line height should differ');
+                    reader.destroy();
+                });
+
+                this.test('Rejects invalid font', async () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    try {
+                        await reader.setFont('invalid');
+                        throw new Error('Should have thrown error');
+                    } catch (e) {
+                        if (!(e instanceof FontError)) throw e;
+                    }
+                    reader.destroy();
+                });
+
+                this.test('Font events fire', async () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    let loadingFired = false;
+                    let loadedFired = false;
+                    let changeFired = false;
+                    
+                    reader.on('onFontLoading', () => { loadingFired = true; });
+                    reader.on('onFontLoaded', () => { loadedFired = true; });
+                    reader.on('onFontChange', () => { changeFired = true; });
+                    
+                    await reader.setFont('georgia');
+                    
+                    if (!loadingFired || !loadedFired || !changeFired) {
+                        throw new Error('Font events not fired');
+                    }
+                    reader.destroy();
+                });
+            }
+
             async testModeChanges() {
                 console.log('\n🔀 Testing Mode Changes...');
                 
@@ -1633,6 +2132,30 @@
                     reader.setMode('flow');
                     const theme = reader.getTheme();
                     if (theme.current !== 'sepia') throw new Error('Theme not persisted');
+                    reader.destroy();
+                });
+
+                this.test('Font persists across modes', async () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.loadContent('<p>Test</p>');
+                    await reader.setFont('inter');
+                    reader.setMode('flow');
+                    const font = reader.getFont();
+                    if (font.key !== 'inter') throw new Error('Font not persisted');
+                    reader.destroy();
+                });
+
+                this.test('Theme + Font work together', async () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    reader.loadContent('<p>Test</p>');
+                    reader.setTheme('dark');
+                    await reader.setFont('lora');
+                    const state = reader.getState();
+                    if (state.theme.current !== 'dark' || state.font.key !== 'lora') {
+                        throw new Error('Theme + Font not working');
+                    }
                     reader.destroy();
                 });
             }
@@ -1729,6 +2252,24 @@
                     }
                     reader.destroy();
                 });
+
+                this.test('Fallback on font load failure', async () => {
+                    const container = document.createElement('div');
+                    const reader = new EBookReader(container);
+                    
+                    const originalLoad = reader.fontLoader.loadFont.bind(reader.fontLoader);
+                    reader.fontLoader.loadFont = async (key) => {
+                        if (key !== 'georgia') {
+                            throw new Error('Simulated failure');
+                        }
+                        return originalLoad(key);
+                    };
+                    
+                    await reader.setFont('inter');
+                    const font = reader.getFont();
+                    if (font.key !== 'georgia') throw new Error('Should fallback to Georgia');
+                    reader.destroy();
+                });
             }
 
             displayResults() {
@@ -1743,7 +2284,6 @@
                 console.log(`Success Rate: ${((passed/total)*100).toFixed(1)}%`);
                 console.log('='.repeat(50) + '\n');
 
-                // Display in UI panel
                 const panel = document.getElementById('test-results');
                 if (panel) {
                     panel.innerHTML = `
@@ -1769,7 +2309,7 @@
         }
 
         // ============================================================================
-        // EXAMPLE: EXTERNAL UI CONTROLLER
+        // DEMO UI CONTROLLER
         // ============================================================================
 
         const sampleContent = `
@@ -1784,15 +2324,17 @@
             <p>They called it Flow Mode. The name came naturally—it was exactly how reading felt when everything worked perfectly. No friction. No distraction. Just you and the words, moving together in perfect harmony.</p>
         `;
 
-        // Initialize core library
+        // Initialize
         window.reader = new EBookReader('#reader-container');
         reader.loadContent(sampleContent);
 
-        // Connect external UI to library
+        // UI Elements
         const btnBionic = document.getElementById('btn-bionic');
         const btnFlow = document.getElementById('btn-flow');
         const btnPlay = document.getElementById('btn-play');
         const btnAutoTheme = document.getElementById('btn-auto-theme');
+        const btnFont = document.getElementById('btn-font');
+        const fontDropdown = document.getElementById('font-dropdown');
         const flowControls = document.getElementById('flow-controls');
         const speedSlider = document.getElementById('speed-slider');
         const speedLabel = document.getElementById('speed-label');
@@ -1803,16 +2345,98 @@
         const themeButtons = document.querySelectorAll('.theme-btn');
         const toolbar = document.querySelector('.demo-toolbar');
 
-        // Update toolbar theme
+        // Build font dropdown
+        function buildFontDropdown() {
+            const grouped = reader.getAvailableFonts();
+            const categories = {
+                serif: 'Serif',
+                sans: 'Sans Serif',
+                mono: 'Monospace',
+                slab: 'Slab Serif'
+            };
+
+            let html = '';
+            Object.entries(categories).forEach(([key, label]) => {
+                if (grouped[key].length > 0) {
+                    html += `<div class="font-category">${label}</div>`;
+                    grouped[key].forEach(font => {
+                        const isActive = reader.getFont().key === font.key;
+                        html += `
+                            <div class="font-option ${isActive ? 'active' : ''}" 
+                                 data-font="${font.key}" 
+                                 style="font-family: ${font.family}">
+                                ${font.name}
+                            </div>
+                        `;
+                    });
+                }
+            });
+
+            fontDropdown.innerHTML = html;
+
+            // Add click handlers
+            fontDropdown.querySelectorAll('.font-option').forEach(option => {
+                option.addEventListener('click', async () => {
+                    const fontKey = option.dataset.font;
+                    option.classList.add('loading');
+                    await reader.setFont(fontKey);
+                    option.classList.remove('loading');
+                    fontDropdown.classList.remove('visible');
+                });
+            });
+        }
+
+        buildFontDropdown();
+
+        // Font picker toggle
+        btnFont.addEventListener('click', () => {
+            fontDropdown.classList.toggle('visible');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!btnFont.contains(e.target) && !fontDropdown.contains(e.target)) {
+                fontDropdown.classList.remove('visible');
+            }
+        });
+
+        // Update toolbar and dropdown theme
         function updateToolbarTheme(themeName) {
             const theme = reader.getTheme();
             const colors = theme.colors;
+            
+            // Update toolbar
             toolbar.style.background = colors.contentBg;
             toolbar.style.borderBottom = `1px solid ${colors.border}`;
             toolbar.style.color = colors.text;
+            
+            // Update font dropdown
+            fontDropdown.style.background = colors.dropdownBg;
+            fontDropdown.style.color = colors.dropdownText;
+            fontDropdown.style.borderColor = colors.dropdownBorder;
+            
+            // Update font categories
+            document.querySelectorAll('.font-category').forEach(cat => {
+                cat.style.color = colors.dropdownCategoryText;
+                cat.style.borderColor = colors.dropdownBorder;
+            });
+            
+            // Update font options hover
+            document.querySelectorAll('.font-option').forEach(opt => {
+                opt.onmouseenter = () => {
+                    if (!opt.classList.contains('active')) {
+                        opt.style.background = colors.dropdownHover;
+                    }
+                };
+                opt.onmouseleave = () => {
+                    if (!opt.classList.contains('active')) {
+                        opt.style.background = '';
+                    }
+                };
+            });
         }
 
-        // Wire up theme buttons
+        // Theme buttons
         themeButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 const themeName = btn.dataset.theme;
@@ -1826,7 +2450,6 @@
             });
         });
 
-        // Auto theme button
         btnAutoTheme.addEventListener('click', () => {
             const isActive = btnAutoTheme.classList.contains('active');
             reader.setAutoTheme(!isActive);
@@ -1837,7 +2460,7 @@
             }
         });
 
-        // Other UI buttons
+        // Other buttons
         btnBionic.addEventListener('click', () => {
             reader.setBionic(!reader.getState().bionic);
             btnBionic.classList.toggle('active');
@@ -1876,7 +2499,7 @@
             scrollLabel.textContent = labels[level - 1];
         });
 
-        // Listen to library events
+        // Events
         reader.on('onPlayChange', (isPlaying) => {
             btnPlay.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
         });
@@ -1885,7 +2508,12 @@
             updateToolbarTheme(data.theme);
         });
 
-        // Run tests after a short delay
+        reader.on('onFontChange', (fontData) => {
+            btnFont.textContent = `Aa ${fontData.name} ▼`;
+            buildFontDropdown();
+        });
+
+        // Run tests
         setTimeout(() => {
             const tester = new TestRunner();
             tester.run();
@@ -1893,22 +2521,23 @@
 
         // Log initialization
         console.log('╔═══════════════════════════════════════╗');
-        console.log('║ EBookReader v' + EBookReader.VERSION + ' - MODERN THEMES ║');
+        console.log('║ EBookReader v' + EBookReader.VERSION + ' - FIXED         ║');
         console.log('╚═══════════════════════════════════════╝');
         console.log('');
-        console.log('🎨 THEME SYSTEM:');
-        console.log('   • Light - Clean & modern');
-        console.log('   • Dark - Deep & comfortable');
-        console.log('   • Sepia - Warm & paper-like');
-        console.log('   • Gray - Cool & subtle');
-        console.log('   • Auto - Follows system preference');
+        console.log('🐛 BUGS FIXED:');
+        console.log('   ✓ Bionic colors now persist after font change');
+        console.log('   ✓ Font dropdown respects theme colors');
+        console.log('   ✓ All tests restored (36 total)');
+        console.log('   ✓ Gray mode now darker');
         console.log('');
-        console.log('✨ ALL UI ELEMENTS THEMED:');
-        console.log('   ✓ Background & content area');
-        console.log('   ✓ Text & bionic emphasis');
-        console.log('   ✓ Drag zones & borders');
-        console.log('   ✓ Focus indicator');
-        console.log('   ✓ Shadows & accents');
+        console.log('🔤 FONT SYSTEM:');
+        console.log('   • 12 curated fonts');
+        console.log('   • Auto line-height per font');
+        console.log('   • Default: Georgia');
+        console.log('');
+        console.log('🎨 THEME SYSTEM:');
+        console.log('   • Light, Dark, Sepia, Gray');
+        console.log('   • Auto mode follows system');
     </script>
 </body>
 </html>
