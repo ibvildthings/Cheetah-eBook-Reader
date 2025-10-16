@@ -22,15 +22,69 @@
             height: 100vh;
         }
 
+        #reader-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            transition: margin-right 0.3s ease;
+        }
+
         #sidebar {
             width: 320px;
             background: #1a1a1a;
             color: #e8e8e8;
-            padding: 24px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+            transition: width 0.3s ease;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        #sidebar.collapsed {
+            width: 48px;
+        }
+
+        .sidebar-content {
+            padding: 64px 24px 24px 24px;
+            display: flex;
+            flex-direction: column;
             gap: 24px;
+            opacity: 1;
+            transition: opacity 0.2s ease;
+        }
+
+        #sidebar.collapsed .sidebar-content {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .sidebar-toggle {
+            position: absolute;
+            top: 16px;
+            left: 12px;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            background: transparent;
+            color: #e8e8e8;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            z-index: 10;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+
+        .sidebar-toggle:hover {
+            background: #2a2a2a;
+        }
+
+        #sidebar.collapsed .sidebar-toggle {
+            left: 8px;
         }
 
         .sidebar-section {
@@ -134,12 +188,6 @@
             font-size: 13px;
         }
 
-        #reader-container {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
-        }
-
         .margin-drag-zone {
             position: absolute;
             top: 0;
@@ -172,98 +220,101 @@
 </head>
 <body>
     <div id="app">
-        <div id="sidebar">
-            <div class="sidebar-section">
-                <h3>Reading Mode</h3>
-                <div class="btn-group">
-                    <button id="btn-flow">▶ Start Flow</button>
-                </div>
-                <div class="btn-group">
-                    <button id="btn-bionic">Bionic</button>
-                </div>
-            </div>
-
-            <div class="sidebar-section">
-                <h3>Flow Controls</h3>
-                <div class="control-group">
-                    <label>Speed <span class="control-value" id="speed-value">300 WPM</span></label>
-                    <input type="range" id="speed-slider" min="100" max="600" value="300">
-                </div>
-                <div class="control-group">
-                    <label>Focus Width <span class="control-value" id="focus-value">2</span></label>
-                    <input type="range" id="focus-slider" min="1" max="5" value="2">
-                </div>
-                <div class="control-group">
-                    <label>Scroll Level <span class="control-value" id="scroll-value">1</span></label>
-                    <input type="range" id="scroll-slider" min="1" max="5" value="1">
-                </div>
-            </div>
-
-            <div class="sidebar-section">
-                <h3>Typography</h3>
-                <div class="control-group">
-                    <label>Font Family</label>
-                    <select id="font-select">
-                        <optgroup label="Serif">
-                            <option value="georgia" selected>Georgia</option>
-                            <option value="merriweather">Merriweather</option>
-                            <option value="lora">Lora</option>
-                            <option value="crimson">Crimson Pro</option>
-                            <option value="baskerville">Libre Baskerville</option>
-                        </optgroup>
-                        <optgroup label="Sans Serif">
-                            <option value="inter">Inter</option>
-                            <option value="opensans">Open Sans</option>
-                            <option value="sourcesans">Source Sans 3</option>
-                            <option value="nunito">Nunito Sans</option>
-                        </optgroup>
-                        <optgroup label="Monospace">
-                            <option value="jetbrains">JetBrains Mono</option>
-                            <option value="fira">Fira Mono</option>
-                        </optgroup>
-                        <optgroup label="Slab">
-                            <option value="robotoslab">Roboto Slab</option>
-                        </optgroup>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label>Font Size <span class="control-value" id="fontsize-value">18px</span></label>
-                    <input type="range" id="fontsize-slider" min="12" max="48" value="18">
-                </div>
-            </div>
-
-            <div class="sidebar-section">
-                <h3>Layout</h3>
-                <div class="control-group">
-                    <label>Left Margin <span class="control-value" id="margin-left-value">60px</span></label>
-                    <input type="range" id="margin-left-slider" min="10" max="400" value="60">
-                </div>
-                <div class="control-group">
-                    <label>Right Margin <span class="control-value" id="margin-right-value">60px</span></label>
-                    <input type="range" id="margin-right-slider" min="10" max="400" value="60">
-                </div>
-            </div>
-
-            <div class="sidebar-section">
-                <h3>Theme</h3>
-                <div class="btn-group">
-                    <button id="theme-light" class="active">Light</button>
-                    <button id="theme-dark">Dark</button>
-                </div>
-                <div class="btn-group">
-                    <button id="theme-sepia">Sepia</button>
-                    <button id="theme-gray">Gray</button>
-                </div>
-                <div class="btn-group">
-                    <button id="theme-auto">Auto</button>
-                </div>
-            </div>
-        </div>
-
         <div id="reader-container">
             <div class="margin-drag-zone margin-drag-zone-left" id="drag-left"></div>
             <div class="margin-drag-zone margin-drag-zone-right" id="drag-right"></div>
             <div id="reader"></div>
+        </div>
+
+        <div id="sidebar">
+            <button id="sidebar-toggle" class="sidebar-toggle">☰</button>
+            <div class="sidebar-content">
+                <div class="sidebar-section">
+                    <h3>Reading Mode</h3>
+                    <div class="btn-group">
+                        <button id="btn-flow">▶ Start Flow</button>
+                    </div>
+                    <div class="btn-group">
+                        <button id="btn-bionic">Bionic</button>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Flow Controls</h3>
+                    <div class="control-group">
+                        <label>Speed <span class="control-value" id="speed-value">300 WPM</span></label>
+                        <input type="range" id="speed-slider" min="100" max="600" value="300">
+                    </div>
+                    <div class="control-group">
+                        <label>Focus Width <span class="control-value" id="focus-value">2</span></label>
+                        <input type="range" id="focus-slider" min="1" max="5" value="2">
+                    </div>
+                    <div class="control-group">
+                        <label>Scroll Level <span class="control-value" id="scroll-value">1</span></label>
+                        <input type="range" id="scroll-slider" min="1" max="5" value="1">
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Typography</h3>
+                    <div class="control-group">
+                        <label>Font Family</label>
+                        <select id="font-select">
+                            <optgroup label="Serif">
+                                <option value="georgia" selected>Georgia</option>
+                                <option value="merriweather">Merriweather</option>
+                                <option value="lora">Lora</option>
+                                <option value="crimson">Crimson Pro</option>
+                                <option value="baskerville">Libre Baskerville</option>
+                            </optgroup>
+                            <optgroup label="Sans Serif">
+                                <option value="inter">Inter</option>
+                                <option value="opensans">Open Sans</option>
+                                <option value="sourcesans">Source Sans 3</option>
+                                <option value="nunito">Nunito Sans</option>
+                            </optgroup>
+                            <optgroup label="Monospace">
+                                <option value="jetbrains">JetBrains Mono</option>
+                                <option value="fira">Fira Mono</option>
+                            </optgroup>
+                            <optgroup label="Slab">
+                                <option value="robotoslab">Roboto Slab</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Font Size <span class="control-value" id="fontsize-value">18px</span></label>
+                        <input type="range" id="fontsize-slider" min="12" max="48" value="18">
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Layout</h3>
+                    <div class="control-group">
+                        <label>Left Margin <span class="control-value" id="margin-left-value">60px</span></label>
+                        <input type="range" id="margin-left-slider" min="10" max="400" value="60">
+                    </div>
+                    <div class="control-group">
+                        <label>Right Margin <span class="control-value" id="margin-right-value">60px</span></label>
+                        <input type="range" id="margin-right-slider" min="10" max="400" value="60">
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Theme</h3>
+                    <div class="btn-group">
+                        <button id="theme-light" class="active">Light</button>
+                        <button id="theme-dark">Dark</button>
+                    </div>
+                    <div class="btn-group">
+                        <button id="theme-sepia">Sepia</button>
+                        <button id="theme-gray">Gray</button>
+                    </div>
+                    <div class="btn-group">
+                        <button id="theme-auto">Auto</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -282,6 +333,14 @@
         const reader = new EBookReader('#reader');
         reader.loadContent(sampleText);
 
+        // Sidebar toggle functionality
+        const sidebar = document.getElementById('sidebar');
+        const toggleBtn = document.getElementById('sidebar-toggle');
+
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+        });
+
         // Margin state management
         let marginState = { left: 60, right: 60, dragging: false, side: null, initX: 0, initMargin: 0 };
 
@@ -291,13 +350,12 @@
                 content.style.paddingLeft = marginState.left + 'px';
                 content.style.paddingRight = marginState.right + 'px';
             }
-            
+
             document.getElementById('drag-left').style.width = Math.max(60, marginState.left) + 'px';
             document.getElementById('drag-right').style.width = Math.max(60, marginState.right) + 'px';
             document.getElementById('margin-left-value').textContent = marginState.left + 'px';
             document.getElementById('margin-right-value').textContent = marginState.right + 'px';
-            
-            // CRITICAL: Tell library layout changed
+
             reader.updateLayout();
         }
 
@@ -343,7 +401,7 @@
             updateMargins();
         });
 
-        // All other controls (copy from your existing app)
+        // Flow toggle button
         document.getElementById('btn-flow').addEventListener('click', () => {
             const state = reader.getState();
             const flowBtn = document.getElementById('btn-flow');
@@ -385,7 +443,8 @@
         });
 
         document.getElementById('fontsize-slider').addEventListener('input', e => {
-            reader.setFontSize(parseInt(e.target.value));
+            reader.state.fontSize = parseInt(e.target.value);
+            reader.updateStyles();
             document.getElementById('fontsize-value').textContent = e.target.value + 'px';
         });
 
