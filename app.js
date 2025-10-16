@@ -11,6 +11,9 @@ const sampleText = `<h1>Chapter One: The Beginning</h1>
 const reader = new EBookReader('#reader');
 reader.loadContent(sampleText);
 
+// Initialize EPUB handler
+EPUBHandler.init(reader);
+
 // Sidebar toggle functionality
 const sidebar = document.getElementById('sidebar');
 const toggleBtn = document.getElementById('sidebar-toggle');

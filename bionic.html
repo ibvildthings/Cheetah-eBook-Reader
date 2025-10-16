@@ -6,17 +6,39 @@
     <title>EBook Reader v3.0</title>
     
     <link rel="stylesheet" href="styles.css">
-
-</head>
+    <link rel="stylesheet" href="chapters-sidebar.css">
 </head>
 <body>
     <div id="app">
+        <!-- Left Sidebar: Chapters Navigation -->
+        <div id="chapters-sidebar">
+            <button id="chapters-toggle" class="chapters-toggle">☰</button>
+            <div class="chapters-content">
+                <div class="book-metadata">
+                    <div class="book-cover-placeholder">📖</div>
+                    <h2 id="book-title">No Book Loaded</h2>
+                    <p id="book-author">Upload an EPUB to begin</p>
+                </div>
+
+                <div class="upload-section">
+                    <input type="file" id="epub-upload" accept=".epub" style="display: none;">
+                    <button id="upload-btn" class="upload-btn">Upload EPUB</button>
+                </div>
+
+                <div class="chapters-list" id="chapters-list">
+                    <!-- Chapters will be dynamically inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Center: Reader Content -->
         <div id="reader-container">
             <div class="margin-drag-zone margin-drag-zone-left" id="drag-left"></div>
             <div class="margin-drag-zone margin-drag-zone-right" id="drag-right"></div>
             <div id="reader"></div>
         </div>
 
+        <!-- Right Sidebar: Settings -->
         <div id="sidebar">
             <button id="sidebar-toggle" class="sidebar-toggle">☰</button>
             <div class="sidebar-content">
@@ -109,8 +131,13 @@
         </div>
     </div>
 
-    <script src="ebook-reader.js"></script>
-    <script src="app.js"></script>
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
 
+    <!-- App Scripts -->
+    <script src="ebook-reader.js"></script>
+    <script src="epub-handler.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
