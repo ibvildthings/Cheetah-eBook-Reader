@@ -3,728 +3,277 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EBookReader v2.2.1 - Demo</title>
+    <title>EBook Reader v3.0</title>
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            height: 100vh;
         }
-        
-        /* Test Results Panel */
-        #test-results {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: white;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 15px;
-            max-width: 350px;
-            max-height: 500px;
+
+        #app {
+            display: flex;
+            height: 100vh;
+        }
+
+        #sidebar {
+            width: 320px;
+            background: #1a1a1a;
+            color: #e8e8e8;
+            padding: 24px;
             overflow-y: auto;
-            z-index: 1000;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            display: none;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
         }
 
-        #test-results.visible {
-            display: block;
+        .sidebar-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
         }
 
-        .test-header {
+        .sidebar-section h3 {
+            font-size: 14px;
             font-weight: 600;
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #e5e7eb;
+            color: #a0a0a0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-size: 13px;
+            color: #a0a0a0;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .test-close {
+        .control-value {
+            color: #60a5fa;
+            font-weight: 500;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #2a2a2a;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #60a5fa;
             cursor: pointer;
-            font-size: 18px;
-            color: #666;
-            padding: 0 5px;
         }
 
-        .test-close:hover {
-            color: #000;
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #60a5fa;
+            cursor: pointer;
+            border: none;
         }
 
-        .test-item {
-            padding: 5px 0;
-            font-size: 13px;
+        .btn-group {
             display: flex;
-            align-items: center;
             gap: 8px;
         }
 
-        .test-pass { color: #10b981; }
-        .test-fail { color: #ef4444; }
-        .test-summary {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 2px solid #e5e7eb;
-            font-weight: 600;
-        }
-        
-        /* Demo UI Styles */
-        .demo-toolbar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: #fff;
-            border-bottom: 1px solid #e5e7eb;
-            padding: 15px 20px;
-            z-index: 300;
-            box-shadow: 0 2px 8px rgba(0,0,0,.05);
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            flex-wrap: wrap;
-            transition: background 0.3s, border-color 0.3s;
-        }
-
-        .demo-btn {
-            padding: 8px 16px;
-            border: 2px solid #e5e7eb;
-            background: #fff;
+        button {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid #2a2a2a;
+            background: #2a2a2a;
+            color: #e8e8e8;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
-            transition: all .2s;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
         }
 
-        .demo-btn:hover {
-            border-color: #3b82f6;
-            background: #f0f9ff;
+        button:hover {
+            background: #3a3a3a;
+            border-color: #3a3a3a;
         }
 
-        .demo-btn.active {
-            border-color: #3b82f6;
-            background: #3b82f6;
+        button.active {
+            background: #60a5fa;
+            border-color: #60a5fa;
             color: #fff;
         }
 
-        .demo-control {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .demo-label {
-            font-size: 12px;
-            color: #666;
-            font-weight: 600;
-        }
-
-        .theme-picker {
-            display: flex;
-            gap: 8px;
-            padding: 4px;
-            background: #f5f5f5;
-            border-radius: 8px;
-        }
-
-        .theme-btn {
-            padding: 6px 12px;
-            border: none;
-            background: transparent;
+        select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #2a2a2a;
+            background: #2a2a2a;
+            color: #e8e8e8;
             border-radius: 6px;
             cursor: pointer;
             font-size: 13px;
-            transition: all .2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .theme-btn:hover {
-            background: rgba(0,0,0,0.05);
-        }
-
-        .theme-btn.active {
-            background: #fff;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .font-picker {
-            position: relative;
-        }
-
-        .font-dropdown {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            margin-top: 8px;
-            background: #fff;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            min-width: 200px;
-            max-height: 400px;
-            overflow-y: auto;
-            display: none;
-            z-index: 400;
-            transition: background 0.3s, border-color 0.3s, color 0.3s;
-        }
-
-        .font-dropdown.visible {
-            display: block;
-        }
-
-        .font-category {
-            padding: 8px 12px;
-            font-size: 11px;
-            font-weight: 600;
-            color: #666;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-top: 1px solid #e5e7eb;
-            transition: color 0.3s, border-color 0.3s;
-        }
-
-        .font-category:first-child {
-            border-top: none;
-        }
-
-        .font-option {
-            padding: 10px 12px;
-            cursor: pointer;
-            transition: background 0.15s;
-            font-size: 15px;
-        }
-
-        .font-option:hover {
-            background: #f5f5f5;
-        }
-
-        .font-option.active {
-            background: #eff6ff;
-            color: #3b82f6;
-        }
-
-        .font-option.loading {
-            opacity: 0.5;
-            pointer-events: none;
         }
 
         #reader-container {
-            width: 100vw;
-            height: 100vh;
-            padding-top: 80px;
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .margin-drag-zone {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            cursor: ew-resize;
+            z-index: 100;
+            transition: background 0.2s, border-color 0.2s;
+            border: 1px dashed transparent;
+            pointer-events: auto;
+        }
+
+        .margin-drag-zone-left {
+            left: 0;
+        }
+
+        .margin-drag-zone-right {
+            right: 0;
+        }
+
+        .margin-drag-zone:hover {
+            background: rgba(59, 130, 246, 0.08);
+            border-color: rgba(59, 130, 246, 0.2);
+        }
+
+        .margin-drag-zone.dragging {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: rgba(59, 130, 246, 0.4);
         }
     </style>
 </head>
 <body>
-    <!-- Test Results Panel -->
-    <div id="test-results"></div>
-    
-    <!-- External UI -->
-    <div class="demo-toolbar">
-        <button class="demo-btn" id="btn-bionic">Bionic Reading</button>
-        <button class="demo-btn" id="btn-flow">Flow Mode</button>
-        
-        <div class="theme-picker">
-            <button class="theme-btn active" data-theme="light">☀️ Light</button>
-            <button class="theme-btn" data-theme="dark">🌙 Dark</button>
-            <button class="theme-btn" data-theme="sepia">📜 Sepia</button>
-            <button class="theme-btn" data-theme="gray">⚪ Gray</button>
+    <div id="app">
+        <div id="sidebar">
+            <div class="sidebar-section">
+                <h3>Reading Mode</h3>
+                <div class="btn-group">
+                    <button id="btn-normal" class="active">Normal</button>
+                    <button id="btn-flow">Flow</button>
+                </div>
+                <div class="btn-group">
+                    <button id="btn-bionic">Bionic</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Flow Controls</h3>
+                <div class="btn-group">
+                    <button id="btn-play">▶ Play</button>
+                </div>
+                <div class="control-group">
+                    <label>Speed <span class="control-value" id="speed-value">300 WPM</span></label>
+                    <input type="range" id="speed-slider" min="100" max="600" value="300">
+                </div>
+                <div class="control-group">
+                    <label>Focus Width <span class="control-value" id="focus-value">2</span></label>
+                    <input type="range" id="focus-slider" min="1" max="5" value="2">
+                </div>
+                <div class="control-group">
+                    <label>Scroll Level <span class="control-value" id="scroll-value">1</span></label>
+                    <input type="range" id="scroll-slider" min="1" max="5" value="1">
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Typography</h3>
+                <div class="control-group">
+                    <label>Font Family</label>
+                    <select id="font-select">
+                        <optgroup label="Serif">
+                            <option value="georgia" selected>Georgia</option>
+                            <option value="merriweather">Merriweather</option>
+                            <option value="lora">Lora</option>
+                            <option value="crimson">Crimson Pro</option>
+                            <option value="baskerville">Libre Baskerville</option>
+                        </optgroup>
+                        <optgroup label="Sans Serif">
+                            <option value="inter">Inter</option>
+                            <option value="opensans">Open Sans</option>
+                            <option value="sourcesans">Source Sans 3</option>
+                            <option value="nunito">Nunito Sans</option>
+                        </optgroup>
+                        <optgroup label="Monospace">
+                            <option value="jetbrains">JetBrains Mono</option>
+                            <option value="fira">Fira Mono</option>
+                        </optgroup>
+                        <optgroup label="Slab">
+                            <option value="robotoslab">Roboto Slab</option>
+                        </optgroup>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Font Size <span class="control-value" id="fontsize-value">18px</span></label>
+                    <input type="range" id="fontsize-slider" min="12" max="48" value="18">
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Layout</h3>
+                <div class="control-group">
+                    <label>Left Margin <span class="control-value" id="margin-left-value">60px</span></label>
+                    <input type="range" id="margin-left-slider" min="10" max="400" value="60">
+                </div>
+                <div class="control-group">
+                    <label>Right Margin <span class="control-value" id="margin-right-value">60px</span></label>
+                    <input type="range" id="margin-right-slider" min="10" max="400" value="60">
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Theme</h3>
+                <div class="btn-group">
+                    <button id="theme-light" class="active">Light</button>
+                    <button id="theme-dark">Dark</button>
+                </div>
+                <div class="btn-group">
+                    <button id="theme-sepia">Sepia</button>
+                    <button id="theme-gray">Gray</button>
+                </div>
+                <div class="btn-group">
+                    <button id="theme-auto">Auto</button>
+                </div>
+            </div>
         </div>
-        
-        <button class="demo-btn" id="btn-auto-theme">🔄 Auto</button>
-        
-        <div class="font-picker">
-            <button class="demo-btn" id="btn-font">Aa Georgia ▼</button>
-            <div class="font-dropdown" id="font-dropdown"></div>
-        </div>
-        
-        <div class="demo-control" id="flow-controls" style="display:none;">
-            <span class="demo-label">Speed:</span>
-            <input type="range" id="speed-slider" min="100" max="600" value="300" step="10">
-            <span id="speed-label" class="demo-label">300 wpm</span>
-            
-            <span class="demo-label">Focus:</span>
-            <input type="range" id="focus-slider" min="1" max="5" value="2" step="0.5">
-            <span id="focus-label" class="demo-label">2</span>
-            
-            <span class="demo-label">Position:</span>
-            <input type="range" id="scroll-slider" min="1" max="5" value="1" step="1">
-            <span id="scroll-label" class="demo-label">Top</span>
-            
-            <button class="demo-btn" id="btn-play">▶ Play</button>
+
+        <div id="reader-container">
+            <div class="margin-drag-zone margin-drag-zone-left" id="drag-left"></div>
+            <div class="margin-drag-zone margin-drag-zone-right" id="drag-right"></div>
+            <div id="reader"></div>
         </div>
     </div>
 
-    <!-- Library container -->
-    <div id="reader-container"></div>
-
-    <!-- Include the library -->
     <script src="ebook-reader.js"></script>
-
     <script>
-        // ============================================================================
-        // AUTOMATED TEST SUITE
-        // ============================================================================
-
-        class TestRunner {
-            constructor() {
-                this.results = [];
-            }
-
-            async run() {
-                console.log('🧪 Running Test Suite...\n');
-                
-                await this.testInitialization();
-                await this.testThemeSystem();
-                await this.testAutoTheme();
-                await this.testFontSystem();
-                await this.testModeChanges();
-                await this.testBionicMode();
-                await this.testFlowMode();
-                await this.testErrorHandling();
-                
-                this.displayResults();
-            }
-
-            test(name, fn) {
-                try {
-                    fn();
-                    this.results.push({ name, status: 'pass' });
-                    console.log(`✅ ${name}`);
-                } catch (error) {
-                    this.results.push({ name, status: 'fail', error: error.message });
-                    console.error(`❌ ${name}: ${error.message}`);
-                }
-            }
-
-            async testInitialization() {
-                console.log('\n📦 Testing Initialization...');
-                
-                this.test('Creates reader instance', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    if (!reader) throw new Error('Failed to create reader');
-                    reader.destroy();
-                });
-
-                this.test('Validates container selector', () => {
-                    try {
-                        new EBookReader(null);
-                        throw new Error('Should have thrown error');
-                    } catch (e) {
-                        if (!(e instanceof ConfigurationError)) throw e;
-                    }
-                });
-
-                this.test('Validates options', () => {
-                    const container = document.createElement('div');
-                    try {
-                        new EBookReader(container, 'invalid');
-                        throw new Error('Should have thrown error');
-                    } catch (e) {
-                        if (!(e instanceof ConfigurationError)) throw e;
-                    }
-                });
-
-                this.test('Default font is Georgia', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    const font = reader.getFont();
-                    if (font.key !== 'georgia') throw new Error('Default font not Georgia');
-                    reader.destroy();
-                });
-            }
-
-            async testThemeSystem() {
-                console.log('\n🎨 Testing Theme System...');
-                
-                this.test('Sets light theme', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.setTheme('light');
-                    const theme = reader.getTheme();
-                    if (theme.current !== 'light') throw new Error('Theme not set');
-                    reader.destroy();
-                });
-
-                this.test('Sets dark theme', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.setTheme('dark');
-                    const theme = reader.getTheme();
-                    if (theme.current !== 'dark') throw new Error('Theme not set');
-                    reader.destroy();
-                });
-
-                this.test('Sets sepia theme', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.setTheme('sepia');
-                    const theme = reader.getTheme();
-                    if (theme.current !== 'sepia') throw new Error('Theme not set');
-                    reader.destroy();
-                });
-
-                this.test('Sets gray theme', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.setTheme('gray');
-                    const theme = reader.getTheme();
-                    if (theme.current !== 'gray') throw new Error('Theme not set');
-                    reader.destroy();
-                });
-
-                this.test('Rejects invalid theme', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    try {
-                        reader.setTheme('invalid');
-                        throw new Error('Should have thrown error');
-                    } catch (e) {
-                        if (!e.message.includes('Invalid theme')) throw e;
-                    }
-                    reader.destroy();
-                });
-
-                this.test('Theme change emits event', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    let eventFired = false;
-                    reader.on('onThemeChange', () => { eventFired = true; });
-                    reader.setTheme('dark');
-                    if (!eventFired) throw new Error('Event not fired');
-                    reader.destroy();
-                });
-            }
-
-            async testAutoTheme() {
-                console.log('\n🔄 Testing Auto Theme...');
-                
-                this.test('Enables auto theme', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.setAutoTheme(true);
-                    const theme = reader.getTheme();
-                    if (!theme.auto) throw new Error('Auto theme not enabled');
-                    reader.destroy();
-                });
-
-                this.test('Disables auto theme', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.setAutoTheme(true);
-                    reader.setAutoTheme(false);
-                    const theme = reader.getTheme();
-                    if (theme.auto) throw new Error('Auto theme not disabled');
-                    reader.destroy();
-                });
-
-                this.test('Manual theme disables auto', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.setAutoTheme(true);
-                    reader.setTheme('sepia');
-                    const theme = reader.getTheme();
-                    if (theme.auto) throw new Error('Auto should be disabled');
-                    reader.destroy();
-                });
-            }
-
-            async testFontSystem() {
-                console.log('\n🔤 Testing Font System...');
-                
-                this.test('Gets all fonts', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    const fonts = reader.getFonts();
-                    if (fonts.length !== 12) throw new Error('Should have 12 fonts');
-                    reader.destroy();
-                });
-
-                this.test('Gets grouped fonts', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    const grouped = reader.getAvailableFonts();
-                    if (!grouped.serif || !grouped.sans || !grouped.mono || !grouped.slab) {
-                        throw new Error('Missing font categories');
-                    }
-                    reader.destroy();
-                });
-
-                this.test('System font loads instantly', async () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    await reader.setFont('georgia');
-                    const font = reader.getFont();
-                    if (font.key !== 'georgia' || !font.loaded) {
-                        throw new Error('Georgia not loaded');
-                    }
-                    reader.destroy();
-                });
-
-                this.test('Font change adjusts line height', async () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    await reader.setFont('georgia');
-                    const lh1 = reader.state.lineHeight;
-                    await reader.setFont('inter');
-                    const lh2 = reader.state.lineHeight;
-                    if (lh1 === lh2) throw new Error('Line height should differ');
-                    reader.destroy();
-                });
-
-                this.test('Rejects invalid font', async () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    try {
-                        await reader.setFont('invalid');
-                        throw new Error('Should have thrown error');
-                    } catch (e) {
-                        if (!(e instanceof FontError)) throw e;
-                    }
-                    reader.destroy();
-                });
-
-                this.test('Font events fire', async () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    let loadingFired = false;
-                    let loadedFired = false;
-                    let changeFired = false;
-                    
-                    reader.on('onFontLoading', () => { loadingFired = true; });
-                    reader.on('onFontLoaded', () => { loadedFired = true; });
-                    reader.on('onFontChange', () => { changeFired = true; });
-                    
-                    await reader.setFont('georgia');
-                    
-                    if (!loadingFired || !loadedFired || !changeFired) {
-                        throw new Error('Font events not fired');
-                    }
-                    reader.destroy();
-                });
-            }
-
-            async testModeChanges() {
-                console.log('\n🔀 Testing Mode Changes...');
-                
-                this.test('Switches to flow mode', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.loadContent('<p>Test content</p>');
-                    reader.setMode('flow');
-                    if (reader.getState().mode !== 'flow') throw new Error('Mode not changed');
-                    reader.destroy();
-                });
-
-                this.test('Theme persists across modes', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.loadContent('<p>Test content</p>');
-                    reader.setTheme('sepia');
-                    reader.setMode('flow');
-                    const theme = reader.getTheme();
-                    if (theme.current !== 'sepia') throw new Error('Theme not persisted');
-                    reader.destroy();
-                });
-
-                this.test('Font persists across modes', async () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.loadContent('<p>Test</p>');
-                    await reader.setFont('inter');
-                    reader.setMode('flow');
-                    const font = reader.getFont();
-                    if (font.key !== 'inter') throw new Error('Font not persisted');
-                    reader.destroy();
-                });
-
-                this.test('Theme + Font work together', async () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.loadContent('<p>Test</p>');
-                    reader.setTheme('dark');
-                    await reader.setFont('lora');
-                    const state = reader.getState();
-                    if (state.theme.current !== 'dark' || state.font.key !== 'lora') {
-                        throw new Error('Theme + Font not working');
-                    }
-                    reader.destroy();
-                });
-            }
-
-            async testBionicMode() {
-                console.log('\n⚡ Testing Bionic Mode...');
-                
-                this.test('Enables bionic reading', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.loadContent('<p>Test content</p>');
-                    reader.setBionic(true);
-                    if (!reader.getState().bionic) throw new Error('Bionic not enabled');
-                    reader.destroy();
-                });
-
-                this.test('Theme works with bionic', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.loadContent('<p>Test content</p>');
-                    reader.setTheme('dark');
-                    reader.setBionic(true);
-                    const state = reader.getState();
-                    if (!state.bionic || state.theme.current !== 'dark') {
-                        throw new Error('Theme + bionic not working');
-                    }
-                    reader.destroy();
-                });
-            }
-
-            async testFlowMode() {
-                console.log('\n🌊 Testing Flow Mode...');
-                
-                this.test('Sets speed', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.setSpeed(400);
-                    if (reader.getState().speed !== 400) throw new Error('Speed not set');
-                    reader.destroy();
-                });
-
-                this.test('Speed change maintains position when playing', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.loadContent('<p>One two three four five six seven eight nine ten</p>');
-                    reader.setMode('flow');
-                    reader.state.flow.playing = true;
-                    reader.state.flow.currentWordIndex = 5;
-                    reader.setSpeed(400);
-                    if (Math.abs(reader.state.flow.currentWordIndex - 5) > 0.1) {
-                        throw new Error('Position shifted after speed change');
-                    }
-                    reader.destroy();
-                });
-
-                this.test('Sets focus width', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.setFocusWidth(3);
-                    if (reader.getState().focusWidth !== 3) throw new Error('Focus not set');
-                    reader.destroy();
-                });
-
-                this.test('Sets scroll level', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    reader.setScrollLevel(3);
-                    if (reader.getState().scrollLevel !== 3) throw new Error('Scroll level not set');
-                    reader.destroy();
-                });
-            }
-
-            async testErrorHandling() {
-                console.log('\n🚨 Testing Error Handling...');
-                
-                this.test('Rejects empty content', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    try {
-                        reader.loadContent('');
-                        throw new Error('Should have thrown error');
-                    } catch (e) {
-                        if (!(e instanceof ContentError)) throw e;
-                    }
-                    reader.destroy();
-                });
-
-                this.test('Rejects invalid mode', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    try {
-                        reader.setMode('invalid');
-                        throw new Error('Should have thrown error');
-                    } catch (e) {
-                        if (!e.message.includes('Mode must be')) throw e;
-                    }
-                    reader.destroy();
-                });
-
-                this.test('Rejects invalid speed', () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    try {
-                        reader.setSpeed(9999);
-                        throw new Error('Should have thrown error');
-                    } catch (e) {
-                        if (!e.message.includes('Speed must be')) throw e;
-                    }
-                    reader.destroy();
-                });
-
-                this.test('Fallback on font load failure', async () => {
-                    const container = document.createElement('div');
-                    const reader = new EBookReader(container);
-                    
-                    const originalLoad = reader.fontLoader.loadFont.bind(reader.fontLoader);
-                    reader.fontLoader.loadFont = async (key) => {
-                        if (key !== 'georgia') {
-                            throw new Error('Simulated failure');
-                        }
-                        return originalLoad(key);
-                    };
-                    
-                    await reader.setFont('inter');
-                    const font = reader.getFont();
-                    if (font.key !== 'georgia') throw new Error('Should fallback to Georgia');
-                    reader.destroy();
-                });
-            }
-
-            displayResults() {
-                const passed = this.results.filter(r => r.status === 'pass').length;
-                const failed = this.results.filter(r => r.status === 'fail').length;
-                const total = this.results.length;
-
-                console.log('\n' + '='.repeat(50));
-                console.log('📊 TEST RESULTS');
-                console.log('='.repeat(50));
-                console.log(`Total: ${total} | Passed: ${passed} | Failed: ${failed}`);
-                console.log(`Success Rate: ${((passed/total)*100).toFixed(1)}%`);
-                console.log('='.repeat(50) + '\n');
-
-                const panel = document.getElementById('test-results');
-                if (panel) {
-                    panel.innerHTML = `
-                        <div class="test-header">
-                            <span>Test Results</span>
-                            <span class="test-close" onclick="document.getElementById('test-results').classList.remove('visible')">✕</span>
-                        </div>
-                        ${this.results.map(r => `
-                            <div class="test-item">
-                                <span class="${r.status === 'pass' ? 'test-pass' : 'test-fail'}">
-                                    ${r.status === 'pass' ? '✓' : '✗'}
-                                </span>
-                                <span>${r.name}</span>
-                            </div>
-                        `).join('')}
-                        <div class="test-summary">
-                            ${passed}/${total} passed (${((passed/total)*100).toFixed(1)}%)
-                        </div>
-                    `;
-                    panel.classList.add('visible');
-                }
-            }
-        }
-
-        // ============================================================================
-        // DEMO UI CONTROLLER
-        // ============================================================================
-
-        const sampleContent = `
-            <h1>Chapter One: The Beginning</h1>
+        const sampleText = `<h1>Chapter One: The Beginning</h1>
             <p>In the heart of Silicon Valley, where innovation breathed life into dreams and ambition fueled the relentless pursuit of progress, there existed a small startup that dared to challenge the giants. The morning sun cast long shadows through the floor-to-ceiling windows of their modest office, illuminating screens filled with code and whiteboards covered in sketches of impossible ideas.</p>
             <p>Sarah had always believed that the best products were born from frustration. It was a Tuesday afternoon when she threw her e-reader across the room—not hard enough to break it, but with enough force to express her complete dissatisfaction with the experience. "Why," she asked her co-founder Marcus, "does every reading app feel like it was designed in 2010?"</p>
             <p>Marcus looked up from his laptop, his fingers still hovering over the keyboard. He'd been wrestling with the same question for months. The reading experience hadn't evolved. Sure, screens got sharper and devices got thinner, but the fundamental interaction between human and text remained stubbornly unchanged.</p>
@@ -732,229 +281,135 @@
             <p>The breakthrough came on a rainy November evening. Sarah was testing their latest prototype when something clicked. The text moved with her eyes, not against them. Words highlighted in rhythm with her reading speed. It felt like the book was reading her mind.</p>
             <p>"This is it," she whispered, looking up at Marcus with wide eyes. "This is what we've been searching for."</p>
             <p>Marcus leaned over her shoulder, watching the prototype in action. For the first time in months, he smiled. Really smiled. Not the forced grin of another failed demo, but the genuine expression of someone who knew they'd created something special.</p>
-            <p>They called it Flow Mode. The name came naturally—it was exactly how reading felt when everything worked perfectly. No friction. No distraction. Just you and the words, moving together in perfect harmony.</p>
-        `;
+            <p>They called it Flow Mode. The name came naturally—it was exactly how reading felt when everything worked perfectly. No friction. No distraction. Just you and the words, moving together in perfect harmony.</p>`;
 
-        // Wait for DOM to be ready
-        window.addEventListener('DOMContentLoaded', () => {
-            // Initialize
-            window.reader = new EBookReader('#reader-container');
-            reader.loadContent(sampleContent);
+        const reader = new EBookReader('#reader');
+        reader.loadContent(sampleText);
 
-            // UI Elements
-            const btnBionic = document.getElementById('btn-bionic');
-            const btnFlow = document.getElementById('btn-flow');
-            const btnPlay = document.getElementById('btn-play');
-            const btnAutoTheme = document.getElementById('btn-auto-theme');
-            const btnFont = document.getElementById('btn-font');
-            const fontDropdown = document.getElementById('font-dropdown');
-            const flowControls = document.getElementById('flow-controls');
-            const speedSlider = document.getElementById('speed-slider');
-            const speedLabel = document.getElementById('speed-label');
-            const focusSlider = document.getElementById('focus-slider');
-            const focusLabel = document.getElementById('focus-label');
-            const scrollSlider = document.getElementById('scroll-slider');
-            const scrollLabel = document.getElementById('scroll-label');
-            const themeButtons = document.querySelectorAll('.theme-btn');
-            const toolbar = document.querySelector('.demo-toolbar');
+        // Margin state management
+        let marginState = { left: 60, right: 60, dragging: false, side: null, initX: 0, initMargin: 0 };
 
-            // Build font dropdown
-            function buildFontDropdown() {
-                const grouped = reader.getAvailableFonts();
-                const categories = {
-                    serif: 'Serif',
-                    sans: 'Sans Serif',
-                    mono: 'Monospace',
-                    slab: 'Slab Serif'
-                };
-
-                let html = '';
-                Object.entries(categories).forEach(([key, label]) => {
-                    if (grouped[key].length > 0) {
-                        html += `<div class="font-category">${label}</div>`;
-                        grouped[key].forEach(font => {
-                            const isActive = reader.getFont().key === font.key;
-                            html += `
-                                <div class="font-option ${isActive ? 'active' : ''}" 
-                                     data-font="${font.key}" 
-                                     style="font-family: ${font.family}">
-                                    ${font.name}
-                                </div>
-                            `;
-                        });
-                    }
-                });
-
-                fontDropdown.innerHTML = html;
-
-                // Add click handlers
-                fontDropdown.querySelectorAll('.font-option').forEach(option => {
-                    option.addEventListener('click', async () => {
-                        const fontKey = option.dataset.font;
-                        option.classList.add('loading');
-                        await reader.setFont(fontKey);
-                        option.classList.remove('loading');
-                        fontDropdown.classList.remove('visible');
-                    });
-                });
+        function updateMargins() {
+            const content = document.querySelector('.ebook-text-content');
+            if (content) {
+                content.style.paddingLeft = marginState.left + 'px';
+                content.style.paddingRight = marginState.right + 'px';
             }
+            
+            document.getElementById('drag-left').style.width = Math.max(60, marginState.left) + 'px';
+            document.getElementById('drag-right').style.width = Math.max(60, marginState.right) + 'px';
+            document.getElementById('margin-left-value').textContent = marginState.left + 'px';
+            document.getElementById('margin-right-value').textContent = marginState.right + 'px';
+            
+            // CRITICAL: Tell library layout changed
+            reader.updateLayout();
+        }
 
-            buildFontDropdown();
+        function startDrag(e, side) {
+            e.preventDefault();
+            marginState.dragging = true;
+            marginState.side = side;
+            marginState.initX = e.touches?.[0]?.clientX || e.clientX;
+            marginState.initMargin = side === 'left' ? marginState.left : marginState.right;
+            document.getElementById(`drag-${side}`).classList.add('dragging');
+        }
 
-            // Font picker toggle
-            btnFont.addEventListener('click', () => {
-                fontDropdown.classList.toggle('visible');
-            });
+        function handleDrag(e) {
+            if (!marginState.dragging) return;
+            const x = e.touches?.[0]?.clientX || e.clientX;
+            const delta = x - marginState.initX;
+            let val = marginState.initMargin + (marginState.side === 'left' ? delta : -delta);
+            val = Math.max(10, Math.min(400, val));
+            marginState[marginState.side] = val;
+            updateMargins();
+        }
 
-            // Close dropdown when clicking outside
-            document.addEventListener('click', (e) => {
-                if (!btnFont.contains(e.target) && !fontDropdown.contains(e.target)) {
-                    fontDropdown.classList.remove('visible');
-                }
-            });
-
-            // Update toolbar and dropdown theme
-            function updateToolbarTheme(themeName) {
-                const theme = reader.getTheme();
-                const colors = theme.colors;
-                
-                // Update toolbar
-                toolbar.style.background = colors.contentBg;
-                toolbar.style.borderBottom = `1px solid ${colors.border}`;
-                toolbar.style.color = colors.text;
-                
-                // Update font dropdown
-                fontDropdown.style.background = colors.dropdownBg;
-                fontDropdown.style.color = colors.dropdownText;
-                fontDropdown.style.borderColor = colors.dropdownBorder;
-                
-                // Update font categories
-                document.querySelectorAll('.font-category').forEach(cat => {
-                    cat.style.color = colors.dropdownCategoryText;
-                    cat.style.borderColor = colors.dropdownBorder;
-                });
-                
-                // Update font options hover
-                document.querySelectorAll('.font-option').forEach(opt => {
-                    opt.onmouseenter = () => {
-                        if (!opt.classList.contains('active')) {
-                            opt.style.background = colors.dropdownHover;
-                        }
-                    };
-                    opt.onmouseleave = () => {
-                        if (!opt.classList.contains('active')) {
-                            opt.style.background = '';
-                        }
-                    };
-                });
+        function stopDrag() {
+            if (marginState.dragging) {
+                document.getElementById(`drag-${marginState.side}`)?.classList.remove('dragging');
             }
+            marginState.dragging = false;
+        }
 
-            // Theme buttons
-            themeButtons.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const themeName = btn.dataset.theme;
-                    reader.setTheme(themeName);
-                    
-                    themeButtons.forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    btnAutoTheme.classList.remove('active');
-                    
-                    updateToolbarTheme(themeName);
-                });
-            });
-
-            btnAutoTheme.addEventListener('click', () => {
-                const isActive = btnAutoTheme.classList.contains('active');
-                reader.setAutoTheme(!isActive);
-                btnAutoTheme.classList.toggle('active');
-                
-                if (!isActive) {
-                    themeButtons.forEach(b => b.classList.remove('active'));
-                }
-            });
-
-            // Other buttons
-            btnBionic.addEventListener('click', () => {
-                reader.setBionic(!reader.getState().bionic);
-                btnBionic.classList.toggle('active');
-            });
-
-            btnFlow.addEventListener('click', () => {
-                const currentMode = reader.getState().mode;
-                const newMode = currentMode === 'flow' ? 'normal' : 'flow';
-                reader.setMode(newMode);
-                btnFlow.classList.toggle('active', newMode === 'flow');
-                flowControls.style.display = newMode === 'flow' ? 'flex' : 'none';
-                
-                if (newMode === 'flow') {
-                    setTimeout(() => reader.play(), 150);
-                }
-            });
-
-            btnPlay.addEventListener('click', () => {
-                reader.togglePlay();
-            });
-
-            speedSlider.addEventListener('input', (e) => {
-                reader.setSpeed(+e.target.value);
-                speedLabel.textContent = e.target.value + ' wpm';
-            });
-
-            focusSlider.addEventListener('input', (e) => {
-                reader.setFocusWidth(+e.target.value);
-                focusLabel.textContent = e.target.value;
-            });
-
-            scrollSlider.addEventListener('input', (e) => {
-                const level = +e.target.value;
-                reader.setScrollLevel(level);
-                const labels = ['Top', 'Upper', 'Middle', 'Lower', 'Bottom'];
-                scrollLabel.textContent = labels[level - 1];
-            });
-
-            // Events
-            reader.on('onPlayChange', (isPlaying) => {
-                btnPlay.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
-            });
-
-            reader.on('onThemeChange', (data) => {
-                updateToolbarTheme(data.theme);
-            });
-
-            reader.on('onFontChange', (fontData) => {
-                btnFont.textContent = `Aa ${fontData.name} ▼`;
-                buildFontDropdown();
-            });
-
-            // Run tests
-            setTimeout(() => {
-                const tester = new TestRunner();
-                tester.run();
-            }, 1000);
-
-            // Log initialization
-            console.log('╔═══════════════════════════════════════╗');
-            console.log(`║ EBookReader v${EBookReader.VERSION} ║`);
-            console.log('╚═══════════════════════════════════════╝');
-            console.log('');
-            console.log('🐛 BUGS FIXED:');
-            console.log('   ✓ Bionic colors persist after font change');
-            console.log('   ✓ Font dropdown respects theme colors');
-            console.log('   ✓ Gray mode now darker');
-            console.log('   ✓ Speed change maintains focus position');
-            console.log('');
-            console.log('📊 TESTS:');
-            console.log('   • 37 comprehensive tests');
-            console.log('   • All features covered');
-            console.log('');
-            console.log('🔤 FONT SYSTEM:');
-            console.log('   • 12 curated fonts');
-            console.log('   • Auto line-height per font');
-            console.log('');
-            console.log('🎨 THEME SYSTEM:');
-            console.log('   • Light, Dark, Sepia, Gray');
-            console.log('   • Auto mode follows system');
+        ['mousedown', 'touchstart'].forEach(e => {
+            document.getElementById('drag-left').addEventListener(e, ev => startDrag(ev, 'left'));
+            document.getElementById('drag-right').addEventListener(e, ev => startDrag(ev, 'right'));
         });
+        ['mousemove', 'touchmove'].forEach(e => document.addEventListener(e, handleDrag));
+        ['mouseup', 'touchend'].forEach(e => document.addEventListener(e, stopDrag));
+
+        document.getElementById('margin-left-slider').addEventListener('input', e => {
+            marginState.left = parseInt(e.target.value);
+            updateMargins();
+        });
+        document.getElementById('margin-right-slider').addEventListener('input', e => {
+            marginState.right = parseInt(e.target.value);
+            updateMargins();
+        });
+
+        // All other controls (copy from your existing app)
+        document.getElementById('btn-normal').addEventListener('click', () => {
+            reader.setMode('normal');
+            document.getElementById('btn-normal').classList.add('active');
+            document.getElementById('btn-flow').classList.remove('active');
+        });
+
+        document.getElementById('btn-flow').addEventListener('click', () => {
+            reader.setMode('flow');
+            document.getElementById('btn-flow').classList.add('active');
+            document.getElementById('btn-normal').classList.remove('active');
+        });
+
+        document.getElementById('btn-bionic').addEventListener('click', function() {
+            reader.setBionic(!reader.getState().bionic);
+            this.classList.toggle('active');
+        });
+
+        document.getElementById('btn-play').addEventListener('click', function() {
+            reader.togglePlay();
+            const state = reader.getState();
+            this.textContent = state.isPlaying ? '⏸ Pause' : '▶ Play';
+        });
+
+        document.getElementById('speed-slider').addEventListener('input', e => {
+            reader.setSpeed(parseInt(e.target.value));
+            document.getElementById('speed-value').textContent = e.target.value + ' WPM';
+        });
+
+        document.getElementById('focus-slider').addEventListener('input', e => {
+            reader.setFocusWidth(parseInt(e.target.value));
+            document.getElementById('focus-value').textContent = e.target.value;
+        });
+
+        document.getElementById('scroll-slider').addEventListener('input', e => {
+            reader.setScrollLevel(parseInt(e.target.value));
+            document.getElementById('scroll-value').textContent = e.target.value;
+        });
+
+        document.getElementById('font-select').addEventListener('change', e => {
+            reader.setFont(e.target.value);
+        });
+
+        document.getElementById('fontsize-slider').addEventListener('input', e => {
+            reader.setFontSize(parseInt(e.target.value));
+            document.getElementById('fontsize-value').textContent = e.target.value + 'px';
+        });
+
+        ['light', 'dark', 'sepia', 'gray'].forEach(theme => {
+            document.getElementById(`theme-${theme}`).addEventListener('click', function() {
+                reader.setTheme(theme);
+                document.querySelectorAll('[id^="theme-"]').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        document.getElementById('theme-auto').addEventListener('click', function() {
+            reader.setAutoTheme(true);
+            document.querySelectorAll('[id^="theme-"]').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+        });
+
+        setTimeout(updateMargins, 100);
     </script>
 </body>
 </html>

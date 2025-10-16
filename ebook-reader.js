@@ -181,10 +181,6 @@ const THEMES = {
         accentHover: '#2563EB',
         border: '#E5E7EB',
         shadow: 'rgba(0, 0, 0, 0.1)',
-        dragZone: 'rgba(59, 130, 246, 0.08)',
-        dragZoneBorder: 'rgba(59, 130, 246, 0.2)',
-        dragZoneActive: 'rgba(59, 130, 246, 0.15)',
-        dragZoneActiveBorder: 'rgba(59, 130, 246, 0.4)',
         focusIndicator: 'rgba(59, 130, 246, 0.12)',
         bionic: '#000000',
         dropdownBg: '#FFFFFF',
@@ -475,7 +471,6 @@ class EBookReader {
             
             this.config = {
                 fontSize: { min: 12, default: 18, max: 48 },
-                margin: { min: 10, default: 60, max: 400 },
                 speed: { min: 100, default: 300, max: 600 },
                 newlinePause: 1.5,
                 scroll: {
@@ -491,9 +486,6 @@ class EBookReader {
                 font: 'georgia',
                 lineHeight: FONTS.georgia.lineHeight,
                 fontLoading: false,
-                marginL: this._validateOption(options.margin, this.config.margin, 'margin'),
-                marginR: this._validateOption(options.margin, this.config.margin, 'margin'),
-                marginTB: 40,
                 mode: 'normal',
                 bionic: false,
                 theme: 'light',
@@ -514,11 +506,7 @@ class EBookReader {
                 gesture: {
                     touches: [],
                     initDist: 0,
-                    initSize: 0,
-                    dragging: false,
-                    side: null,
-                    initMargin: 0,
-                    initX: 0
+                    initSize: 0
                 },
                 saved: null
             };
@@ -675,6 +663,21 @@ class EBookReader {
         });
 
         return grouped;
+    }
+    
+    // ========================================
+    // PUBLIC API - LAYOUT
+    // ========================================
+
+    updateLayout() {
+        if (this.wordIndexManager) {
+            this.wordIndexManager.invalidate();
+        }
+        if (this.state.mode === 'flow' && !this._destroyed && this.wordIndexManager) {
+            requestAnimationFrame(() => {
+                this._updateWordStates(this.state.flow.currentWordIndex);
+            });
+        }
     }
 
     // ========================================
@@ -902,11 +905,6 @@ class EBookReader {
         return Math.max(min, Math.min(max, v));
     }
 
-    _elastic(v, min, max) {
-        return v < min ? min - Math.sqrt(min - v) * 2 :
-               v > max ? max + Math.sqrt(v - max) * 2 : v;
-    }
-
     _dist(t1, t2) {
         return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
     }
@@ -951,10 +949,6 @@ class EBookReader {
         
         if (this.container) {
             this.container.style.setProperty('--theme-accent', theme.accent);
-            this.container.style.setProperty('--theme-drag-zone', theme.dragZone);
-            this.container.style.setProperty('--theme-drag-zone-border', theme.dragZoneBorder);
-            this.container.style.setProperty('--theme-drag-zone-active', theme.dragZoneActive);
-            this.container.style.setProperty('--theme-drag-zone-active-border', theme.dragZoneActiveBorder);
             this.container.style.setProperty('--theme-focus', theme.focusIndicator);
         }
     }
@@ -989,34 +983,11 @@ class EBookReader {
                 transition: all .3s ease;
                 max-height: 85vh;
             }
-            .ebook-drag-zone {
-                position: absolute;
-                top: 0;
-                height: 100%;
-                cursor: ew-resize;
-                z-index: 100;
-                transition: background .2s, border-color .2s;
-                border: 1px dashed transparent;
-                pointer-events: auto;
-            }
-            .ebook-drag-zone-left {
-                left: 0;
-            }
-            .ebook-drag-zone-right {
-                right: 0;
-            }
-            .ebook-drag-zone:hover {
-                background: var(--theme-drag-zone, rgba(59, 130, 246, 0.08));
-                border-color: var(--theme-drag-zone-border, rgba(59, 130, 246, 0.2));
-            }
-            .ebook-drag-zone.active {
-                background: var(--theme-drag-zone-active, rgba(59, 130, 246, 0.15));
-                border-color: var(--theme-drag-zone-active-border, rgba(59, 130, 246, 0.4));
-            }
             .ebook-text-content {
                 transition: padding .1s ease-out, opacity .2s ease-in-out, color .3s ease, font-family .2s ease;
                 position: relative;
                 min-height: 100%;
+                padding: 40px 60px;
             }
             .ebook-text-content.transitioning { opacity: .4; }
             .bionic { 
@@ -1056,39 +1027,22 @@ class EBookReader {
         this.container.className = 'ebook-reader-root';
 
         const html = `
-            <div class="ebook-reader-area">
-                <div class="ebook-drag-zone ebook-drag-zone-left" style="width: 60px;"></div>
-                <div class="ebook-drag-zone ebook-drag-zone-right" style="width: 60px;"></div>
-                <div class="ebook-focus-indicator"></div>
-                <div class="ebook-text-content"></div>
-            </div>
-        `;
+           <div class="ebook-reader-area">
+               <div class="ebook-focus-indicator"></div>
+               <div class="ebook-text-content"></div>
+           </div>
+       `;
 
         this.container.innerHTML = html;
 
         this.el = {
-            reader: this.container.querySelector('.ebook-reader-area'),
-            content: this.container.querySelector('.ebook-text-content'),
-            dragZoneL: this.container.querySelector('.ebook-drag-zone-left'),
-            dragZoneR: this.container.querySelector('.ebook-drag-zone-right'),
-            focus: this.container.querySelector('.ebook-focus-indicator')
-        };
+           reader: this.container.querySelector('.ebook-reader-area'),
+           content: this.container.querySelector('.ebook-text-content'),
+           focus: this.container.querySelector('.ebook-focus-indicator')
+       };
     }
 
     _attachEventListeners() {
-        ['mousedown', 'touchstart'].forEach(evt => {
-            this.el.dragZoneL.addEventListener(evt, e => this._startMarginDrag(e, 'left'));
-            this.el.dragZoneR.addEventListener(evt, e => this._startMarginDrag(e, 'right'));
-        });
-
-        ['mousemove', 'touchmove'].forEach(evt => {
-            document.addEventListener(evt, e => this._handleMarginDrag(e));
-        });
-
-        ['mouseup', 'touchend'].forEach(evt => {
-            document.addEventListener(evt, () => this._stopMarginDrag());
-        });
-
         this.el.reader.addEventListener('touchstart', e => this._handleTouchStart(e));
         this.el.reader.addEventListener('touchmove', e => this._handleTouchMove(e));
         this.el.reader.addEventListener('wheel', e => this._handleWheel(e));
@@ -1106,25 +1060,10 @@ class EBookReader {
         
         const font = FONTS[this.state.font];
         
-        this.el.content.style.cssText = `
-            font-family: ${font.family};
-            font-size: ${this.state.fontSize}px;
-            line-height: ${this.state.lineHeight};
-            padding: ${this.state.marginTB}px ${this.state.marginR}px ${this.state.marginTB}px ${this.state.marginL}px;
-            color: inherit;
-            transition: padding .1s ease-out, opacity .2s ease-in-out, color .3s ease, font-family .2s ease;
-        `;
-
-        const leftWidth = Math.max(60, this.state.marginL);
-        const rightWidth = Math.max(60, this.state.marginR);
-        const contentHeight = this.el.content.scrollHeight;
+        this.el.content.style.fontFamily = font.family;
+        this.el.content.style.fontSize = this.state.fontSize + 'px';
+        this.el.content.style.lineHeight = this.state.lineHeight;
         
-        this.el.dragZoneL.style.width = leftWidth + 'px';
-        this.el.dragZoneL.style.height = contentHeight + 'px';
-        
-        this.el.dragZoneR.style.width = rightWidth + 'px';
-        this.el.dragZoneR.style.height = contentHeight + 'px';
-
         if (this.state.mode === 'flow' && this.wordIndexManager) {
             this.wordIndexManager.invalidate();
             requestAnimationFrame(() => {
@@ -1499,71 +1438,6 @@ class EBookReader {
     // ========================================
     // PRIVATE METHODS - GESTURE HANDLING
     // ========================================
-
-    _startMarginDrag(e, side) {
-        e.preventDefault();
-        this.state.gesture.dragging = true;
-        this.state.gesture.side = side;
-        
-        const zone = side === 'left' ? this.el.dragZoneL : this.el.dragZoneR;
-        zone.classList.add('active');
-
-        const x = e.touches?.[0]?.clientX || e.clientX;
-        this.state.gesture.initX = x;
-        this.state.gesture.initMargin = side === 'left' ? this.state.marginL : this.state.marginR;
-    }
-
-    _handleMarginDrag(e) {
-        if (!this.state.gesture.dragging) return;
-
-        const x = e.touches?.[0]?.clientX || e.clientX;
-        const delta = x - this.state.gesture.initX;
-        
-        let val = this.state.gesture.initMargin + 
-            (this.state.gesture.side === 'left' ? delta : -delta);
-        val = this._elastic(val, this.config.margin.min, this.config.margin.max);
-
-        const contentHeight = this.el.content.scrollHeight;
-
-        if (this.state.gesture.side === 'left') {
-            this.state.marginL = val;
-            this.el.dragZoneL.style.width = Math.max(60, val) + 'px';
-            this.el.dragZoneL.style.height = contentHeight + 'px';
-        } else {
-            this.state.marginR = val;
-            this.el.dragZoneR.style.width = Math.max(60, val) + 'px';
-            this.el.dragZoneR.style.height = contentHeight + 'px';
-        }
-        
-        this.updateStyles();
-    }
-
-    _stopMarginDrag() {
-        if (this.state.gesture.dragging) {
-            const zone = this.state.gesture.side === 'left' ? this.el.dragZoneL : this.el.dragZoneR;
-            if (zone) zone.classList.remove('active');
-            
-            const isLeft = this.state.gesture.side === 'left';
-            const cur = isLeft ? this.state.marginL : this.state.marginR;
-            const final = this._clamp(cur, this.config.margin.min, this.config.margin.max);
-            const contentHeight = this.el.content.scrollHeight;
-            
-            if (isLeft) {
-                this.state.marginL = final;
-                this.el.dragZoneL.style.width = Math.max(60, final) + 'px';
-                this.el.dragZoneL.style.height = contentHeight + 'px';
-            } else {
-                this.state.marginR = final;
-                this.el.dragZoneR.style.width = Math.max(60, final) + 'px';
-                this.el.dragZoneR.style.height = contentHeight + 'px';
-            }
-            
-            this.updateStyles();
-        }
-        
-        this.state.gesture.dragging = false;
-        this.state.gesture.side = null;
-    }
 
     _handleTouchStart(e) {
         if (this.state.gesture.dragging) return;
