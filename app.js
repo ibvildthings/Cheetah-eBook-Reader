@@ -82,20 +82,23 @@ document.getElementById('margin-right-slider').addEventListener('input', e => {
     updateMargins();
 });
 
-// Flow toggle button
+
 document.getElementById('btn-flow').addEventListener('click', () => {
     const state = reader.getState();
     const flowBtn = document.getElementById('btn-flow');
-
+    
     if (state.mode === 'flow') {
         reader.setMode('normal');
         flowBtn.classList.remove('active');
         flowBtn.textContent = '▶ Start Flow';
     } else {
         reader.setMode('flow');
-        setTimeout(() => reader.play(), 150);
         flowBtn.classList.add('active');
         flowBtn.textContent = '⏹ Stop Flow';
+        
+        setTimeout(() => {
+            reader.play();
+        }, 300);
     }
 });
 
