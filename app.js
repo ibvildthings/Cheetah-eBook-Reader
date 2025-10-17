@@ -8,142 +8,140 @@ const sampleText = `<h1>Chapter One: The Beginning</h1>
     <p>Marcus leaned over her shoulder, watching the prototype in action. For the first time in months, he smiled. Really smiled. Not the forced grin of another failed demo, but the genuine expression of someone who knew they'd created something special.</p>
     <p>They called it Flow Mode. The name came naturally—it was exactly how reading felt when everything worked perfectly. No friction. No distraction. Just you and the words, moving together in perfect harmony.</p>`;
 
+// Initialize reader and EPUB handler
 const reader = new EBookReader('#reader');
 reader.loadContent(sampleText);
-
-// Initialize EPUB handler
 EPUBHandler.init(reader);
 
-// Sidebar toggle functionality
+// Sidebar toggle
 const sidebar = document.getElementById('sidebar');
 const toggleBtn = document.getElementById('sidebar-toggle');
+toggleBtn?.addEventListener('click', () => sidebar?.classList.toggle('collapsed'));
 
-toggleBtn.addEventListener('click', () => {
-    sidebar.classList.toggle('collapsed');
-});
-
-// Margin state management
-let marginState = { left: 60, right: 60, dragging: false, side: null, initX: 0, initMargin: 0 };
+// Margin state
+const marginState = { left: 60, right: 60, dragging: false, side: null, initX: 0, initMargin: 0 };
 
 function updateMargins() {
     const content = document.querySelector('.ebook-text-content');
     if (content) {
-        content.style.paddingLeft = marginState.left + 'px';
-        content.style.paddingRight = marginState.right + 'px';
+        content.style.paddingLeft = `${marginState.left}px`;
+        content.style.paddingRight = `${marginState.right}px`;
     }
 
-    document.getElementById('drag-left').style.width = Math.max(60, marginState.left) + 'px';
-    document.getElementById('drag-right').style.width = Math.max(60, marginState.right) + 'px';
-    document.getElementById('margin-left-value').textContent = marginState.left + 'px';
-    document.getElementById('margin-right-value').textContent = marginState.right + 'px';
+    const leftDrag = document.getElementById('drag-left');
+    const rightDrag = document.getElementById('drag-right');
+
+    leftDrag.style.width = `${Math.max(60, marginState.left)}px`;
+    rightDrag.style.width = `${Math.max(60, marginState.right)}px`;
+
+    document.getElementById('margin-left-value').textContent = `${marginState.left}px`;
+    document.getElementById('margin-right-value').textContent = `${marginState.right}px`;
 
     reader.updateLayout();
 }
 
 function startDrag(e, side) {
     e.preventDefault();
+    const x = e.touches?.[0]?.clientX ?? e.clientX;
     marginState.dragging = true;
     marginState.side = side;
-    marginState.initX = e.touches?.[0]?.clientX || e.clientX;
-    marginState.initMargin = side === 'left' ? marginState.left : marginState.right;
-    document.getElementById(`drag-${side}`).classList.add('dragging');
+    marginState.initX = x;
+    marginState.initMargin = marginState[side];
+    document.getElementById(`drag-${side}`)?.classList.add('dragging');
 }
 
 function handleDrag(e) {
     if (!marginState.dragging) return;
-    const x = e.touches?.[0]?.clientX || e.clientX;
+    const x = e.touches?.[0]?.clientX ?? e.clientX;
     const delta = x - marginState.initX;
-    let val = marginState.initMargin + (marginState.side === 'left' ? delta : -delta);
-    val = Math.max(10, Math.min(400, val));
-    marginState[marginState.side] = val;
+    const side = marginState.side;
+    marginState[side] = Math.max(10, Math.min(400, marginState.initMargin + (side === 'left' ? delta : -delta)));
     updateMargins();
 }
 
 function stopDrag() {
     if (marginState.dragging) {
         document.getElementById(`drag-${marginState.side}`)?.classList.remove('dragging');
+        marginState.dragging = false;
     }
-    marginState.dragging = false;
 }
 
-['mousedown', 'touchstart'].forEach(e => {
-    document.getElementById('drag-left').addEventListener(e, ev => startDrag(ev, 'left'));
-    document.getElementById('drag-right').addEventListener(e, ev => startDrag(ev, 'right'));
+// Attach margin drag events efficiently
+[['left', 'right']].forEach(([side]) => {
+    const el = document.getElementById(`drag-${side}`);
+    ['mousedown', 'touchstart'].forEach(ev => el.addEventListener(ev, e => startDrag(e, side)));
 });
-['mousemove', 'touchmove'].forEach(e => document.addEventListener(e, handleDrag));
-['mouseup', 'touchend'].forEach(e => document.addEventListener(e, stopDrag));
+['mousemove', 'touchmove'].forEach(ev => document.addEventListener(ev, handleDrag));
+['mouseup', 'touchend'].forEach(ev => document.addEventListener(ev, stopDrag));
 
-document.getElementById('margin-left-slider').addEventListener('input', e => {
-    marginState.left = parseInt(e.target.value);
-    updateMargins();
+// Margin sliders
+['left', 'right'].forEach(side => {
+    const slider = document.getElementById(`margin-${side}-slider`);
+    slider?.addEventListener('input', e => {
+        marginState[side] = parseInt(e.target.value, 10);
+        updateMargins();
+    });
 });
-document.getElementById('margin-right-slider').addEventListener('input', e => {
-    marginState.right = parseInt(e.target.value);
-    updateMargins();
-});
 
-
-document.getElementById('btn-flow').addEventListener('click', () => {
+// Flow mode
+const flowBtn = document.getElementById('btn-flow');
+flowBtn?.addEventListener('click', () => {
     const state = reader.getState();
-    const flowBtn = document.getElementById('btn-flow');
-    
-    if (state.mode === 'flow') {
-        reader.setMode('normal');
-        flowBtn.classList.remove('active');
-        flowBtn.textContent = '▶ Start Flow';
-    } else {
-        reader.setMode('flow');
-        flowBtn.classList.add('active');
-        flowBtn.textContent = '⏹ Stop Flow';
-        
-        setTimeout(() => {
-            reader.play();
-        }, 300);
-    }
+    const isFlow = state.mode === 'flow';
+
+    reader.setMode(isFlow ? 'normal' : 'flow');
+    flowBtn.classList.toggle('active', !isFlow);
+    flowBtn.textContent = isFlow ? '▶ Start Flow' : '⏹ Stop Flow';
+
+    if (!isFlow) setTimeout(() => reader.play(), 300);
 });
 
-document.getElementById('btn-bionic').addEventListener('click', function() {
+// Bionic mode
+document.getElementById('btn-bionic')?.addEventListener('click', function () {
     reader.setBionic(!reader.getState().bionic);
     this.classList.toggle('active');
 });
 
-document.getElementById('speed-slider').addEventListener('input', e => {
-    reader.setSpeed(parseInt(e.target.value));
-    document.getElementById('speed-value').textContent = e.target.value + ' WPM';
+// Sliders for speed, focus, scroll, font size
+const sliders = [
+    { id: 'speed', action: v => reader.setSpeed(v), label: v => `${v} WPM` },
+    { id: 'focus', action: v => reader.setFocusWidth(v), label: v => v },
+    { id: 'scroll', action: v => reader.setScrollLevel(v), label: v => v },
+    { id: 'fontsize', action: v => { reader.state.fontSize = v; reader.updateStyles(); }, label: v => `${v}px` }
+];
+
+sliders.forEach(({ id, action, label }) => {
+    const slider = document.getElementById(`${id}-slider`);
+    const valueEl = document.getElementById(`${id}-value`);
+    slider?.addEventListener('input', e => {
+        const val = parseInt(e.target.value, 10);
+        action(val);
+        valueEl.textContent = label(val);
+    });
 });
 
-document.getElementById('focus-slider').addEventListener('input', e => {
-    reader.setFocusWidth(parseInt(e.target.value));
-    document.getElementById('focus-value').textContent = e.target.value;
-});
-
-document.getElementById('scroll-slider').addEventListener('input', e => {
-    reader.setScrollLevel(parseInt(e.target.value));
-    document.getElementById('scroll-value').textContent = e.target.value;
-});
-
-document.getElementById('font-select').addEventListener('change', e => {
+// Font selector
+document.getElementById('font-select')?.addEventListener('change', e => {
     reader.setFont(e.target.value);
 });
 
-document.getElementById('fontsize-slider').addEventListener('input', e => {
-    reader.state.fontSize = parseInt(e.target.value);
-    reader.updateStyles();
-    document.getElementById('fontsize-value').textContent = e.target.value + 'px';
-});
-
-['light', 'dark', 'sepia', 'gray'].forEach(theme => {
-    document.getElementById(`theme-${theme}`).addEventListener('click', function() {
+// Themes
+const themeButtons = ['light', 'dark', 'sepia', 'gray'];
+themeButtons.forEach(theme => {
+    const btn = document.getElementById(`theme-${theme}`);
+    btn?.addEventListener('click', function () {
         reader.setTheme(theme);
-        document.querySelectorAll('[id^="theme-"]').forEach(b => b.classList.remove('active'));
+        themeButtons.forEach(t => document.getElementById(`theme-${t}`)?.classList.remove('active'));
         this.classList.add('active');
     });
 });
 
-document.getElementById('theme-auto').addEventListener('click', function() {
+// Auto theme
+document.getElementById('theme-auto')?.addEventListener('click', function () {
     reader.setAutoTheme(true);
-    document.querySelectorAll('[id^="theme-"]').forEach(b => b.classList.remove('active'));
+    [...themeButtons, 'auto'].forEach(t => document.getElementById(`theme-${t}`)?.classList.remove('active'));
     this.classList.add('active');
 });
 
+// Initialize layout after render
 setTimeout(updateMargins, 100);
