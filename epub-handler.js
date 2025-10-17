@@ -247,7 +247,20 @@
                     const wasPlaying = this.reader.getState().isPlaying;
                     const isFlowMode = this.reader.getState().mode === 'flow';
                     
+                    // Stop playing before loading new content
+                    if (wasPlaying) {
+                        this.reader.pause();
+                    }
+                    
                     this.reader.loadContent(content);
+                    
+                    // Reset scroll position to top
+                    setTimeout(() => {
+                        const readerArea = document.querySelector('.ebook-reader-area');
+                        if (readerArea) {
+                            readerArea.scrollTop = 0;
+                        }
+                    }, 50);
                     
                     // IMPORTANT: Attach link handlers after content is loaded
                     setTimeout(() => {
@@ -401,18 +414,6 @@
                 'webp': 'image/webp'
             };
             return mimeTypes[ext] || 'image/jpeg';
-        }
-
-        /**
-         * Add responsive styles to image element
-         */
-        _addImageStyles(img) {
-            const existingStyle = img.getAttribute('style') || '';
-            const newStyles = 'max-width: 100%; height: auto; display: block; margin: 1em auto;';
-            
-            if (!existingStyle.includes('max-width')) {
-                img.setAttribute('style', existingStyle + ' ' + newStyles);
-            }
         }
 
         /**

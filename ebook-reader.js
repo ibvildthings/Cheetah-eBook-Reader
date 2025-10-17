@@ -980,6 +980,18 @@
 
                 const totalWords = this.wordIndexManager.getTotalWords();
                 if (wordIndex >= totalWords) {
+                    // Chapter finished - try to load next chapter
+                    if (window.EPUBHandler && typeof window.EPUBHandler.loadNextChapter === 'function') {
+                        const hasNext = window.EPUBHandler.loadNextChapter();
+                        if (hasNext) {
+                            // Next chapter will be loaded, stop current animation
+                            this.state.flow.playing = false;
+                            this._emit('onPlayChange', false);
+                            return;
+                        }
+                    }
+                    
+                    // No next chapter or no EPUB handler - restart current chapter
                     this.state.flow.currentWordIndex = 0;
                     this.state.flow.startTime = t;
                     this.state.flow.pauseUntil = 0;
