@@ -1,9 +1,10 @@
 /**
- * EBookReader Core Library v2.2.1
+ * EBookReader Core Library v2.3.0
  * Pure reading functionality with modern theming and fonts
+ * Performance optimizations: event delegation, DOM caching, RAF batching
  * 
  * @license MIT
- * @version 2.2.1
+ * @version 2.3.0
  */
 
 // ============================================================================
@@ -258,29 +259,44 @@ const THEMES = {
 };
 
 // ============================================================================
+// CONSTANTS
+// ============================================================================
+
+const LINE_BREAK_THRESHOLD = 5; // pixels
+
+// ============================================================================
 // WORD INDEX MANAGER
 // ============================================================================
 
 class WordIndexManager {
     constructor() {
         this.words = [];
+        this.wordNodes = null;
         this.dirty = true;
     }
 
     rebuild() {
         try {
             this.words = [];
-            const wordElements = document.querySelectorAll('.flow-word');
+            
+            // Use cached nodes if available
+            const wordElements = this.wordNodes || document.querySelectorAll('.flow-word');
             
             if (!wordElements.length) {
                 this.dirty = false;
                 return;
             }
 
+            // Batch read all rects first (avoid layout thrashing)
+            const rects = [];
+            wordElements.forEach(el => {
+                rects.push(el.getBoundingClientRect());
+            });
+
             let prevTop = -1;
             wordElements.forEach((el, idx) => {
-                const rect = el.getBoundingClientRect();
-                const isNewline = prevTop !== -1 && rect.top > prevTop + 5;
+                const rect = rects[idx];
+                const isNewline = prevTop !== -1 && rect.top > prevTop + LINE_BREAK_THRESHOLD;
                 
                 this.words.push({
                     el,
@@ -338,12 +354,12 @@ class WordIndexManager {
         let end = Math.min(this.words.length - 1, Math.round(centerIndex + halfWidth));
 
         while (start < centerIdx && this.words[start] && 
-               Math.abs(this.words[start].rect.top - centerTop) > 5) {
+               Math.abs(this.words[start].rect.top - centerTop) > LINE_BREAK_THRESHOLD) {
             start++;
         }
         
         while (end > centerIdx && this.words[end] && 
-               Math.abs(this.words[end].rect.top - centerTop) > 5) {
+               Math.abs(this.words[end].rect.top - centerTop) > LINE_BREAK_THRESHOLD) {
             end--;
         }
 
@@ -357,6 +373,12 @@ class WordIndexManager {
 
     invalidate() {
         this.dirty = true;
+        this.wordNodes = null;
+    }
+
+    cacheNodes(nodes) {
+        this.wordNodes = nodes;
+        this.dirty = true;
     }
 }
 
@@ -369,6 +391,7 @@ class FontLoader {
         this.loadedFonts = new Set();
         this.loadingFonts = new Map();
         this.fontTimeouts = new Map();
+        this.fontsReady = null;
     }
 
     async loadFont(fontKey) {
@@ -426,8 +449,12 @@ class FontLoader {
 
             link.onload = async () => {
                 try {
-                    await document.fonts.ready;
-                    await new Promise(r => setTimeout(r, 100));
+                    // Cache fonts ready promise
+                    if (!this.fontsReady) {
+                        this.fontsReady = document.fonts.ready;
+                    }
+                    await this.fontsReady;
+                    await new Promise(r => setTimeout(r, 50)); // Reduced from 100ms
                     
                     clearTimeout(timeout);
                     this.fontTimeouts.delete(fontKey);
@@ -463,7 +490,7 @@ class FontLoader {
 // ============================================================================
 
 class EBookReader {
-    static VERSION = '2.2.1';
+    static VERSION = '2.3.0';
 
     constructor(containerSelector, options = {}) {
         try {
@@ -536,10 +563,12 @@ class EBookReader {
             this.wordIndexManager = new WordIndexManager();
             this.fontLoader = new FontLoader();
             this._destroyed = false;
+            this._pendingStyleUpdate = null;
             
             this._resizeHandler = () => this.updateStyles();
             this._scrollHandler = () => this._handleScroll();
             this._systemThemeHandler = (e) => this._handleSystemThemeChange(e);
+            this._wordClickHandler = (e) => this._handleWordClick(e);
             
             this._injectStyles();
             this._buildDOM();
@@ -858,6 +887,11 @@ class EBookReader {
                 this.el.reader.removeEventListener('scroll', this._scrollHandler);
             }
             
+            // Remove event delegation listener
+            if (this.el && this.el.content) {
+                this.el.content.removeEventListener('click', this._wordClickHandler);
+            }
+            
             if (this.container) {
                 this.container.innerHTML = '';
             }
@@ -1000,6 +1034,7 @@ class EBookReader {
                 display: inline;
                 position: relative;
                 transition: opacity 0.2s ease;
+                will-change: opacity;
             }
             .flow-word:hover { opacity: .7; }
             .flow-word.active {
@@ -1016,6 +1051,7 @@ class EBookReader {
                 display: none;
                 border-radius: 3px;
                 transition: background 0.3s ease;
+                will-change: transform;
             }
             .ebook-focus-indicator.visible { display: block; }
         `;
@@ -1048,7 +1084,28 @@ class EBookReader {
         this.el.reader.addEventListener('wheel', e => this._handleWheel(e));
         this.el.reader.addEventListener('scroll', this._scrollHandler);
 
+        // Event delegation for word clicks
+        this.el.content.addEventListener('click', this._wordClickHandler);
+
         window.addEventListener('resize', this._resizeHandler);
+    }
+
+    // ========================================
+    // PRIVATE METHODS - EVENT HANDLERS
+    // ========================================
+
+    _handleWordClick(e) {
+        if (this.state.mode !== 'flow' || this._destroyed) return;
+        
+        const wordEl = e.target.closest('.flow-word');
+        if (!wordEl) return;
+        
+        const allWords = this.el.content.querySelectorAll('.flow-word');
+        const idx = Array.from(allWords).indexOf(wordEl);
+        
+        if (idx !== -1) {
+            this._jumpToWord(idx);
+        }
     }
 
     // ========================================
@@ -1058,20 +1115,32 @@ class EBookReader {
     updateStyles() {
         if (this._destroyed || !this.el || !this.el.content) return;
         
-        const font = FONTS[this.state.font];
-        
-        this.el.content.style.fontFamily = font.family;
-        this.el.content.style.fontSize = this.state.fontSize + 'px';
-        this.el.content.style.lineHeight = this.state.lineHeight;
-        
-        if (this.state.mode === 'flow' && this.wordIndexManager) {
-            this.wordIndexManager.invalidate();
-            requestAnimationFrame(() => {
-                if (!this._destroyed && this.wordIndexManager) {
-                    this._updateWordStates(this.state.flow.currentWordIndex);
-                }
-            });
+        // Cancel any pending style update
+        if (this._pendingStyleUpdate) {
+            cancelAnimationFrame(this._pendingStyleUpdate);
         }
+        
+        // Batch style updates in RAF
+        this._pendingStyleUpdate = requestAnimationFrame(() => {
+            if (this._destroyed || !this.el || !this.el.content) return;
+            
+            const font = FONTS[this.state.font];
+            
+            this.el.content.style.fontFamily = font.family;
+            this.el.content.style.fontSize = this.state.fontSize + 'px';
+            this.el.content.style.lineHeight = this.state.lineHeight;
+            
+            if (this.state.mode === 'flow' && this.wordIndexManager) {
+                this.wordIndexManager.invalidate();
+                requestAnimationFrame(() => {
+                    if (!this._destroyed && this.wordIndexManager) {
+                        this._updateWordStates(this.state.flow.currentWordIndex);
+                    }
+                });
+            }
+            
+            this._pendingStyleUpdate = null;
+        });
     }
 
     _render() {
@@ -1116,12 +1185,9 @@ class EBookReader {
             setTimeout(() => {
                 if (this._destroyed || !this.el || !this.el.content || !this.wordIndexManager) return;
                 
-                this.el.content.querySelectorAll('.flow-word').forEach((w, idx) => {
-                    w.addEventListener('click', () => {
-                        if (this.state.mode === 'flow' && !this._destroyed) this._jumpToWord(idx);
-                    });
-                });
-                
+                // Cache word nodes for performance
+                const wordNodes = this.el.content.querySelectorAll('.flow-word');
+                this.wordIndexManager.cacheNodes(wordNodes);
                 this.wordIndexManager.rebuild();
             }, 50);
         }
@@ -1177,54 +1243,66 @@ class EBookReader {
     _updateWordStates(centerIndex) {
         if (this._destroyed || !this.wordIndexManager || !this.el || !this.el.content) return;
         
-        this.el.content.querySelectorAll('.flow-word').forEach(w => {
-            w.className = 'flow-word inactive';
-        });
-
-        const focusWidth = this.state.flow.fingers;
-        const range = this.wordIndexManager.getActiveRange(centerIndex, focusWidth);
+        // Use cached nodes if available
+        const allWords = this.wordIndexManager.wordNodes || this.el.content.querySelectorAll('.flow-word');
         
-        const activeElements = [];
-        for (let i = range.start; i <= range.end; i++) {
-            const word = this.wordIndexManager.getWord(i);
-            if (word && word.el) {
-                word.el.classList.remove('inactive');
-                word.el.classList.add('active');
-                activeElements.push(word.el);
+        // Batch DOM writes in RAF
+        requestAnimationFrame(() => {
+            if (this._destroyed) return;
+            
+            // Reset all words to inactive
+            allWords.forEach(w => {
+                w.className = 'flow-word inactive';
+            });
+
+            const focusWidth = this.state.flow.fingers;
+            const range = this.wordIndexManager.getActiveRange(centerIndex, focusWidth);
+            
+            const activeElements = [];
+            for (let i = range.start; i <= range.end; i++) {
+                const word = this.wordIndexManager.getWord(i);
+                if (word && word.el) {
+                    word.el.classList.remove('inactive');
+                    word.el.classList.add('active');
+                    activeElements.push(word.el);
+                }
             }
-        }
 
-        if (this.state.mode !== 'flow' || activeElements.length === 0) {
-            this.el.focus.classList.remove('visible');
-            return;
-        }
+            if (this.state.mode !== 'flow' || activeElements.length === 0) {
+                this.el.focus.classList.remove('visible');
+                return;
+            }
 
-        const activeRects = activeElements.map(el => el.getBoundingClientRect());
-        const byLine = {};
-        activeRects.forEach(r => {
-            const k = Math.round(r.top);
-            (byLine[k] = byLine[k] || []).push(r);
+            // Batch read all rects
+            const activeRects = activeElements.map(el => el.getBoundingClientRect());
+            const byLine = {};
+            activeRects.forEach(r => {
+                const k = Math.round(r.top);
+                (byLine[k] = byLine[k] || []).push(r);
+            });
+
+            const primary = Object.values(byLine).sort((a, b) => b.length - a.length)[0];
+            if (!primary) {
+                this.el.focus.classList.remove('visible');
+                return;
+            }
+
+            const minL = Math.min(...primary.map(r => r.left));
+            const maxR = Math.max(...primary.map(r => r.right));
+            const minT = Math.min(...primary.map(r => r.top));
+            const maxB = Math.max(...primary.map(r => r.bottom));
+
+            const rr = this.el.reader.getBoundingClientRect();
+            
+            // Batch write styles
+            this.el.focus.style.cssText = `
+                left: ${minL - rr.left}px;
+                width: ${maxR - minL}px;
+                top: ${minT - rr.top + this.el.reader.scrollTop}px;
+                height: ${maxB - minT}px;
+            `;
+            this.el.focus.classList.add('visible');
         });
-
-        const primary = Object.values(byLine).sort((a, b) => b.length - a.length)[0];
-        if (!primary) {
-            this.el.focus.classList.remove('visible');
-            return;
-        }
-
-        const minL = Math.min(...primary.map(r => r.left));
-        const maxR = Math.max(...primary.map(r => r.right));
-        const minT = Math.min(...primary.map(r => r.top));
-        const maxB = Math.max(...primary.map(r => r.bottom));
-
-        const rr = this.el.reader.getBoundingClientRect();
-        this.el.focus.style.cssText = `
-            left: ${minL - rr.left}px;
-            width: ${maxR - minL}px;
-            top: ${minT - rr.top + this.el.reader.scrollTop}px;
-            height: ${maxB - minT}px;
-        `;
-        this.el.focus.classList.add('visible');
     }
 
     _scrollToWordIfNeeded(wordIndex) {
