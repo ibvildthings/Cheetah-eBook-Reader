@@ -1,10 +1,10 @@
 /**
- * EBookReader Core Library v2.3.0
+ * EBookReader Core Library v2.3.1
  * Pure reading functionality with modern theming and fonts
- * Performance optimizations: event delegation, DOM caching, RAF batching
+ * Performance optimizations: CSS containment, event delegation, DOM caching, RAF batching
  * 
  * @license MIT
- * @version 2.3.0
+ * @version 2.3.1
  */
 
 // ============================================================================
@@ -490,7 +490,7 @@ class FontLoader {
 // ============================================================================
 
 class EBookReader {
-    static VERSION = '2.3.0';
+    static VERSION = '2.3.1';
 
     constructor(containerSelector, options = {}) {
         try {
@@ -1008,6 +1008,7 @@ class EBookReader {
                 justify-content: center;
                 align-items: center;
                 transition: background 0.3s ease;
+                contain: layout style;
             }
             .ebook-reader-area {
                 position: relative;
@@ -1016,17 +1017,20 @@ class EBookReader {
                 overflow-y: auto;
                 transition: all .3s ease;
                 max-height: 85vh;
+                contain: layout style;
             }
             .ebook-text-content {
                 transition: padding .1s ease-out, opacity .2s ease-in-out, color .3s ease, font-family .2s ease;
                 position: relative;
                 min-height: 100%;
                 padding: 40px 60px;
+                contain: layout style paint;
             }
             .ebook-text-content.transitioning { opacity: .4; }
             .bionic { 
                 font-weight: 700;
                 transition: color 0.3s ease;
+                contain: style;
             }
             .flow-word {
                 font-weight: 400;
@@ -1035,6 +1039,7 @@ class EBookReader {
                 position: relative;
                 transition: opacity 0.2s ease;
                 will-change: opacity;
+                contain: layout style;
             }
             .flow-word:hover { opacity: .7; }
             .flow-word.active {
@@ -1052,6 +1057,7 @@ class EBookReader {
                 border-radius: 3px;
                 transition: background 0.3s ease;
                 will-change: transform;
+                contain: layout style paint;
             }
             .ebook-focus-indicator.visible { display: block; }
         `;
