@@ -13,6 +13,7 @@
             this.chapters = [];
             this.currentChapterIndex = -1;
             this.isInitialized = false;
+            this.imageCache = new Map(); // Cache blob URLs
         }
 
         /**
@@ -60,6 +61,9 @@
         async loadBook(file) {
             try {
                 console.log('Loading EPUB file:', file.name);
+
+                // Clear previous image cache
+                this._clearImageCache();
 
                 // Show loading state
                 this._updateMetadata('Loading...', 'Please wait');
@@ -199,22 +203,18 @@
                     if (doc.body) {
                         content = doc.body.innerHTML;
                     } else if (doc.querySelector && doc.querySelector('body')) {
-                        // Try querySelector as fallback
                         content = doc.querySelector('body').innerHTML;
                     } else if (doc.documentElement) {
-                        // Last resort: get documentElement but extract body
                         const bodyEl = doc.documentElement.querySelector('body');
                         if (bodyEl) {
                             content = bodyEl.innerHTML;
                         } else {
-                            // If no body, serialize and we'll clean it
                             const serializer = new XMLSerializer();
                             content = serializer.serializeToString(doc.documentElement);
                         }
                     } else if (typeof doc === 'string') {
                         content = doc;
                     } else {
-                        // Fallback: serialize the document
                         const serializer = new XMLSerializer();
                         content = serializer.serializeToString(doc);
                     }
@@ -228,7 +228,7 @@
 
                 console.log('Raw content sample:', content.substring(0, 500));
 
-                // Process images - replace src with blob URLs
+                // Process images BEFORE cleaning - replace src with blob URLs
                 content = await this._processImages(content, chapter.href);
 
                 // Clean up content with DOMPurify
@@ -286,17 +286,11 @@
             // Check if DOMPurify is available
             if (typeof DOMPurify === 'undefined') {
                 console.error('DOMPurify not loaded! Please include DOMPurify in your HTML.');
-                return html; // Return unsanitized as last resort
+                return html;
             }
 
-            // First, use DOMPurify with IN_PLACE to modify the DOM directly
-            // This prevents xmlns attributes from being re-serialized
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            
-            // Sanitize in place
-            DOMPurify.sanitize(tempDiv, {
-                IN_PLACE: true,
+            // Use DOMPurify with proper configuration to keep blob URLs
+            const clean = DOMPurify.sanitize(html, {
                 ALLOWED_TAGS: ['p', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 
                                'strong', 'em', 'b', 'i', 'u', 's', 'sub', 'sup',
                                'a', 'img', 'br', 'hr', 
@@ -305,22 +299,14 @@
                                'blockquote', 'pre', 'code',
                                'figure', 'figcaption', 'cite', 'q',
                                'aside', 'section', 'article', 'header', 'footer', 'nav'],
-                ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'style'],
+                ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'style', 'role'],
+                ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|blob):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
                 KEEP_CONTENT: true,
-                USE_PROFILES: { html: true }
+                RETURN_DOM: false,
+                RETURN_DOM_FRAGMENT: false
             });
             
-            // Now manually remove xmlns attributes from all elements
-            tempDiv.querySelectorAll('*').forEach(el => {
-                // Remove all xmlns-related attributes
-                Array.from(el.attributes).forEach(attr => {
-                    if (attr.name.startsWith('xmlns') || attr.name.includes('xml:')) {
-                        el.removeAttribute(attr.name);
-                    }
-                });
-            });
-            
-            return tempDiv.innerHTML;
+            return clean;
         }
 
         /**
@@ -331,24 +317,36 @@
                 return html;
             }
 
-            // Find all image tags
-            const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
-            const matches = [...html.matchAll(imgRegex)];
-
             const zipFiles = this.book.archive.zip.files;
-
+            
+            // Use regex to find and replace image sources
+            const imgRegex = /<img([^>]+)src=["']([^"']+)["']([^>]*)>/gi;
+            
+            const matches = [...html.matchAll(imgRegex)];
+            
             for (const match of matches) {
                 const fullTag = match[0];
-                const imgSrc = match[1];
+                const beforeSrc = match[1];
+                const imgSrc = match[2];
+                const afterSrc = match[3];
 
                 try {
+                    // Check cache first
+                    if (this.imageCache.has(imgSrc)) {
+                        const blobUrl = this.imageCache.get(imgSrc);
+                        const newTag = `<img${beforeSrc}src="${blobUrl}"${afterSrc}>`;
+                        html = html.replace(fullTag, newTag);
+                        continue;
+                    }
+
+                    // Extract filename
                     const filename = imgSrc.split('/').pop();
                     
                     // Search for the image in the zip files
                     let foundPath = null;
                     
                     for (const path in zipFiles) {
-                        if (path.endsWith(filename) || path === imgSrc || path.endsWith(imgSrc)) {
+                        if (path.endsWith(filename) || path === imgSrc || path.endsWith('/' + imgSrc)) {
                             foundPath = path;
                             break;
                         }
@@ -358,18 +356,20 @@
                         // Get the blob from the zip file
                         const blob = await zipFiles[foundPath].async('blob');
                         
-                        // Create a blob URL
-                        const blobUrl = URL.createObjectURL(blob);
+                        // Create a blob URL with proper type
+                        const mimeType = this._getImageMimeType(filename);
+                        const typedBlob = new Blob([blob], { type: mimeType });
+                        const blobUrl = URL.createObjectURL(typedBlob);
                         
-                        // Add style to make images responsive
-                        let newTag = fullTag.replace(imgSrc, blobUrl);
+                        // Cache it
+                        this.imageCache.set(imgSrc, blobUrl);
                         
-                        // Add max-width style if not already present
+                        // Replace the tag with blob URL and add styles
+                        let newTag = `<img${beforeSrc}src="${blobUrl}"${afterSrc}>`;
+                        
+                        // Add responsive styles if not present
                         if (!newTag.includes('style=')) {
                             newTag = newTag.replace('<img', '<img style="max-width: 100%; height: auto; display: block; margin: 1em auto;"');
-                        } else {
-                            // Append to existing style
-                            newTag = newTag.replace('style="', 'style="max-width: 100%; height: auto; display: block; margin: 1em auto; ');
                         }
                         
                         html = html.replace(fullTag, newTag);
@@ -378,42 +378,51 @@
                         html = html.replace(fullTag, '');
                     }
                 } catch (error) {
-                    // Remove the image tag if it fails
+                    console.warn('Failed to process image:', imgSrc, error);
+                    // Remove the broken image tag
                     html = html.replace(fullTag, '');
                 }
             }
 
             return html;
         }
+        
+        /**
+         * Get MIME type for image based on extension
+         */
+        _getImageMimeType(filename) {
+            const ext = filename.split('.').pop().toLowerCase();
+            const mimeTypes = {
+                'jpg': 'image/jpeg',
+                'jpeg': 'image/jpeg',
+                'png': 'image/png',
+                'gif': 'image/gif',
+                'svg': 'image/svg+xml',
+                'webp': 'image/webp'
+            };
+            return mimeTypes[ext] || 'image/jpeg';
+        }
 
         /**
-         * Resolve relative href to absolute path in EPUB
+         * Add responsive styles to image element
          */
-        _resolveHref(href, basePath) {
-            // If href is already absolute or starts with /, return as-is
-            if (href.startsWith('http') || href.startsWith('/')) {
-                return href;
+        _addImageStyles(img) {
+            const existingStyle = img.getAttribute('style') || '';
+            const newStyles = 'max-width: 100%; height: auto; display: block; margin: 1em auto;';
+            
+            if (!existingStyle.includes('max-width')) {
+                img.setAttribute('style', existingStyle + ' ' + newStyles);
             }
+        }
 
-            // Get directory of base path
-            const baseDir = basePath.substring(0, basePath.lastIndexOf('/') + 1);
-            
-            // Combine base directory with relative href
-            let resolved = baseDir + href;
-            
-            // Normalize path (remove ./ and ../)
-            const parts = resolved.split('/');
-            const normalized = [];
-            
-            for (const part of parts) {
-                if (part === '..') {
-                    normalized.pop();
-                } else if (part !== '.' && part !== '') {
-                    normalized.push(part);
-                }
+        /**
+         * Clear image cache and revoke blob URLs
+         */
+        _clearImageCache() {
+            for (const blobUrl of this.imageCache.values()) {
+                URL.revokeObjectURL(blobUrl);
             }
-            
-            return normalized.join('/');
+            this.imageCache.clear();
         }
 
         /**
