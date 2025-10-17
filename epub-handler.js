@@ -80,6 +80,11 @@
                 console.log('Book metadata:', metadata);
                 console.log('Navigation:', navigation);
 
+                // Log available resources in archive for debugging
+                if (this.book.archive) {
+                    console.log('Archive resources:', Object.keys(this.book.archive.urlCache || {}));
+                }
+
                 // Update UI with metadata
                 this._updateMetadata(
                     metadata.title || 'Unknown Title',
@@ -267,7 +272,7 @@
          * Process images in HTML content - replace src with blob URLs
          */
         async _processImages(html, currentHref) {
-            if (!this.book || !this.book.archive) {
+            if (!this.book || !this.book.archive || !this.book.archive.zip) {
                 return html;
             }
 
@@ -275,27 +280,49 @@
             const imgRegex = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
             const matches = [...html.matchAll(imgRegex)];
 
+            const zipFiles = this.book.archive.zip.files;
+
             for (const match of matches) {
                 const fullTag = match[0];
                 const imgSrc = match[1];
 
                 try {
-                    // Resolve the image path relative to current chapter
-                    const imgPath = this._resolveHref(imgSrc, currentHref);
+                    const filename = imgSrc.split('/').pop();
                     
-                    // Get image from EPUB archive
-                    const imgData = await this.book.archive.getBlob(imgPath);
+                    // Search for the image in the zip files
+                    let foundPath = null;
                     
-                    if (imgData) {
-                        // Create blob URL
-                        const blobUrl = URL.createObjectURL(imgData);
+                    for (const path in zipFiles) {
+                        if (path.endsWith(filename) || path === imgSrc || path.endsWith(imgSrc)) {
+                            foundPath = path;
+                            break;
+                        }
+                    }
+                    
+                    if (foundPath && zipFiles[foundPath]) {
+                        // Get the blob from the zip file
+                        const blob = await zipFiles[foundPath].async('blob');
                         
-                        // Replace src in the tag
-                        const newTag = fullTag.replace(imgSrc, blobUrl);
+                        // Create a blob URL
+                        const blobUrl = URL.createObjectURL(blob);
+                        
+                        // Add style to make images responsive
+                        let newTag = fullTag.replace(imgSrc, blobUrl);
+                        
+                        // Add max-width style if not already present
+                        if (!newTag.includes('style=')) {
+                            newTag = newTag.replace('<img', '<img style="max-width: 100%; height: auto; display: block; margin: 1em auto;"');
+                        } else {
+                            // Append to existing style
+                            newTag = newTag.replace('style="', 'style="max-width: 100%; height: auto; display: block; margin: 1em auto; ');
+                        }
+                        
                         html = html.replace(fullTag, newTag);
+                    } else {
+                        // Remove the image tag if not found
+                        html = html.replace(fullTag, '');
                     }
                 } catch (error) {
-                    console.warn('Failed to load image:', imgSrc, error);
                     // Remove the image tag if it fails
                     html = html.replace(fullTag, '');
                 }
