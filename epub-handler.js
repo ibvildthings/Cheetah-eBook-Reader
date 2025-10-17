@@ -195,11 +195,22 @@
                 if (section.contents) {
                     const doc = section.contents;
                     
-                    // Try to get body content
+                    // Try to get body content first (most reliable)
                     if (doc.body) {
                         content = doc.body.innerHTML;
+                    } else if (doc.querySelector && doc.querySelector('body')) {
+                        // Try querySelector as fallback
+                        content = doc.querySelector('body').innerHTML;
                     } else if (doc.documentElement) {
-                        content = doc.documentElement.innerHTML;
+                        // Last resort: get documentElement but extract body
+                        const bodyEl = doc.documentElement.querySelector('body');
+                        if (bodyEl) {
+                            content = bodyEl.innerHTML;
+                        } else {
+                            // If no body, serialize and we'll clean it
+                            const serializer = new XMLSerializer();
+                            content = serializer.serializeToString(doc.documentElement);
+                        }
                     } else if (typeof doc === 'string') {
                         content = doc;
                     } else {
@@ -215,11 +226,15 @@
                     content = '';
                 }
 
+                console.log('Raw content sample:', content.substring(0, 500));
+
                 // Process images - replace src with blob URLs
                 content = await this._processImages(content, chapter.href);
 
-                // Clean up content
+                // Clean up content with DOMPurify
                 content = this._cleanContent(content);
+                
+                console.log('Cleaned content sample:', content.substring(0, 500));
 
                 // Update current chapter index
                 this.currentChapterIndex = index;
@@ -259,7 +274,7 @@
         }
 
         /**
-         * Clean HTML content from EPUB
+         * Clean HTML content from EPUB using DOMPurify
          */
         _cleanContent(html) {
             // Ensure we have a string
@@ -268,22 +283,44 @@
                 return '';
             }
 
-            // Remove link tags (CSS references) - more aggressive pattern
-            html = html.replace(/<link[^>]*>/gi, '');
-            
-            // Remove style tags
-            html = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-            
-            // Remove script tags
-            html = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-            
-            // Remove any other problematic tags
-            html = html.replace(/<meta[^>]*>/gi, '');
-            
-            // Clean up excessive whitespace
-            html = html.replace(/\s+/g, ' ').trim();
+            // Check if DOMPurify is available
+            if (typeof DOMPurify === 'undefined') {
+                console.error('DOMPurify not loaded! Please include DOMPurify in your HTML.');
+                return html; // Return unsanitized as last resort
+            }
 
-            return html;
+            // First, use DOMPurify with IN_PLACE to modify the DOM directly
+            // This prevents xmlns attributes from being re-serialized
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            // Sanitize in place
+            DOMPurify.sanitize(tempDiv, {
+                IN_PLACE: true,
+                ALLOWED_TAGS: ['p', 'div', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 
+                               'strong', 'em', 'b', 'i', 'u', 's', 'sub', 'sup',
+                               'a', 'img', 'br', 'hr', 
+                               'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+                               'table', 'thead', 'tbody', 'tr', 'td', 'th',
+                               'blockquote', 'pre', 'code',
+                               'figure', 'figcaption', 'cite', 'q',
+                               'aside', 'section', 'article', 'header', 'footer', 'nav'],
+                ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'style'],
+                KEEP_CONTENT: true,
+                USE_PROFILES: { html: true }
+            });
+            
+            // Now manually remove xmlns attributes from all elements
+            tempDiv.querySelectorAll('*').forEach(el => {
+                // Remove all xmlns-related attributes
+                Array.from(el.attributes).forEach(attr => {
+                    if (attr.name.startsWith('xmlns') || attr.name.includes('xml:')) {
+                        el.removeAttribute(attr.name);
+                    }
+                });
+            });
+            
+            return tempDiv.innerHTML;
         }
 
         /**
