@@ -226,10 +226,20 @@
 
                 // Load content into reader
                 if (this.reader && this.isInitialized) {
+                    const wasPlaying = this.reader.getState().isPlaying;
+                    const isFlowMode = this.reader.getState().mode === 'flow';
+                    
                     this.reader.loadContent(content);
                     
-                    // Attach link click handlers after content loads
-                    setTimeout(() => this._attachLinkHandlers(), 100);
+                    // Reset to beginning if in flow mode
+                    if (isFlowMode) {
+                        setTimeout(() => {
+                            this.reader.jumpToWord(0);
+                            if (wasPlaying) {
+                                this.reader.play();
+                            }
+                        }, 300);
+                    }
                 }
 
                 console.log('Chapter loaded successfully');
