@@ -1,10 +1,10 @@
 /**
- * EBookReader Core Library v2.3.1
+ * EBookReader Core Library v2.4.0
  * Pure reading functionality with modern theming and fonts
- * Performance optimizations: CSS containment, event delegation, DOM caching, RAF batching
+ * Performance: CSS containment, event delegation, DOM caching, RAF batching, IntersectionObserver
  * 
  * @license MIT
- * @version 2.3.1
+ * @version 2.4.0
  */
 
 // ============================================================================
@@ -265,7 +265,7 @@ const THEMES = {
 const LINE_BREAK_THRESHOLD = 5; // pixels
 
 // ============================================================================
-// WORD INDEX MANAGER
+// WORD INDEX MANAGER (with IntersectionObserver)
 // ============================================================================
 
 class WordIndexManager {
@@ -273,6 +273,58 @@ class WordIndexManager {
         this.words = [];
         this.wordNodes = null;
         this.dirty = true;
+        this.visibleIndices = new Set();
+        this.observer = null;
+        this.observerEnabled = false;
+    }
+
+    setupObserver(readerElement) {
+        // Clean up existing observer
+        if (this.observer) {
+            this.observer.disconnect();
+        }
+
+        this.observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const idx = parseInt(entry.target.dataset.wordIndex);
+                if (!isNaN(idx)) {
+                    if (entry.isIntersecting) {
+                        this.visibleIndices.add(idx);
+                    } else {
+                        this.visibleIndices.delete(idx);
+                    }
+                }
+            });
+        }, {
+            root: readerElement,
+            rootMargin: '200px', // Buffer zone above and below viewport
+            threshold: 0
+        });
+
+        this.observerEnabled = true;
+    }
+
+    observeWords(wordElements) {
+        if (!this.observer || !this.observerEnabled) return;
+
+        wordElements.forEach(el => {
+            this.observer.observe(el);
+        });
+    }
+
+    disconnectObserver() {
+        if (this.observer) {
+            this.observer.disconnect();
+            this.visibleIndices.clear();
+        }
+    }
+
+    enableObserver() {
+        this.observerEnabled = true;
+    }
+
+    disableObserver() {
+        this.observerEnabled = false;
     }
 
     rebuild() {
@@ -371,6 +423,10 @@ class WordIndexManager {
         return this.words.length;
     }
 
+    isVisible(index) {
+        return this.visibleIndices.has(index);
+    }
+
     invalidate() {
         this.dirty = true;
         this.wordNodes = null;
@@ -449,12 +505,11 @@ class FontLoader {
 
             link.onload = async () => {
                 try {
-                    // Cache fonts ready promise
                     if (!this.fontsReady) {
                         this.fontsReady = document.fonts.ready;
                     }
                     await this.fontsReady;
-                    await new Promise(r => setTimeout(r, 50)); // Reduced from 100ms
+                    await new Promise(r => setTimeout(r, 50));
                     
                     clearTimeout(timeout);
                     this.fontTimeouts.delete(fontKey);
@@ -490,7 +545,7 @@ class FontLoader {
 // ============================================================================
 
 class EBookReader {
-    static VERSION = '2.3.1';
+    static VERSION = '2.4.0';
 
     constructor(containerSelector, options = {}) {
         try {
@@ -616,6 +671,11 @@ class EBookReader {
             this.state.fontLoading = true;
             this._emit('onFontLoading', fontKey);
 
+            // Temporarily disable observer during font change
+            if (this.wordIndexManager) {
+                this.wordIndexManager.disableObserver();
+            }
+
             await this.fontLoader.loadFont(fontKey);
 
             this.state.font = fontKey;
@@ -636,12 +696,18 @@ class EBookReader {
                 this.wordIndexManager.invalidate();
                 setTimeout(() => {
                     if (!this._destroyed && this.wordIndexManager) {
+                        this.wordIndexManager.enableObserver();
                         this._updateWordStates(this.state.flow.currentWordIndex);
                     }
                 }, 150);
+            } else if (this.wordIndexManager) {
+                this.wordIndexManager.enableObserver();
             }
         } catch (error) {
             this.state.fontLoading = false;
+            if (this.wordIndexManager) {
+                this.wordIndexManager.enableObserver();
+            }
             
             if (fontKey !== 'georgia') {
                 console.warn(`Font load failed, falling back to Georgia: ${error.message}`);
@@ -887,9 +953,12 @@ class EBookReader {
                 this.el.reader.removeEventListener('scroll', this._scrollHandler);
             }
             
-            // Remove event delegation listener
             if (this.el && this.el.content) {
                 this.el.content.removeEventListener('click', this._wordClickHandler);
+            }
+            
+            if (this.wordIndexManager) {
+                this.wordIndexManager.disconnectObserver();
             }
             
             if (this.container) {
@@ -1090,7 +1159,6 @@ class EBookReader {
         this.el.reader.addEventListener('wheel', e => this._handleWheel(e));
         this.el.reader.addEventListener('scroll', this._scrollHandler);
 
-        // Event delegation for word clicks
         this.el.content.addEventListener('click', this._wordClickHandler);
 
         window.addEventListener('resize', this._resizeHandler);
@@ -1106,10 +1174,8 @@ class EBookReader {
         const wordEl = e.target.closest('.flow-word');
         if (!wordEl) return;
         
-        const allWords = this.el.content.querySelectorAll('.flow-word');
-        const idx = Array.from(allWords).indexOf(wordEl);
-        
-        if (idx !== -1) {
+        const idx = parseInt(wordEl.dataset.wordIndex);
+        if (!isNaN(idx)) {
             this._jumpToWord(idx);
         }
     }
@@ -1121,12 +1187,10 @@ class EBookReader {
     updateStyles() {
         if (this._destroyed || !this.el || !this.el.content) return;
         
-        // Cancel any pending style update
         if (this._pendingStyleUpdate) {
             cancelAnimationFrame(this._pendingStyleUpdate);
         }
         
-        // Batch style updates in RAF
         this._pendingStyleUpdate = requestAnimationFrame(() => {
             if (this._destroyed || !this.el || !this.el.content) return;
             
@@ -1151,6 +1215,11 @@ class EBookReader {
 
     _render() {
         if (this._destroyed || !this.el || !this.el.content) return;
+        
+        // Disconnect observer during render
+        if (this.wordIndexManager) {
+            this.wordIndexManager.disconnectObserver();
+        }
         
         this.el.content.classList.add('transitioning');
         
@@ -1191,12 +1260,39 @@ class EBookReader {
             setTimeout(() => {
                 if (this._destroyed || !this.el || !this.el.content || !this.wordIndexManager) return;
                 
-                // Cache word nodes for performance
                 const wordNodes = this.el.content.querySelectorAll('.flow-word');
                 this.wordIndexManager.cacheNodes(wordNodes);
+                
+                // Setup IntersectionObserver
+                this.wordIndexManager.setupObserver(this.el.reader);
+                this.wordIndexManager.observeWords(wordNodes);
+                
+                // Initial sync check for visible words
+                this._initialVisibilityCheck(wordNodes);
+                
                 this.wordIndexManager.rebuild();
             }, 50);
         }
+    }
+
+    _initialVisibilityCheck(wordNodes) {
+        // Synchronously check initial visibility to avoid flash
+        if (!this.el || !this.el.reader) return;
+        
+        const readerRect = this.el.reader.getBoundingClientRect();
+        const buffer = 200;
+        
+        wordNodes.forEach((el, idx) => {
+            const rect = el.getBoundingClientRect();
+            const isVisible = (
+                rect.bottom >= readerRect.top - buffer &&
+                rect.top <= readerRect.bottom + buffer
+            );
+            
+            if (isVisible && this.wordIndexManager) {
+                this.wordIndexManager.visibleIndices.add(idx);
+            }
+        });
     }
 
     _bionicWord(w) {
@@ -1213,6 +1309,7 @@ class EBookReader {
         const temp = document.createElement('div');
         temp.innerHTML = html;
 
+        let wordIndex = 0;
         const wrap = text => text.replace(/(\S+)/g, word => {
             const parts = word.match(/[^-]+-?/g) || [word];
             
@@ -1224,7 +1321,8 @@ class EBookReader {
                         content = part.replace(match[0], this._bionicWord(match[0]));
                     }
                 }
-                return `<span class="flow-word inactive">${content}</span>`;
+                const idx = wordIndex++;
+                return `<span class="flow-word inactive" data-word-index="${idx}">${content}</span>`;
             }).join('');
         });
 
@@ -1249,37 +1347,52 @@ class EBookReader {
     _updateWordStates(centerIndex) {
         if (this._destroyed || !this.wordIndexManager || !this.el || !this.el.content) return;
         
-        // Use cached nodes if available
         const allWords = this.wordIndexManager.wordNodes || this.el.content.querySelectorAll('.flow-word');
         
-        // Batch DOM writes in RAF
         requestAnimationFrame(() => {
             if (this._destroyed) return;
             
-            // Reset all words to inactive
-            allWords.forEach(w => {
-                w.className = 'flow-word inactive';
-            });
-
             const focusWidth = this.state.flow.fingers;
             const range = this.wordIndexManager.getActiveRange(centerIndex, focusWidth);
+            const centerIdx = Math.floor(centerIndex);
+            
+            // Get visible + active word indices
+            const visibleIndices = this.wordIndexManager.observerEnabled 
+                ? this.wordIndexManager.visibleIndices 
+                : new Set(Array.from({length: allWords.length}, (_, i) => i));
+            
+            // Always include active range even if not visible
+            const indicesToUpdate = new Set(visibleIndices);
+            for (let i = range.start; i <= range.end; i++) {
+                indicesToUpdate.add(i);
+            }
+            // Always include center word
+            indicesToUpdate.add(centerIdx);
             
             const activeElements = [];
-            for (let i = range.start; i <= range.end; i++) {
-                const word = this.wordIndexManager.getWord(i);
+            
+            // Update only necessary words
+            indicesToUpdate.forEach(idx => {
+                const word = this.wordIndexManager.getWord(idx);
                 if (word && word.el) {
-                    word.el.classList.remove('inactive');
-                    word.el.classList.add('active');
-                    activeElements.push(word.el);
+                    const isActive = idx >= range.start && idx <= range.end;
+                    
+                    if (isActive) {
+                        word.el.classList.remove('inactive');
+                        word.el.classList.add('active');
+                        activeElements.push(word.el);
+                    } else {
+                        word.el.classList.remove('active');
+                        word.el.classList.add('inactive');
+                    }
                 }
-            }
+            });
 
             if (this.state.mode !== 'flow' || activeElements.length === 0) {
                 this.el.focus.classList.remove('visible');
                 return;
             }
 
-            // Batch read all rects
             const activeRects = activeElements.map(el => el.getBoundingClientRect());
             const byLine = {};
             activeRects.forEach(r => {
@@ -1300,7 +1413,6 @@ class EBookReader {
 
             const rr = this.el.reader.getBoundingClientRect();
             
-            // Batch write styles
             this.el.focus.style.cssText = `
                 left: ${minL - rr.left}px;
                 width: ${maxR - minL}px;
