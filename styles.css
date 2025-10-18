@@ -210,3 +210,26 @@ select {
     background: rgba(59, 130, 246, 0.15);
     border-color: rgba(59, 130, 246, 0.4);
 }
+
+select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #2a2a2a;
+    background: #2a2a2a;
+    color: #e8e8e8;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #60a5fa;
+}

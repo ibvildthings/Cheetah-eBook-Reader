@@ -145,3 +145,32 @@ document.getElementById('theme-auto')?.addEventListener('click', function () {
 
 // Initialize layout after render
 setTimeout(updateMargins, 100);
+
+// Themes
+document.getElementById('theme-select')?.addEventListener('change', e => {
+    const themeValue = e.target.value;
+    const autoCheckbox = document.getElementById('theme-auto');
+    
+    if (autoCheckbox) {
+        autoCheckbox.checked = false;
+    }
+    
+    reader.setTheme(themeValue);
+});
+
+// Auto theme checkbox
+document.getElementById('theme-auto')?.addEventListener('change', function(e) {
+    const themeSelect = document.getElementById('theme-select');
+    
+    if (e.target.checked) {
+        reader.setAutoTheme(true);
+        if (themeSelect) {
+            themeSelect.disabled = true;
+        }
+    } else {
+        reader.setAutoTheme(false);
+        if (themeSelect) {
+            themeSelect.disabled = false;
+        }
+    }
+});
