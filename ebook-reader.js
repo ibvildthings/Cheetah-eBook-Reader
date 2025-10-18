@@ -577,14 +577,15 @@
                     box-shadow: 0 4px 20px rgba(0,0,0,.1);
                     overflow-y: auto;
                     transition: all .3s ease;
-                    max-height: 85vh;
+                    max-height: 100vh;
+                    padding: 30px 0;
                     contain: layout style;
                 }
                 .ebook-text-content {
                     transition: padding .1s ease-out, opacity .2s ease-in-out, color .3s ease, font-family .2s ease;
                     position: relative;
                     min-height: 100%;
-                    padding: 40px 60px;
+                    padding: 0 60px;
                     contain: layout style paint;
                 }
                 .ebook-text-content.transitioning { opacity: .4; }
