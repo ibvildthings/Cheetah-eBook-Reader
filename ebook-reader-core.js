@@ -163,6 +163,26 @@ const FONTS = {
         source: 'google',
         googleFont: 'Roboto+Slab:wght@400;700',
         weights: [400, 700]
+    },
+    
+    // ACCESSIBILITY
+    lexend: {
+        name: 'Lexend',
+        family: "'Lexend', sans-serif",
+        category: 'accessibility',
+        lineHeight: 1.8,
+        source: 'google',
+        googleFont: 'Lexend:wght@400;700',
+        weights: [400, 700]
+    },
+    opendyslexic: {
+        name: 'OpenDyslexic',
+        family: "'OpenDyslexic', sans-serif",
+        category: 'accessibility',
+        lineHeight: 1.8,
+        source: 'cdn',
+        cdnUrl: 'https://cdn.jsdelivr.net/npm/opendyslexic@3.0.1/opendyslexic-regular.woff2',
+        weights: [400, 700]
     }
 };
 
@@ -467,7 +487,10 @@ class FontLoader {
             return this.loadingFonts.get(fontKey);
         }
 
-        const loadPromise = this._loadGoogleFont(fontKey, font);
+        const loadPromise = font.source === 'cdn' 
+            ? this._loadCDNFont(fontKey, font)
+            : this._loadGoogleFont(fontKey, font);
+            
         this.loadingFonts.set(fontKey, loadPromise);
 
         try {
@@ -479,6 +502,66 @@ class FontLoader {
             this.loadingFonts.delete(fontKey);
             throw new FontError(`Failed to load font ${font.name}: ${error.message}`);
         }
+    }
+
+    async _loadCDNFont(fontKey, font) {
+        return new Promise((resolve, reject) => {
+            // Check if font face already exists
+            const existingStyle = document.querySelector(`style[data-font="${fontKey}"]`);
+            if (existingStyle) {
+                resolve();
+                return;
+            }
+
+            // Create @font-face style with correct jsDelivr URLs
+            const style = document.createElement('style');
+            style.setAttribute('data-font', fontKey);
+            style.textContent = `
+                @font-face {
+                    font-family: 'OpenDyslexic';
+                    src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff');
+                    font-weight: 400;
+                    font-style: normal;
+                }
+                @font-face {
+                    font-family: 'OpenDyslexic';
+                    src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Bold.woff') format('woff');
+                    font-weight: 700;
+                    font-style: normal;
+                }
+            `;
+
+            const timeout = setTimeout(() => {
+                reject(new Error('Font load timeout'));
+            }, 5000);
+
+            this.fontTimeouts.set(fontKey, timeout);
+
+            // Append style and wait for fonts to load
+            document.head.appendChild(style);
+            
+            // Wait for font to be ready
+            if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(() => {
+                    setTimeout(() => {
+                        clearTimeout(timeout);
+                        this.fontTimeouts.delete(fontKey);
+                        resolve();
+                    }, 100);
+                }).catch(error => {
+                    clearTimeout(timeout);
+                    this.fontTimeouts.delete(fontKey);
+                    reject(error);
+                });
+            } else {
+                // Fallback if document.fonts not supported
+                setTimeout(() => {
+                    clearTimeout(timeout);
+                    this.fontTimeouts.delete(fontKey);
+                    resolve();
+                }, 500);
+            }
+        });
     }
 
     async _loadGoogleFont(fontKey, font) {
