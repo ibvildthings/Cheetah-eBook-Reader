@@ -85,6 +85,73 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    background: #242424;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.2s ease;
+}
+
+.sidebar-section:hover {
+    border-color: #3a3a3a;
+}
+
+.sidebar-section.collapsible {
+    padding: 0;
+    overflow: hidden;
+}
+
+.section-header {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e8e8e8;
+    text-transform: none;
+    letter-spacing: 0;
+    margin: 0;
+    padding: 16px;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.2s ease;
+}
+
+.section-header:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.section-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.collapse-arrow {
+    margin-left: auto;
+    font-size: 10px;
+    transition: transform 0.3s ease;
+    color: #a0a0a0;
+}
+
+.section-header.collapsed .collapse-arrow {
+    transform: rotate(-90deg);
+}
+
+.section-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 16px 16px 16px;
+    max-height: 1000px;
+    opacity: 1;
+    transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+}
+
+.section-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding: 0 16px;
+    overflow: hidden;
 }
 
 .sidebar-section h3 {

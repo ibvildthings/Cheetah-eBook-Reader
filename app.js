@@ -18,6 +18,19 @@ const sidebar = document.getElementById('sidebar');
 const toggleBtn = document.getElementById('sidebar-toggle');
 toggleBtn?.addEventListener('click', () => sidebar?.classList.toggle('collapsed'));
 
+// Collapsible sections
+document.querySelectorAll('.section-header').forEach(header => {
+    header.addEventListener('click', () => {
+        const section = header.dataset.section;
+        const content = document.querySelector(`[data-content="${section}"]`);
+        
+        if (content) {
+            content.classList.toggle('collapsed');
+            header.classList.toggle('collapsed');
+        }
+    });
+});
+
 // Margin state
 const marginState = { left: 60, right: 60, dragging: false, side: null, initX: 0, initMargin: 0 };
 
