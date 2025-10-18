@@ -822,6 +822,7 @@
 
             let wordIndex = 0;
             const wrap = text => text.replace(/(\S+)/g, word => {
+                // Split hyphenated words into separate spans
                 const parts = word.match(/[^-]+-?/g) || [word];
                 
                 return parts.map(part => {
