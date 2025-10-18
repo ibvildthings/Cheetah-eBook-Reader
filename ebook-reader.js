@@ -231,7 +231,8 @@
                 serif: [],
                 sans: [],
                 mono: [],
-                slab: []
+                slab: [],
+                accessibility: []
             };
 
             fonts.forEach(font => {
@@ -347,6 +348,14 @@
             }
             
             this._emit('onSpeedChange', wpm);
+        }
+
+        setLineHeight(lineHeight) {
+            if (typeof lineHeight !== 'number' || lineHeight < 1.0 || lineHeight > 3.0) {
+                throw new Error('Line height must be between 1.0 and 3.0');
+            }
+            this.state.lineHeight = lineHeight;
+            this.updateStyles();
         }
 
         setFocusWidth(width) {

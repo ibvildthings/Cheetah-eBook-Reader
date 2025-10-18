@@ -102,19 +102,20 @@ document.getElementById('btn-bionic')?.addEventListener('click', function () {
     this.classList.toggle('active');
 });
 
-// Sliders for speed, focus, scroll, font size
+// Sliders for speed, focus, scroll, font size, line height
 const sliders = [
     { id: 'speed', action: v => reader.setSpeed(v), label: v => `${v} WPM` },
     { id: 'focus', action: v => reader.setFocusWidth(v), label: v => v },
     { id: 'scroll', action: v => reader.setScrollLevel(v), label: v => v },
-    { id: 'fontsize', action: v => { reader.state.fontSize = v; reader.updateStyles(); }, label: v => `${v}px` }
+    { id: 'fontsize', action: v => { reader.state.fontSize = v; reader.updateStyles(); }, label: v => `${v}px` },
+    { id: 'lineheight', action: v => reader.setLineHeight(v), label: v => v.toFixed(1) }
 ];
 
 sliders.forEach(({ id, action, label }) => {
     const slider = document.getElementById(`${id}-slider`);
     const valueEl = document.getElementById(`${id}-value`);
     slider?.addEventListener('input', e => {
-        const val = parseInt(e.target.value, 10);
+        const val = parseFloat(e.target.value);
         action(val);
         valueEl.textContent = label(val);
     });
@@ -125,28 +126,7 @@ document.getElementById('font-select')?.addEventListener('change', e => {
     reader.setFont(e.target.value);
 });
 
-// Themes
-const themeButtons = ['light', 'dark', 'sepia', 'gray'];
-themeButtons.forEach(theme => {
-    const btn = document.getElementById(`theme-${theme}`);
-    btn?.addEventListener('click', function () {
-        reader.setTheme(theme);
-        themeButtons.forEach(t => document.getElementById(`theme-${t}`)?.classList.remove('active'));
-        this.classList.add('active');
-    });
-});
-
-// Auto theme
-document.getElementById('theme-auto')?.addEventListener('click', function () {
-    reader.setAutoTheme(true);
-    [...themeButtons, 'auto'].forEach(t => document.getElementById(`theme-${t}`)?.classList.remove('active'));
-    this.classList.add('active');
-});
-
-// Initialize layout after render
-setTimeout(updateMargins, 100);
-
-// Themes
+// Themes dropdown
 document.getElementById('theme-select')?.addEventListener('change', e => {
     const themeValue = e.target.value;
     const autoCheckbox = document.getElementById('theme-auto');
@@ -174,3 +154,6 @@ document.getElementById('theme-auto')?.addEventListener('change', function(e) {
         }
     }
 });
+
+// Initialize layout after render
+setTimeout(updateMargins, 100);
