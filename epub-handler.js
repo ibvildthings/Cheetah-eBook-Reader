@@ -344,52 +344,52 @@
                 const afterSrc = match[3];
 
                 try {
+                    let blobUrl;
+                    
                     // Check cache first
                     if (this.imageCache.has(imgSrc)) {
-                        const blobUrl = this.imageCache.get(imgSrc);
-                        const newTag = `<img${beforeSrc}src="${blobUrl}"${afterSrc}>`;
-                        html = html.replace(fullTag, newTag);
-                        continue;
-                    }
-
-                    // Extract filename
-                    const filename = imgSrc.split('/').pop();
-                    
-                    // Search for the image in the zip files
-                    let foundPath = null;
-                    
-                    for (const path in zipFiles) {
-                        if (path.endsWith(filename) || path === imgSrc || path.endsWith('/' + imgSrc)) {
-                            foundPath = path;
-                            break;
-                        }
-                    }
-                    
-                    if (foundPath && zipFiles[foundPath]) {
-                        // Get the blob from the zip file
-                        const blob = await zipFiles[foundPath].async('blob');
-                        
-                        // Create a blob URL with proper type
-                        const mimeType = this._getImageMimeType(filename);
-                        const typedBlob = new Blob([blob], { type: mimeType });
-                        const blobUrl = URL.createObjectURL(typedBlob);
-                        
-                        // Cache it
-                        this.imageCache.set(imgSrc, blobUrl);
-                        
-                        // Replace the tag with blob URL and add styles
-                        let newTag = `<img${beforeSrc}src="${blobUrl}"${afterSrc}>`;
-                        
-                        // Add responsive styles if not present
-                        if (!newTag.includes('style=')) {
-                            newTag = newTag.replace('<img', '<img style="max-width: 100%; height: auto; display: block; margin: 1em auto;"');
-                        }
-                        
-                        html = html.replace(fullTag, newTag);
+                        blobUrl = this.imageCache.get(imgSrc);
                     } else {
-                        // Remove the image tag if not found
-                        html = html.replace(fullTag, '');
+                        // Extract filename
+                        const filename = imgSrc.split('/').pop();
+                        
+                        // Search for the image in the zip files
+                        let foundPath = null;
+                        
+                        for (const path in zipFiles) {
+                            if (path.endsWith(filename) || path === imgSrc || path.endsWith('/' + imgSrc)) {
+                                foundPath = path;
+                                break;
+                            }
+                        }
+                        
+                        if (foundPath && zipFiles[foundPath]) {
+                            // Get the blob from the zip file
+                            const blob = await zipFiles[foundPath].async('blob');
+                            
+                            // Create a blob URL with proper type
+                            const mimeType = this._getImageMimeType(filename);
+                            const typedBlob = new Blob([blob], { type: mimeType });
+                            blobUrl = URL.createObjectURL(typedBlob);
+                            
+                            // Cache it
+                            this.imageCache.set(imgSrc, blobUrl);
+                        } else {
+                            // Remove the image tag if not found
+                            html = html.replace(fullTag, '');
+                            continue;
+                        }
                     }
+                    
+                    // Always apply responsive styles (whether cached or newly loaded)
+                    let newTag = `<img${beforeSrc}src="${blobUrl}"${afterSrc}>`;
+                    
+                    // Add responsive styles if not present
+                    if (!newTag.includes('style=')) {
+                        newTag = newTag.replace('<img', '<img style="max-width: 100%; height: auto; display: block; margin: 1em auto;"');
+                    }
+                    
+                    html = html.replace(fullTag, newTag);
                 } catch (error) {
                     console.warn('Failed to process image:', imgSrc, error);
                     // Remove the broken image tag
