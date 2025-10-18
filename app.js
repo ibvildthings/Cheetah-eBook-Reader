@@ -183,5 +183,42 @@ document.getElementById('theme-auto')?.addEventListener('change', function(e) {
     }
 });
 
+// Paste text button
+const pasteBtn = document.getElementById('paste-btn');
+pasteBtn?.addEventListener('click', async () => {
+    try {
+        // Read text from clipboard
+        const text = await navigator.clipboard.readText();
+        
+        if (!text || text.trim().length === 0) {
+            alert('Clipboard is empty or contains no text.');
+            return;
+        }
+        
+        // Wrap text in paragraph tags if it's plain text
+        let formattedText = text;
+        if (!text.includes('<p>') && !text.includes('<div>')) {
+            // Split by double newlines to create paragraphs
+            const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
+            formattedText = paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+        }
+        
+        // Load the pasted content into the reader
+        reader.loadContent(formattedText);
+        
+        // Update book metadata to show it's pasted content
+        document.getElementById('book-title').textContent = 'Pasted Text';
+        document.getElementById('book-author').textContent = `${text.length} characters`;
+        
+        // Clear chapters list since this isn't an EPUB
+        document.getElementById('chapters-list').innerHTML = 
+            '<div class="chapters-list-empty">No chapters (pasted text)</div>';
+        
+    } catch (error) {
+        console.error('Failed to read clipboard:', error);
+        alert('Failed to read clipboard. Make sure you granted clipboard permissions.');
+    }
+});
+
 // Initialize layout after render
 setTimeout(updateMargins, 100);
