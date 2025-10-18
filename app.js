@@ -80,9 +80,11 @@ function stopDrag() {
 }
 
 // Attach margin drag events efficiently
-[['left', 'right']].forEach(([side]) => {
+['left', 'right'].forEach(side => {
     const el = document.getElementById(`drag-${side}`);
-    ['mousedown', 'touchstart'].forEach(ev => el.addEventListener(ev, e => startDrag(e, side)));
+    if (el) {
+        ['mousedown', 'touchstart'].forEach(ev => el.addEventListener(ev, e => startDrag(e, side)));
+    }
 });
 ['mousemove', 'touchmove'].forEach(ev => document.addEventListener(ev, handleDrag));
 ['mouseup', 'touchend'].forEach(ev => document.addEventListener(ev, stopDrag));
