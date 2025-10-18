@@ -664,6 +664,11 @@
         _handleWordClick(e) {
             if (this.state.mode !== 'flow' || this._destroyed) return;
             
+            // Single tap = play/pause
+            this._togglePlay();
+            
+            // Comment out jump functionality for now - will be reassigned later
+            /*
             const wordEl = e.target.closest('.flow-word');
             if (!wordEl) return;
             
@@ -671,6 +676,7 @@
             if (!isNaN(idx)) {
                 this._jumpToWord(idx);
             }
+            */
         }
 
         // ========================================
