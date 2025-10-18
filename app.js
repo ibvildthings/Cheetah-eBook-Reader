@@ -102,11 +102,24 @@ flowBtn?.addEventListener('click', () => {
     const state = reader.getState();
     const isFlow = state.mode === 'flow';
 
-    reader.setMode(isFlow ? 'normal' : 'flow');
-    flowBtn.classList.toggle('active', !isFlow);
-    flowBtn.textContent = isFlow ? '▶ Start Flow' : '⏹ Stop Flow';
+    if (isFlow) {
+        // Stop flow - go back to normal
+        reader.setMode('normal');
+    } else {
+        // Start flow - enter flow mode and auto-play
+        reader.setMode('flow');
+        setTimeout(() => reader.play(), 300);
+    }
+});
 
-    if (!isFlow) setTimeout(() => reader.play(), 300);
+// Listen for mode changes to update button
+reader.on('onModeChange', (mode) => {
+    const flowBtn = document.getElementById('btn-flow');
+    if (flowBtn) {
+        const isFlow = mode === 'flow';
+        flowBtn.classList.toggle('active', isFlow);
+        flowBtn.textContent = isFlow ? '⏹ Stop Flow' : '▶ Start Flow';
+    }
 });
 
 // Bionic mode

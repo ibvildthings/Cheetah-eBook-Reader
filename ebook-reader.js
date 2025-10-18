@@ -662,10 +662,24 @@
         // ========================================
 
         _handleWordClick(e) {
-            if (this.state.mode !== 'flow' || this._destroyed) return;
+            if (this._destroyed) return;
             
-            // Single tap = play/pause
-            this._togglePlay();
+            const state = this.state;
+            
+            if (state.mode === 'flow') {
+                // In flow mode: tap stops flow (exit to normal mode)
+                this.setMode('normal');
+                this._emit('onModeChange', 'normal');
+            } else {
+                // In normal mode: tap starts flow
+                this.setMode('flow');
+                this._emit('onModeChange', 'flow');
+                setTimeout(() => {
+                    if (!this._destroyed) {
+                        this.play();
+                    }
+                }, 300);
+            }
             
             // Comment out jump functionality for now - will be reassigned later
             /*
