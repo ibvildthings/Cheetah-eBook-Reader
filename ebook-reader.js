@@ -77,6 +77,10 @@
                     saved: null
                 };
 
+                
+                this._lastTapTime = null;
+                this._lastTapWordIndex = null;
+
                 this.callbacks = {
                     onModeChange: [],
                     onBionicChange: [],
@@ -666,12 +670,84 @@
             
             const state = this.state;
             
+            // Handle double-tap for jump functionality
+            const now = Date.now();
+            const wordEl = e.target.closest('.flow-word');
+            
+            if (wordEl) {
+                const idx = parseInt(wordEl.dataset.wordIndex);
+                
+                // Check if this is a double-tap on the same word
+                if (this._lastTapTime && 
+                    now - this._lastTapTime < 300 && 
+                    this._lastTapWordIndex === idx &&
+                    state.mode === 'flow') {
+                    
+                    // Double-tap detected - prevent text selection AND prevent single-tap behavior
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Jump to word and keep playing state
+                    if (!isNaN(idx)) {
+                        const wasPlaying = this.state.flow.playing;
+                        this._jumpToWord(idx);
+                        
+                        // If it was paused, start playing from new position
+                        if (!wasPlaying) {
+                            setTimeout(() => {
+                                if (!this._destroyed) {
+                                    this.play();
+                                }
+                            }, 100);
+                        }
+                    }
+                    
+                    // Reset tap tracking
+                    this._lastTapTime = null;
+                    this._lastTapWordIndex = null;
+                    return; // EXIT HERE - don't run single-tap logic
+                }
+                
+                // Record this tap for double-tap detection
+                this._lastTapTime = now;
+                this._lastTapWordIndex = idx;
+                
+                // Delay single-tap action to allow time for potential second tap
+                setTimeout(() => {
+                    // Only execute single-tap if no second tap came within 300ms
+                    if (this._lastTapTime === now && this._lastTapWordIndex === idx) {
+                        // Prevent text selection in flow mode
+                        if (state.mode === 'flow') {
+                            e.preventDefault();
+                        }
+                        
+                        // Single tap behavior - toggle flow mode
+                        if (state.mode === 'flow') {
+                            // In flow mode: tap stops flow (exit to normal mode)
+                            this.setMode('normal');
+                            this._emit('onModeChange', 'normal');
+                        } else {
+                            // In normal mode: tap starts flow
+                            this.setMode('flow');
+                            this._emit('onModeChange', 'flow');
+                            setTimeout(() => {
+                                if (!this._destroyed) {
+                                    this.play();
+                                }
+                            }, 300);
+                        }
+                    }
+                }, 310); // Wait slightly longer than double-tap threshold
+                
+                return; // Exit after setting up delayed single-tap
+            }
+            
+            // Clicked outside a word - treat as single tap immediately
             if (state.mode === 'flow') {
-                // In flow mode: tap stops flow (exit to normal mode)
+                e.preventDefault();
                 this.setMode('normal');
                 this._emit('onModeChange', 'normal');
             } else {
-                // In normal mode: tap starts flow
                 this.setMode('flow');
                 this._emit('onModeChange', 'flow');
                 setTimeout(() => {
@@ -680,17 +756,6 @@
                     }
                 }, 300);
             }
-            
-            // Comment out jump functionality for now - will be reassigned later
-            /*
-            const wordEl = e.target.closest('.flow-word');
-            if (!wordEl) return;
-            
-            const idx = parseInt(wordEl.dataset.wordIndex);
-            if (!isNaN(idx)) {
-                this._jumpToWord(idx);
-            }
-            */
         }
 
         // ========================================
@@ -1126,6 +1191,15 @@
             }
 
             this.state.mode = mode;
+            
+            // Add/remove flow-mode class to prevent text selection
+            if (this.el && this.el.content) {
+                if (mode === 'flow') {
+                    this.el.content.classList.add('flow-mode');
+                } else {
+                    this.el.content.classList.remove('flow-mode');
+                }
+            }
             
             if (this.state.flow.playing) this._togglePlay();
 
