@@ -995,9 +995,21 @@
                     if (window.EPUBHandler && typeof window.EPUBHandler.loadNextChapter === 'function') {
                         const hasNext = window.EPUBHandler.loadNextChapter();
                         if (hasNext) {
-                            // Next chapter will be loaded, stop current animation
+                            // Next chapter loading - wait for it to load, then auto-resume
                             this.state.flow.playing = false;
-                            this._emit('onPlayChange', false);
+                            
+                            // Set a flag to auto-resume after chapter loads
+                            setTimeout(() => {
+                                if (!this._destroyed && this.wordIndexManager) {
+                                    this.state.flow.currentWordIndex = 0;
+                                    this.state.flow.startTime = performance.now();
+                                    this.state.flow.pauseUntil = 0;
+                                    this.state.flow.lastPausedWord = -1;
+                                    this.state.flow.playing = true;
+                                    this._animate();
+                                }
+                            }, 500); // Give time for chapter to load
+                            
                             return;
                         }
                     }

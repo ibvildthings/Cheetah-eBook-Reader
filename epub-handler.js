@@ -547,6 +547,52 @@
                 totalChapters: this.chapters.length
             };
         }
+
+        /**
+         * Load the next chapter (used for auto-advance in flow mode)
+         */
+        loadNextChapter() {
+            if (!this.book || this.currentChapterIndex < 0) {
+                return false;
+            }
+
+            const nextIndex = this.currentChapterIndex + 1;
+            
+            if (nextIndex >= this.chapters.length) {
+                // No more chapters
+                return false;
+            }
+
+            // Load the next chapter
+            this.loadChapter(nextIndex);
+            return true;
+        }
+
+        /**
+         * Load the previous chapter
+         */
+        loadPreviousChapter() {
+            if (!this.book || this.currentChapterIndex <= 0) {
+                return false;
+            }
+
+            const prevIndex = this.currentChapterIndex - 1;
+            this.loadChapter(prevIndex);
+            return true;
+        }
+
+        /**
+         * Get current book info
+         */
+        getCurrentBook() {
+            if (!this.book) return null;
+            
+            return {
+                chapters: this.chapters,
+                currentChapterIndex: this.currentChapterIndex,
+                totalChapters: this.chapters.length
+            };
+        }
     }
 
     // Expose to global scope
