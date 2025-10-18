@@ -271,6 +271,13 @@
                     if (isFlowMode) {
                         setTimeout(() => {
                             this.reader.jumpToWord(0);
+                            
+                            // Force visual update even if not playing
+                            if (this.reader.wordIndexManager) {
+                                this.reader.wordIndexManager.rebuild();
+                                this.reader._updateWordStates(0);
+                            }
+                            
                             if (wasPlaying) {
                                 this.reader.play();
                             }
@@ -441,20 +448,37 @@
             console.log(`Attaching handlers to ${links.length} links`);
             
             links.forEach(link => {
-                // Remove any existing listeners
-                const newLink = link.cloneNode(true);
-                link.parentNode.replaceChild(newLink, link);
+                // Check if link has flow-word spans inside
+                const hasFlowWords = link.querySelector('.flow-word');
                 
-                newLink.addEventListener('click', (e) => {
-                    const href = newLink.getAttribute('href');
+                if (hasFlowWords) {
+                    // Don't clone - just add event listener directly to preserve flow-words
+                    link.addEventListener('click', (e) => {
+                        const href = link.getAttribute('href');
+                        
+                        // Check if it's an internal link (not external URL)
+                        if (href && !href.startsWith('http') && !href.startsWith('mailto:')) {
+                            e.preventDefault();
+                            console.log('Internal link clicked:', href);
+                            this._handleInternalLink(href);
+                        }
+                    });
+                } else {
+                    // No flow words - safe to clone to remove any existing listeners
+                    const newLink = link.cloneNode(true);
+                    link.parentNode.replaceChild(newLink, link);
                     
-                    // Check if it's an internal link (not external URL)
-                    if (href && !href.startsWith('http') && !href.startsWith('mailto:')) {
-                        e.preventDefault();
-                        console.log('Internal link clicked:', href);
-                        this._handleInternalLink(href);
-                    }
-                });
+                    newLink.addEventListener('click', (e) => {
+                        const href = newLink.getAttribute('href');
+                        
+                        // Check if it's an internal link (not external URL)
+                        if (href && !href.startsWith('http') && !href.startsWith('mailto:')) {
+                            e.preventDefault();
+                            console.log('Internal link clicked:', href);
+                            this._handleInternalLink(href);
+                        }
+                    });
+                }
             });
         }
 
@@ -533,19 +557,6 @@
         _truncateText(text, maxLength) {
             if (text.length <= maxLength) return text;
             return text.substring(0, maxLength) + '...';
-        }
-
-        /**
-         * Get current book info
-         */
-        getCurrentBook() {
-            if (!this.book) return null;
-            
-            return {
-                chapters: this.chapters,
-                currentChapterIndex: this.currentChapterIndex,
-                totalChapters: this.chapters.length
-            };
         }
 
         /**
