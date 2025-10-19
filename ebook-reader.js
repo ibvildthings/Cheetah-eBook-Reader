@@ -590,6 +590,7 @@
                     position: relative;
                     min-height: 100%;
                     padding: 0 60px;
+                    padding-bottom: 60vh;
                     contain: layout style paint;
                 }
                 .ebook-text-content.transitioning { opacity: .4; }
