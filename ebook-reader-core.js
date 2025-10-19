@@ -533,7 +533,9 @@ class WordIndexManager {
         if (this.observer) {
             this.observer.disconnect();
             this.visibleIndices.clear();
+            this.observer = null;  // ADD THIS LINE - fully release the observer
         }
+        this.observerEnabled = false;
     }
 
     enableObserver() {
