@@ -107,6 +107,24 @@
         }
 
         /**
+         * Clean up before loading new chapter
+         */
+        _cleanupCurrentChapter() {
+            // Remove link event listeners
+            if (this._linkHandlers) {
+                this._linkHandlers.forEach(({element, handler}) => {
+                    element.removeEventListener('click', handler);
+                });
+                this._linkHandlers = [];
+            }
+            
+            // Let reader clean up its observers
+            if (this.reader && this.reader.wordIndexManager) {
+                this.reader.wordIndexManager.disconnectObserver();
+            }
+        }
+
+        /**
          * Load and parse an EPUB file
          */
         async loadBook(file) {
@@ -230,6 +248,10 @@
             }
 
             try {
+
+                // Clean up previous chapter first
+                this._cleanupCurrentChapter();
+                
                 console.log('Loading chapter:', index, this.chapters[index].label);
 
                 const chapter = this.chapters[index];
