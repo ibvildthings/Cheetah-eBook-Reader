@@ -1131,7 +1131,11 @@
             if (this._destroyed || !this.wordIndexManager) return;
             
             if (this.state.flow.playing) {
-                cancelAnimationFrame(this.state.flow.rafId);
+                // Cancel animation frame
+                if (this.state.flow.rafId) {
+                    cancelAnimationFrame(this.state.flow.rafId);
+                    this.state.flow.rafId = null;
+                }
                 this.state.flow.playing = false;
             } else {
                 this.wordIndexManager.rebuild();
