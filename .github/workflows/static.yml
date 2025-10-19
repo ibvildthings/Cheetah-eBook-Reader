@@ -1,0 +1,11 @@
+- name: Upload artifact
+  uses: actions/upload-pages-artifact@v3
+  with:
+    path: |
+      index.html
+      styles.css
+      app.js
+      ebook-reader-core.js
+      ebook-reader.js
+      epub-handler.js
+      chapters-sidebar.css
