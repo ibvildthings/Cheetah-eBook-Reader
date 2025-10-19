@@ -14,6 +14,7 @@
             this.currentChapterIndex = -1;
             this.isInitialized = false;
             this.imageCache = new Map(); // Cache blob URLs
+            this._linkHandlers = [];
         }
 
         /**
@@ -52,6 +53,56 @@
 
             chaptersToggle.addEventListener('click', () => {
                 chaptersSidebar.classList.toggle('collapsed');
+            });
+        }
+
+        /**
+         * Attach click handlers to internal links
+         */
+        _attachLinkHandlers() {
+            const contentArea = document.querySelector('.ebook-text-content');
+            if (!contentArea) {
+                console.warn('Content area not found for link handlers');
+                return;
+            }
+
+            const links = contentArea.querySelectorAll('a[href]');
+            
+            console.log(`Attaching handlers to ${links.length} links`);
+            
+            // Remove all existing link event listeners first
+            if (this._linkHandlers) {
+                this._linkHandlers.forEach(({element, handler}) => {
+                    element.removeEventListener('click', handler);
+                });
+            }
+            this._linkHandlers = [];
+            
+            links.forEach(link => {
+                const hasFlowWords = link.querySelector('.flow-word');
+                
+                const handler = (e) => {
+                    const href = link.getAttribute('href');
+                    
+                    if (href && !href.startsWith('http') && !href.startsWith('mailto:')) {
+                        e.preventDefault();
+                        console.log('Internal link clicked:', href);
+                        this._handleInternalLink(href);
+                    }
+                };
+                
+                if (hasFlowWords) {
+                    // Don't clone - just add event listener directly to preserve flow-words
+                    link.addEventListener('click', handler);
+                    this._linkHandlers.push({element: link, handler});
+                } else {
+                    // No flow words - safe to clone to remove any existing listeners
+                    const newLink = link.cloneNode(true);
+                    link.parentNode.replaceChild(newLink, link);
+                    
+                    newLink.addEventListener('click', handler);
+                    this._linkHandlers.push({element: newLink, handler});
+                }
             });
         }
 
