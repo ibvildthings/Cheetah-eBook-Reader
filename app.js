@@ -222,3 +222,5 @@ pasteBtn?.addEventListener('click', async () => {
 
 // Initialize layout after render
 setTimeout(updateMargins, 100);
+
+reader.setFont('opendyslexic');

@@ -37,7 +37,7 @@
                 
                 this.config = {
                     fontSize: { min: 12, default: 18, max: 48 },
-                    speed: { min: 100, default: 300, max: 600 },
+                    speed: { min: 100, default: 400, max: 650 },
                     newlinePause: 1.5,
                     scroll: {
                         timeout: 1500,
@@ -49,12 +49,12 @@
 
                 this.state = {
                     fontSize: this._validateOption(options.fontSize, this.config.fontSize, 'fontSize'),
-                    font: 'georgia',
-                    lineHeight: FONTS.georgia.lineHeight,
+                    font: 'opendyslexic',
+                    lineHeight: FONTS.opendyslexic.lineHeight,
                     fontLoading: false,
                     mode: 'normal',
                     bionic: false,
-                    theme: 'light',
+                    theme: 'sepia',
                     autoTheme: false,
                     content: '',
                     flow: {
