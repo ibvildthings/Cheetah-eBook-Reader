@@ -1079,23 +1079,25 @@
                 if (wordIndex >= totalWords) {
                     // Chapter finished - try to load next chapter
                     if (window.EPUBHandler && typeof window.EPUBHandler.loadNextChapter === 'function') {
-                        const hasNext = window.EPUBHandler.loadNextChapter();
+                        // Stop current animation
+                        this.state.flow.playing = false;
+                        
+                        const hasNext = window.EPUBHandler.loadNextChapter(() => {
+                            // This callback fires when chapter is fully loaded and ready
+                            if (!this._destroyed && this.wordIndexManager) {
+                                // Everything is ready, reset state
+                                this.state.flow.currentWordIndex = 0;
+                                this.state.flow.startTime = performance.now(); // Set time NOW
+                                this.state.flow.pauseUntil = 0;
+                                this.state.flow.lastPausedWord = -1;
+                                this.state.flow.playing = true;
+                                
+                                // Start animation
+                                this._animate();
+                            }
+                        });
+                        
                         if (hasNext) {
-                            // Next chapter loading - wait for it to load, then auto-resume
-                            this.state.flow.playing = false;
-                            
-                            // Set a flag to auto-resume after chapter loads
-                            setTimeout(() => {
-                                if (!this._destroyed && this.wordIndexManager) {
-                                    this.state.flow.currentWordIndex = 0;
-                                    this.state.flow.startTime = performance.now();
-                                    this.state.flow.pauseUntil = 0;
-                                    this.state.flow.lastPausedWord = -1;
-                                    this.state.flow.playing = true;
-                                    this._animate();
-                                }
-                            }, 500); // Give time for chapter to load
-                            
                             return;
                         }
                     }

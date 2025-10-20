@@ -241,14 +241,13 @@
         /**
          * Load a specific chapter by index
          */
-        async loadChapter(index) {
+        async loadChapter(index, onComplete) {
             if (!this.book || index < 0 || index >= this.chapters.length) {
                 console.error('Invalid chapter index:', index);
                 return;
             }
 
             try {
-
                 // Clean up previous chapter first
                 this._cleanupCurrentChapter();
                 
@@ -351,10 +350,20 @@
                                 this.reader._updateWordStates(0);
                             }
                             
+                            // Call completion callback
+                            if (onComplete) {
+                                onComplete();
+                            }
+                            
                             if (wasPlaying) {
                                 this.reader.play();
                             }
                         }, 300);
+                    } else {
+                        // Call completion callback for non-flow mode
+                        if (onComplete) {
+                            setTimeout(onComplete, 100);
+                        }
                     }
                 }
 
@@ -408,6 +417,17 @@
         async _processImages(html, currentHref) {
             if (!this.book || !this.book.archive || !this.book.archive.zip) {
                 return html;
+            }
+
+            // Limit image cache size to prevent memory bloat
+            const MAX_CACHE_SIZE = 50;
+            if (this.imageCache.size > MAX_CACHE_SIZE) {
+                // Remove oldest entries
+                const keysToRemove = Array.from(this.imageCache.keys()).slice(0, 10);
+                keysToRemove.forEach(key => {
+                    URL.revokeObjectURL(this.imageCache.get(key));
+                    this.imageCache.delete(key);
+                });
             }
 
             const zipFiles = this.book.archive.zip.files;
@@ -520,37 +540,38 @@
             
             console.log(`Attaching handlers to ${links.length} links`);
             
+            // Remove all existing link event listeners first
+            if (this._linkHandlers) {
+                this._linkHandlers.forEach(({element, handler}) => {
+                    element.removeEventListener('click', handler);
+                });
+            }
+            this._linkHandlers = [];
+            
             links.forEach(link => {
-                // Check if link has flow-word spans inside
                 const hasFlowWords = link.querySelector('.flow-word');
+                
+                const handler = (e) => {
+                    const href = link.getAttribute('href');
+                    
+                    if (href && !href.startsWith('http') && !href.startsWith('mailto:')) {
+                        e.preventDefault();
+                        console.log('Internal link clicked:', href);
+                        this._handleInternalLink(href);
+                    }
+                };
                 
                 if (hasFlowWords) {
                     // Don't clone - just add event listener directly to preserve flow-words
-                    link.addEventListener('click', (e) => {
-                        const href = link.getAttribute('href');
-                        
-                        // Check if it's an internal link (not external URL)
-                        if (href && !href.startsWith('http') && !href.startsWith('mailto:')) {
-                            e.preventDefault();
-                            console.log('Internal link clicked:', href);
-                            this._handleInternalLink(href);
-                        }
-                    });
+                    link.addEventListener('click', handler);
+                    this._linkHandlers.push({element: link, handler});
                 } else {
                     // No flow words - safe to clone to remove any existing listeners
                     const newLink = link.cloneNode(true);
                     link.parentNode.replaceChild(newLink, link);
                     
-                    newLink.addEventListener('click', (e) => {
-                        const href = newLink.getAttribute('href');
-                        
-                        // Check if it's an internal link (not external URL)
-                        if (href && !href.startsWith('http') && !href.startsWith('mailto:')) {
-                            e.preventDefault();
-                            console.log('Internal link clicked:', href);
-                            this._handleInternalLink(href);
-                        }
-                    });
+                    newLink.addEventListener('click', handler);
+                    this._linkHandlers.push({element: newLink, handler});
                 }
             });
         }
@@ -564,19 +585,33 @@
             // Remove fragment identifier if present
             const [path, fragment] = href.split('#');
             
-            // Find chapter by href
-            const chapterIndex = this.chapters.findIndex(ch => {
-                return ch.href === href || 
-                       ch.href === path || 
-                       ch.href.endsWith(href) ||
-                       ch.href.endsWith(path);
-            });
+            // Try multiple matching strategies
+            let chapterIndex = -1;
+            
+            // Strategy 1: Exact match
+            chapterIndex = this.chapters.findIndex(ch => ch.href === href || ch.href === path);
+            
+            // Strategy 2: Ends with match
+            if (chapterIndex === -1) {
+                chapterIndex = this.chapters.findIndex(ch => 
+                    ch.href.endsWith(href) || ch.href.endsWith(path)
+                );
+            }
+            
+            // Strategy 3: Filename match (get just the filename)
+            if (chapterIndex === -1) {
+                const filename = path.split('/').pop();
+                chapterIndex = this.chapters.findIndex(ch => 
+                    ch.href.split('/').pop() === filename
+                );
+            }
 
             if (chapterIndex !== -1) {
-                console.log('Loading linked chapter:', chapterIndex);
+                console.log('Loading linked chapter:', chapterIndex, this.chapters[chapterIndex].label);
                 this.loadChapter(chapterIndex);
             } else {
                 console.warn('Chapter not found for link:', href);
+                console.log('Available chapters:', this.chapters.map(ch => ch.href));
                 
                 // If it's just a fragment (anchor link in same chapter)
                 if (href.startsWith('#') && fragment) {
@@ -635,7 +670,7 @@
         /**
          * Load the next chapter (used for auto-advance in flow mode)
          */
-        loadNextChapter() {
+        loadNextChapter(onComplete) {
             if (!this.book || this.currentChapterIndex < 0) {
                 return false;
             }
@@ -647,8 +682,17 @@
                 return false;
             }
 
-            // Load the next chapter
-            this.loadChapter(nextIndex);
+            // Load the next chapter with completion callback
+            this.loadChapter(nextIndex, onComplete);
+            
+            // Scroll to the active chapter in the sidebar for visibility
+            setTimeout(() => {
+                const activeChapter = document.querySelector('.chapter-item.active');
+                if (activeChapter) {
+                    activeChapter.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+            
             return true;
         }
 
