@@ -4,7 +4,7 @@
 
 Not browse them. Not collect them. Finish them.
 
-Read faster. Focus better. Get it done.
+Read faster. Focus better.
 
 **Read at the speed of thought.**
 
@@ -14,7 +14,7 @@ Drop an EPUB. Start reading. No logins, no sync, no friction.
 
 Most ebook readers are built for machines. Cheetah is built for your brain.
 
-- **Flow Mode** – Your eyes follow the text. Bionic highlighting. Adjustable speed (100-650 WPM).
+- **Flow Mode** – Your eyes follow the text. Adjustable speed (100-650 WPM).
 - **ADHD-Friendly** – Fonts designed for focus: OpenDyslexic, Lexend, and more.
 - **Zero Friction** – No accounts. No cloud. Just drag, drop, and read.
 - **13 Themes** – From Sepia to Matrix Green. Dark mode that doesn't hurt.
@@ -45,15 +45,9 @@ Pure vanilla JS. No build tools. No dependencies (except epub.js and DOMPurify).
 - `epub-handler.js` – EPUB parsing and chapter navigation
 - `app.js` – UI controls and event handling
 
-## Why No Framework?
-
-Fast. Simple. Ships in seconds. No webpack, no npm, no nonsense.
-
 ## Contributing
 
 Found a bug? Have an idea? Open an issue or PR.
-
-Keep it fast. Keep it simple. Keep it focused.
 
 ## License
 
