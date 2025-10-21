@@ -1,14 +1,19 @@
 /**
- * EBookReader Engine v2.4.0
+ * EBookReader Engine v2.4.1-autoflow-fix
  * Flow mode engine, rendering logic, and gesture handling
  * Requires: ebook-reader-core.js to be loaded first
  * 
+ * VERSION: 2.4.1-autoflow-fix (2024-10-21)
+ * FIX: Captures wasPlaying state BEFORE stopping animation
+ * 
  * @license MIT
- * @version 2.4.0
+ * @version 2.4.1
  */
 
 (function() {
     'use strict';
+    
+    console.log('🐆 EBookReader Engine v2.4.1-autoflow-fix loaded');
 
     // Import from core
     const {
@@ -613,23 +618,30 @@
                 if (wordIndex >= totalWords) {
                     // Chapter finished - try to load next chapter
                     if (window.EPUBHandler && typeof window.EPUBHandler.loadNextChapter === 'function') {
+                        // IMPORTANT: Capture playing state BEFORE we stop the animation
+                        const wasPlayingBeforeStop = this.state.flow.playing;
+                        console.log('📖 Chapter end - wasPlaying:', wasPlayingBeforeStop);
+                        
                         // Stop current animation
                         this.state.flow.playing = false;
+                        if (this.state.flow.rafId) {
+                            cancelAnimationFrame(this.state.flow.rafId);
+                            this.state.flow.rafId = null;
+                        }
                         
                         const hasNext = window.EPUBHandler.loadNextChapter(() => {
                             // This callback fires when chapter is fully loaded and ready
+                            // Just reset state - EPUB handler will call play() after a delay
+                            console.log('Engine callback: Chapter transition complete, resetting state');
                             if (!this._destroyed && this.wordIndexManager) {
-                                // Everything is ready, reset state
                                 this.state.flow.currentWordIndex = 0;
-                                this.state.flow.startTime = performance.now(); // Set time NOW
                                 this.state.flow.pauseUntil = 0;
                                 this.state.flow.lastPausedWord = -1;
-                                this.state.flow.playing = true;
-                                
-                                // Start animation
-                                this._animate();
+                                console.log('Engine callback: State reset complete');
+                            } else {
+                                console.warn('Engine callback: Reader destroyed or no word manager');
                             }
-                        });
+                        }, wasPlayingBeforeStop); // Pass the captured state
                         
                         if (hasNext) {
                             return;

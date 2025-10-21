@@ -1,14 +1,19 @@
 /**
- * EBookReader API v2.4.0
+ * EBookReader API v2.4.1-autoflow-fix
  * Public API, constructor, state management, and event system
  * Requires: ebook-reader-core.js and ebook-reader-engine.js to be loaded first
  * 
+ * VERSION: 2.4.1-autoflow-fix (2024-10-21)
+ * FIX: Added debug logging to play() method
+ * 
  * @license MIT
- * @version 2.4.0
+ * @version 2.4.1
  */
 
 (function() {
     'use strict';
+    
+    console.log('🐆 EBookReader API v2.4.1-autoflow-fix loaded');
 
     // Import from core
     const {
@@ -384,8 +389,20 @@
         }
 
         play() {
+            console.log('🎬 play() called - State check:', {
+                'flow.playing': this.state.flow.playing,
+                'mode': this.state.mode,
+                'will_toggle': !this.state.flow.playing && this.state.mode === 'flow'
+            });
+            
             if (!this.state.flow.playing && this.state.mode === 'flow') {
+                console.log('✅ Conditions met, calling _togglePlay()');
                 this._togglePlay();
+            } else {
+                console.warn('❌ play() conditions not met:', {
+                    alreadyPlaying: this.state.flow.playing,
+                    notInFlowMode: this.state.mode !== 'flow'
+                });
             }
         }
 

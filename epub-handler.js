@@ -1,10 +1,15 @@
 /**
- * EPUB Handler
+ * EPUB Handler v2.4.1-autoflow-fix
  * Handles EPUB file uploads, parsing, and chapter navigation
+ * 
+ * VERSION: 2.4.1-autoflow-fix (2024-10-21)
+ * FIX: Accepts wasPlaying parameter from engine
  */
 
 (function() {
     'use strict';
+    
+    console.log('🐆 EPUB Handler v2.4.1-autoflow-fix loaded');
 
     class EPUBHandler {
         constructor() {
@@ -241,7 +246,7 @@
         /**
          * Load a specific chapter by index
          */
-        async loadChapter(index, onComplete) {
+        async loadChapter(index, onComplete, wasPlayingParam) {
             if (!this.book || index < 0 || index >= this.chapters.length) {
                 console.error('Invalid chapter index:', index);
                 return;
@@ -316,11 +321,20 @@
 
                 // Load content into reader
                 if (this.reader && this.isInitialized) {
-                    const wasPlaying = this.reader.getState().isPlaying;
+                    // Use passed parameter if available, otherwise check current state
+                    // This is important for auto-chapter-advance where we need the state BEFORE stopping
+                    const wasPlaying = wasPlayingParam !== undefined ? wasPlayingParam : this.reader.getState().playing;
                     const isFlowMode = this.reader.getState().mode === 'flow';
+                    
+                    console.log('📖 Loading chapter', index, '- State:', { 
+                        wasPlaying, 
+                        wasPlayingParam, 
+                        isFlowMode 
+                    });
                     
                     // Stop playing before loading new content
                     if (wasPlaying) {
+                        console.log('⏸️ Pausing before load...');
                         this.reader.pause();
                     }
                     
@@ -350,15 +364,54 @@
                                 this.reader._updateWordStates(0);
                             }
                             
-                            // Call completion callback
+                            // Ensure reader scrolls to top to show chapter title
+                            const readerArea = document.querySelector('.ebook-reader-area');
+                            if (readerArea) {
+                                readerArea.scrollTop = 0;
+                            }
+                            
+                            // Call completion callback - this sets up pause timing
                             if (onComplete) {
                                 onComplete();
                             }
                             
+                            // If it was playing, restart immediately once DOM is ready
                             if (wasPlaying) {
-                                this.reader.play();
+                                console.log('✅ wasPlaying is TRUE - will resume flow');
+                                console.log('🔄 Chapter loaded - auto-resuming flow...');
+                                // Resume immediately - DOM is already ready at this point
+                                if (this.reader && !this.reader._destroyed) {
+                                    const currentState = this.reader.getState();
+                                    console.log('📊 Current state before play():', { 
+                                        mode: currentState.mode, 
+                                        playing: currentState.playing,
+                                        destroyed: this.reader._destroyed 
+                                    });
+                                    
+                                    // Ensure we're still in flow mode
+                                    if (currentState.mode === 'flow') {
+                                        console.log('▶️ Calling play()...');
+                                        this.reader.play();
+                                        console.log('✅ Flow resumed successfully');
+                                        
+                                        // Verify it actually started
+                                        setTimeout(() => {
+                                            const stateAfter = this.reader.getState();
+                                            console.log('🔍 State 100ms after play():', {
+                                                playing: stateAfter.playing,
+                                                currentWordIndex: stateAfter.currentWordIndex
+                                            });
+                                        }, 100);
+                                    } else {
+                                        console.warn('❌ Not in flow mode, skipping auto-resume. Mode:', currentState.mode);
+                                    }
+                                } else {
+                                    console.warn('❌ Reader destroyed or unavailable');
+                                }
+                            } else {
+                                console.log('⏹️ wasPlaying is FALSE - no auto-resume');
                             }
-                        }, 300);
+                        }, 400); // Increased delay to ensure DOM is fully ready
                     } else {
                         // Call completion callback for non-flow mode
                         if (onComplete) {
@@ -670,7 +723,7 @@
         /**
          * Load the next chapter (used for auto-advance in flow mode)
          */
-        loadNextChapter(onComplete) {
+        loadNextChapter(onComplete, wasPlaying) {
             if (!this.book || this.currentChapterIndex < 0) {
                 return false;
             }
@@ -682,8 +735,10 @@
                 return false;
             }
 
-            // Load the next chapter with completion callback
-            this.loadChapter(nextIndex, onComplete);
+            console.log('📚 loadNextChapter called - wasPlaying:', wasPlaying);
+
+            // Load the next chapter with completion callback and wasPlaying state
+            this.loadChapter(nextIndex, onComplete, wasPlaying);
             
             // Scroll to the active chapter in the sidebar for visibility
             setTimeout(() => {
