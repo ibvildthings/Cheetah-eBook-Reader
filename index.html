@@ -196,10 +196,20 @@
     <!-- DOMPurify for safe HTML sanitization -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.3.0/dist/purify.min.js"></script>
 
-    <!-- App Scripts -->
+    <!-- App Scripts - LOAD IN THIS ORDER -->
+    <!-- 1. Core utilities and constants -->
     <script src="ebook-reader-core.js"></script>
-    <script src="ebook-reader.js"></script>
+    
+    <!-- 2. Engine with rendering and animation logic -->
+    <script src="ebook-reader-engine.js"></script>
+    
+    <!-- 3. Public API that extends engine -->
+    <script src="ebook-reader-api.js"></script>
+    
+    <!-- 4. EPUB handler -->
     <script src="epub-handler.js"></script>
+    
+    <!-- 5. UI controls -->
     <script src="app.js"></script>
 </body>
 </html>
