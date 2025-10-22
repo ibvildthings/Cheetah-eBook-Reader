@@ -174,8 +174,9 @@ sliders.forEach(({ id, action, label }) => {
 });
 
 // Font selector
+// STEP 4: Font now updates StateManager (reader subscribes to it)
 document.getElementById('font-select')?.addEventListener('change', e => {
-    reader.setFont(e.target.value);
+    stateManager.set('font', e.target.value);
 });
 
 // Themes dropdown
@@ -263,4 +264,11 @@ stateManager.subscribe('fontSize', (newSize) => {
 stateManager.subscribe('lineHeight', (newHeight) => {
     reader.state.lineHeight = newHeight;
     reader.updateStyles();
+});
+
+// ============================================================================
+// STEP 4: Reader subscribes to StateManager for font family
+// ============================================================================
+stateManager.subscribe('font', (newFont) => {
+    reader.setFont(newFont);
 });
