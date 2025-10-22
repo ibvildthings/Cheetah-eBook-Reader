@@ -157,7 +157,8 @@ const sliders = [
     { id: 'speed', action: v => reader.setSpeed(v), label: v => `${v} WPM` },
     { id: 'focus', action: v => reader.setFocusWidth(v), label: v => v },
     { id: 'scroll', action: v => reader.setScrollLevel(v), label: v => v },
-    { id: 'fontsize', action: v => { reader.state.fontSize = v; reader.updateStyles(); }, label: v => `${v}px` },
+    // STEP 2: Font size now updates StateManager (reader subscribes to it)
+    { id: 'fontsize', action: v => stateManager.set('fontSize', v), label: v => `${v}px` },
     { id: 'lineheight', action: v => reader.setLineHeight(v), label: v => v.toFixed(1) }
 ];
 
@@ -246,3 +247,11 @@ pasteBtn?.addEventListener('click', async () => {
 setTimeout(updateMargins, 100);
 
 reader.setFont('opendyslexic');
+
+// ============================================================================
+// STEP 2: Reader subscribes to StateManager for fontSize
+// ============================================================================
+stateManager.subscribe('fontSize', (newSize) => {
+    reader.state.fontSize = newSize;
+    reader.updateStyles();
+});
