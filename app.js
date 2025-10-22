@@ -8,6 +8,28 @@ const sampleText = `<h1>Tap text to get started</h1>
     <p>Marcus leaned over her shoulder, watching the prototype in action. For the first time in months, he smiled. Really smiled. Not the forced grin of another failed demo, but the genuine expression of someone who knew they'd created something special.</p>
     <p>They called it Flow Mode. The name came naturally—it was exactly how reading felt when everything worked perfectly. No friction. No distraction. Just you and the words, moving together in perfect harmony.</p>`;
 
+// ============================================================================
+// STEP 1: Initialize StateManager (will replace reader.state eventually)
+// ============================================================================
+const stateManager = new StateManager({
+    fontSize: 18,
+    font: 'opendyslexic',
+    lineHeight: 1.8,
+    theme: 'sepia',
+    autoTheme: false,
+    marginL: 60,
+    marginR: 60,
+    mode: 'normal',
+    bionic: false,
+    flow: {
+        playing: false,
+        speed: 400,
+        currentWordIndex: 0,
+        focusWidth: 2,
+        scrollLevel: 1
+    }
+});
+
 // Initialize reader and EPUB handler
 const reader = new EBookReader('#reader');
 reader.loadContent(sampleText);
