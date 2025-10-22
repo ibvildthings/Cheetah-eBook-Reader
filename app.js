@@ -159,7 +159,8 @@ const sliders = [
     { id: 'scroll', action: v => reader.setScrollLevel(v), label: v => v },
     // STEP 2: Font size now updates StateManager (reader subscribes to it)
     { id: 'fontsize', action: v => stateManager.set('fontSize', v), label: v => `${v}px` },
-    { id: 'lineheight', action: v => reader.setLineHeight(v), label: v => v.toFixed(1) }
+    // STEP 3: Line height now updates StateManager (reader subscribes to it)
+    { id: 'lineheight', action: v => stateManager.set('lineHeight', v), label: v => v.toFixed(1) }
 ];
 
 sliders.forEach(({ id, action, label }) => {
@@ -253,5 +254,13 @@ reader.setFont('opendyslexic');
 // ============================================================================
 stateManager.subscribe('fontSize', (newSize) => {
     reader.state.fontSize = newSize;
+    reader.updateStyles();
+});
+
+// ============================================================================
+// STEP 3: Reader subscribes to StateManager for lineHeight
+// ============================================================================
+stateManager.subscribe('lineHeight', (newHeight) => {
+    reader.state.lineHeight = newHeight;
     reader.updateStyles();
 });
