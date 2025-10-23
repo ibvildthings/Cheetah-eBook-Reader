@@ -37,6 +37,21 @@ const reader = new EBookReader('#reader', {
 reader.loadContent(sampleText);
 EPUBHandler.init(reader);
 
+// ============================================================================
+// STEP 10D: Initialize FontService
+// ============================================================================
+// Wait for reader DOM to be ready, then initialize FontService
+setTimeout(() => {
+    const contentElement = reader.el?.content;
+    if (contentElement) {
+        const fontService = new FontService(stateManager, contentElement);
+        // Load initial font
+        fontService.loadFont('opendyslexic').then(() => {
+            fontService.applyFont('opendyslexic');
+        });
+    }
+}, 100);
+
 // Sidebar toggle
 const sidebar = document.getElementById('sidebar');
 const toggleBtn = document.getElementById('sidebar-toggle');
@@ -267,7 +282,7 @@ pasteBtn?.addEventListener('click', async () => {
 // Initialize layout after render
 setTimeout(updateMargins, 100);
 
-reader.setFont('opendyslexic');
+// STEP 10E: Font loading removed from reader - FontService handles it now
 
 // ============================================================================
 // STEP 9G: All subscriptions removed - reader reads directly from StateManager

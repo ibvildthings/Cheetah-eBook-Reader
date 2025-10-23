@@ -166,65 +166,32 @@
         // ========================================
 
         async setFont(fontKey) {
+            // STEP 10E: Simplified - FontService handles loading now
+            // Reader just updates StateManager and re-renders
             if (!FONTS[fontKey]) {
                 throw new FontError(`Invalid font: ${fontKey}. Valid fonts: ${Object.keys(FONTS).join(', ')}`);
             }
 
-            const font = FONTS[fontKey];
-            
-            try {
-                this.state.fontLoading = true;
-                this._emit('onFontLoading', fontKey);
+            if (this.wordIndexManager) {
+                this.wordIndexManager.disableObserver();
+            }
 
-                if (this.wordIndexManager) {
-                    this.wordIndexManager.disableObserver();
-                }
+            // Update StateManager (FontService will load and apply)
+            if (this.stateManager) {
+                this.stateManager.set('font', fontKey);
+            }
 
-                await this.fontLoader.loadFont(fontKey);
-
-                // STEP 9B: Write to StateManager instead of this.state
-                if (this.stateManager) {
-                    this.stateManager.set('font', fontKey, true);
-                    this.stateManager.set('lineHeight', font.lineHeight, true);
-                }
-                this.state.fontLoading = false;
-
-                this.updateStyles();
-                
-                // STEP 9C: Read from StateManager
-                const autoTheme = this.stateManager ? this.stateManager.get('autoTheme') : false;
-                const selectedTheme = this.stateManager ? this.stateManager.get('theme') : 'sepia';
-                const currentTheme = autoTheme 
-                    ? (this.mediaQuery.matches ? 'dark' : 'light')
-                    : selectedTheme;
-                this._applyTheme(currentTheme);
-
-                this._emit('onFontLoaded', fontKey);
-                this._emit('onFontChange', this.getFont());
-
-                if (this.state.mode === 'flow' && this.wordIndexManager) {
-                    this.wordIndexManager.invalidate();
-                    setTimeout(() => {
-                        if (!this._destroyed && this.wordIndexManager) {
-                            this.wordIndexManager.enableObserver();
-                            this._updateWordStates(this.state.flow.currentWordIndex);
-                        }
-                    }, 150);
-                } else if (this.wordIndexManager) {
-                    this.wordIndexManager.enableObserver();
-                }
-            } catch (error) {
-                this.state.fontLoading = false;
-                if (this.wordIndexManager) {
-                    this.wordIndexManager.enableObserver();
-                }
-                
-                if (fontKey !== 'georgia') {
-                    console.warn(`Font load failed, falling back to Georgia: ${error.message}`);
-                    await this.setFont('georgia');
-                } else {
-                    throw error;
-                }
+            // Invalidate word index for flow mode
+            if (this.state.mode === 'flow' && this.wordIndexManager) {
+                this.wordIndexManager.invalidate();
+                setTimeout(() => {
+                    if (!this._destroyed && this.wordIndexManager) {
+                        this.wordIndexManager.enableObserver();
+                        this._updateWordStates(this.state.flow.currentWordIndex);
+                    }
+                }, 150);
+            } else if (this.wordIndexManager) {
+                this.wordIndexManager.enableObserver();
             }
         }
 

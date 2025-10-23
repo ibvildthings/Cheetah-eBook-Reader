@@ -7,12 +7,41 @@
  */
 
 class FontService {
-    constructor(stateManager) {
+    constructor(stateManager, contentElement) {
         this.stateManager = stateManager;
+        this.contentElement = contentElement;
         this.loadedFonts = new Set();
         this.loadingFonts = new Map();
         this.fontTimeouts = new Map();
         this.fontsReady = null;
+        
+        // STEP 10C: Subscribe to font changes and auto-load + apply
+        if (this.stateManager) {
+            this.stateManager.subscribe('font', async (fontKey) => {
+                await this.loadFont(fontKey);
+                this.applyFont(fontKey);
+            });
+        }
+    }
+    
+    /**
+     * Apply font to content element
+     * @param {string} fontKey - Font key from FONTS registry
+     */
+    applyFont(fontKey) {
+        if (!this.contentElement) return;
+        
+        const FONTS = window.EBookReaderCore?.FONTS || {};
+        const font = FONTS[fontKey];
+        
+        if (!font) return;
+        
+        this.contentElement.style.fontFamily = font.family;
+        
+        // Update line height in StateManager
+        if (this.stateManager) {
+            this.stateManager.set('lineHeight', font.lineHeight, true);
+        }
     }
 
     /**
