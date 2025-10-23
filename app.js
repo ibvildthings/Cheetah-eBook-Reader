@@ -154,8 +154,10 @@ reader.on('onModeChange', (mode) => {
 });
 
 // Bionic mode
+// STEP 8: Bionic now updates StateManager
 document.getElementById('btn-bionic')?.addEventListener('click', function () {
-    reader.setBionic(!reader.getState().bionic);
+    const currentBionic = stateManager.get('bionic');
+    stateManager.set('bionic', !currentBionic);
     this.classList.toggle('active');
 });
 
@@ -344,4 +346,13 @@ stateManager.subscribe('flow.focusWidth', (newWidth) => {
 
 stateManager.subscribe('flow.scrollLevel', (newLevel) => {
     reader.state.flow.scrollLevel = newLevel;
+});
+
+// ============================================================================
+// STEP 8: Reader subscribes to StateManager for bionic
+// ============================================================================
+stateManager.subscribe('bionic', (enabled) => {
+    if (reader.state.bionic !== enabled) {
+        reader._toggleBionic();
+    }
 });
