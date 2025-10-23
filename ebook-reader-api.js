@@ -141,8 +141,11 @@
                     
                     if (this.el.dragZoneL && this.el.dragZoneR && this.el.content) {
                         const contentHeight = this.el.content.scrollHeight;
-                        const leftWidth = Math.max(60, this.state.marginL);
-                        const rightWidth = Math.max(60, this.state.marginR);
+                        // STEP 9D: Read from StateManager
+                        const marginL = this.stateManager ? this.stateManager.get('marginL') : 60;
+                        const marginR = this.stateManager ? this.stateManager.get('marginR') : 60;
+                        const leftWidth = Math.max(60, marginL);
+                        const rightWidth = Math.max(60, marginR);
                         
                         this.el.dragZoneL.style.width = leftWidth + 'px';
                         this.el.dragZoneL.style.height = contentHeight + 'px';
