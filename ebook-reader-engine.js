@@ -347,12 +347,14 @@
             this.el.content.classList.add('transitioning');
             
             let html = this.state.content;
+            // STEP 9E: Read from StateManager
+            const bionic = this.stateManager ? this.stateManager.get('bionic') : false;
             if (this.state.mode === 'flow') {
-                html = this._makeFlow(html, this.state.bionic);
+                html = this._makeFlow(html, bionic);
                 if (!this.state.saved) {
                     this.state.flow.currentWordIndex = 0;
                 }
-            } else if (this.state.bionic) {
+            } else if (bionic) {
                 html = this._makeBionic(html);
             }
 
@@ -798,7 +800,11 @@
             const wasPlaying = this.state.flow.playing;
             const savedIdx = this.state.flow.currentWordIndex;
             
-            this.state.bionic = !this.state.bionic;
+            // STEP 9E: Toggle in StateManager
+            const currentBionic = this.stateManager ? this.stateManager.get('bionic') : false;
+            if (this.stateManager) {
+                this.stateManager.set('bionic', !currentBionic, true);
+            }
             
             if (wasPlaying) this._togglePlay();
             

@@ -64,9 +64,9 @@
                 this._internal = {
                     // STEP 9B: fontSize, font, lineHeight removed - now in StateManager
                     // STEP 9C: theme, autoTheme removed - now in StateManager
+                    // STEP 9E: bionic removed - now in StateManager
                     fontLoading: false,
                     mode: 'normal',
-                    bionic: false,
                     content: '',
                     flow: {
                         playing: false,
@@ -313,7 +313,9 @@
         }
 
         setBionic(enabled) {
-            if (this.state.bionic !== enabled) {
+            // STEP 9E: Read from StateManager
+            const currentBionic = this.stateManager ? this.stateManager.get('bionic') : false;
+            if (currentBionic !== enabled) {
                 this._toggleBionic();
                 this._emit('onBionicChange', enabled);
             }
@@ -471,7 +473,8 @@
             return {
                 version: EBookReader.VERSION,
                 mode: this.state.mode,
-                bionic: this.state.bionic,
+                // STEP 9E: Read from StateManager
+                bionic: this.stateManager ? this.stateManager.get('bionic') : false,
                 // STEP 9B: Read from StateManager
                 fontSize: this.stateManager ? this.stateManager.get('fontSize') : 18,
                 lineHeight: this.stateManager ? this.stateManager.get('lineHeight') : 1.7,
