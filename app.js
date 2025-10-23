@@ -30,12 +30,39 @@ const stateManager = new StateManager({
     }
 });
 
-// Initialize reader and EPUB handler
+// Initialize reader and EPUB service
 const reader = new EBookReader('#reader', {
     stateManager: stateManager  // STEP 9A: Pass StateManager to reader
 });
 reader.loadContent(sampleText);
-EPUBHandler.init(reader);
+
+// ============================================================================
+// STEP 12C: Initialize EPUBService (replaces old EPUBHandler)
+// ============================================================================
+const epubService = new EPUBService(reader);
+
+// Setup file upload for EPUB
+const uploadBtn = document.getElementById('upload-btn');
+const fileInput = document.getElementById('epub-upload');
+
+uploadBtn?.addEventListener('click', () => {
+    fileInput.click();
+});
+
+fileInput?.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        epubService.loadBook(file);
+    }
+});
+
+// Chapters sidebar toggle
+const chaptersToggle = document.getElementById('chapters-toggle');
+const chaptersSidebar = document.getElementById('chapters-sidebar');
+
+chaptersToggle?.addEventListener('click', () => {
+    chaptersSidebar?.classList.toggle('collapsed');
+});
 
 // ============================================================================
 // STEP 10D: Initialize FontService
