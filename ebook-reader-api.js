@@ -129,14 +129,10 @@
                 this._buildDOM();
                 this._attachEventListeners();
                 
-                this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-                this.mediaQuery.addEventListener('change', this._systemThemeHandler);
+                // STEP 11E: mediaQuery and theme application removed - ThemeService handles it
                 
                 requestAnimationFrame(() => {
                     this.updateStyles();
-                    // STEP 9C: Read from StateManager
-                    const theme = this.stateManager ? this.stateManager.get('theme') : 'sepia';
-                    this._applyTheme(theme);
                     
                     if (this.el.dragZoneL && this.el.dragZoneR && this.el.content) {
                         const contentHeight = this.el.content.scrollHeight;
@@ -292,33 +288,22 @@
         // ========================================
 
         setTheme(themeName) {
+            // STEP 11E: Simplified - ThemeService handles application now
             if (!THEMES[themeName]) {
                 throw new Error(`Invalid theme: ${themeName}. Valid themes: ${Object.keys(THEMES).join(', ')}`);
             }
-            // STEP 9C: Write to StateManager
+            // Update StateManager (ThemeService will apply)
             if (this.stateManager) {
-                this.stateManager.set('theme', themeName, true);
-                this.stateManager.set('autoTheme', false, true);
+                this.stateManager.set('theme', themeName);
+                this.stateManager.set('autoTheme', false);
             }
-            this._applyTheme(themeName);
-            this._emit('onThemeChange', { theme: themeName, auto: false });
         }
 
         setAutoTheme(enabled) {
-            // STEP 9C: Write to StateManager
+            // STEP 11E: Simplified - ThemeService handles application now
+            // Update StateManager (ThemeService will apply)
             if (this.stateManager) {
-                this.stateManager.set('autoTheme', enabled, true);
-            }
-            if (enabled) {
-                const isDark = this.mediaQuery.matches;
-                const autoTheme = isDark ? 'dark' : 'light';
-                this._applyTheme(autoTheme);
-                this._emit('onThemeChange', { theme: autoTheme, auto: true });
-            } else {
-                // STEP 9C: Read from StateManager
-                const selectedTheme = this.stateManager ? this.stateManager.get('theme') : 'sepia';
-                this._applyTheme(selectedTheme);
-                this._emit('onThemeChange', { theme: selectedTheme, auto: false });
+                this.stateManager.set('autoTheme', enabled);
             }
         }
 
@@ -479,7 +464,7 @@
             }
 
             window.removeEventListener('resize', this._resizeHandler);
-            this.mediaQuery?.removeEventListener('change', this._systemThemeHandler);
+            // STEP 11E: mediaQuery removed - ThemeService handles it
             
             if (this.el?.reader) {
                 this.el.reader.removeEventListener('scroll', this._scrollHandler);

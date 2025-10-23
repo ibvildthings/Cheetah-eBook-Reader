@@ -52,6 +52,18 @@ setTimeout(() => {
     }
 }, 100);
 
+// ============================================================================
+// STEP 11D: Initialize ThemeService
+// ============================================================================
+setTimeout(() => {
+    const container = reader.container;
+    if (container) {
+        const themeService = new ThemeService(stateManager, container);
+        // Apply initial theme
+        themeService.applyTheme('sepia');
+    }
+}, 100);
+
 // Sidebar toggle
 const sidebar = document.getElementById('sidebar');
 const toggleBtn = document.getElementById('sidebar-toggle');

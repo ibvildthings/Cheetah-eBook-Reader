@@ -50,48 +50,8 @@
         // ========================================
         // PRIVATE METHODS - THEME
         // ========================================
-
-        _handleSystemThemeChange(e) {
-            // STEP 9C: Read from StateManager
-            const autoTheme = this.stateManager ? this.stateManager.get('autoTheme') : false;
-            if (autoTheme && !this._destroyed) {
-                const autoThemeName = e.matches ? 'dark' : 'light';
-                this._applyTheme(autoThemeName);
-                this._emit('onThemeChange', { theme: autoThemeName, auto: true });
-            }
-        }
-
-        _applyTheme(themeName) {
-            if (!THEMES[themeName] || !this.el || !this.el.reader) return;
-            
-            const theme = THEMES[themeName];
-            const root = this.container.querySelector('.ebook-reader-root');
-            const reader = this.el.reader;
-            const content = this.el.content;
-            
-            if (root) {
-                root.style.background = theme.background;
-            }
-            
-            if (reader) {
-                reader.style.background = theme.contentBg;
-                reader.style.boxShadow = `0 4px 20px ${theme.shadow}`;
-            }
-            
-            if (content) {
-                content.style.color = theme.text;
-            }
-            
-            const bionicElements = content ? content.querySelectorAll('.bionic') : [];
-            bionicElements.forEach(el => {
-                el.style.color = theme.bionic;
-            });
-            
-            if (this.container) {
-                this.container.style.setProperty('--theme-accent', theme.accent);
-                this.container.style.setProperty('--theme-focus', theme.focusIndicator);
-            }
-        }
+        
+        // STEP 11E: Theme methods removed - ThemeService handles all theme logic
 
         // ========================================
         // PRIVATE METHODS - DOM SETUP
@@ -374,13 +334,7 @@
                         this.el.dragZoneR.style.height = contentHeight + 'px';
                     }
                     
-                    // STEP 9C: Read from StateManager
-                    const autoTheme = this.stateManager ? this.stateManager.get('autoTheme') : false;
-                    const selectedTheme = this.stateManager ? this.stateManager.get('theme') : 'sepia';
-                    const currentTheme = autoTheme 
-                        ? (this.mediaQuery.matches ? 'dark' : 'light')
-                        : selectedTheme;
-                    this._applyTheme(currentTheme);
+                    // STEP 11E: Theme application removed - ThemeService handles it
                 }
             }, 200);
 
