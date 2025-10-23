@@ -62,9 +62,7 @@
 
                 // STEP 9A: Renamed this.state → this._internal (runtime state only)
                 this._internal = {
-                    fontSize: this._validateOption(options.fontSize, this.config.fontSize, 'fontSize'),
-                    font: 'opendyslexic',
-                    lineHeight: FONTS.opendyslexic.lineHeight,
+                    // STEP 9B: fontSize, font, lineHeight removed - now in StateManager
                     fontLoading: false,
                     mode: 'normal',
                     bionic: false,
@@ -181,8 +179,11 @@
 
                 await this.fontLoader.loadFont(fontKey);
 
-                this.state.font = fontKey;
-                this.state.lineHeight = font.lineHeight;
+                // STEP 9B: Write to StateManager instead of this.state
+                if (this.stateManager) {
+                    this.stateManager.set('font', fontKey, true);
+                    this.stateManager.set('lineHeight', font.lineHeight, true);
+                }
                 this.state.fontLoading = false;
 
                 this.updateStyles();
@@ -222,7 +223,8 @@
         }
 
         getFont() {
-            const fontKey = this.state.font;
+            // STEP 9B: Read from StateManager
+            const fontKey = this.stateManager ? this.stateManager.get('font') : 'opendyslexic';
             const font = FONTS[fontKey];
             return {
                 key: fontKey,
@@ -374,7 +376,10 @@
             if (typeof lineHeight !== 'number' || lineHeight < 1.0 || lineHeight > 3.0) {
                 throw new Error('Line height must be between 1.0 and 3.0');
             }
-            this.state.lineHeight = lineHeight;
+            // STEP 9B: Write to StateManager
+            if (this.stateManager) {
+                this.stateManager.set('lineHeight', lineHeight, true);
+            }
             this.updateStyles();
         }
 
@@ -449,8 +454,9 @@
                 version: EBookReader.VERSION,
                 mode: this.state.mode,
                 bionic: this.state.bionic,
-                fontSize: this.state.fontSize,
-                lineHeight: this.state.lineHeight,
+                // STEP 9B: Read from StateManager
+                fontSize: this.stateManager ? this.stateManager.get('fontSize') : 18,
+                lineHeight: this.stateManager ? this.stateManager.get('lineHeight') : 1.7,
                 font: this.getFont(),
                 theme: this.getTheme(),
                 playing: this.state.flow.playing,

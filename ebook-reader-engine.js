@@ -312,11 +312,15 @@
             this._pendingStyleUpdate = requestAnimationFrame(() => {
                 if (this._destroyed || !this.el || !this.el.content) return;
                 
-                const font = FONTS[this.state.font];
+                // STEP 9B: Read from StateManager
+                const fontKey = this.stateManager ? this.stateManager.get('font') : 'opendyslexic';
+                const font = FONTS[fontKey];
+                const fontSize = this.stateManager ? this.stateManager.get('fontSize') : 18;
+                const lineHeight = this.stateManager ? this.stateManager.get('lineHeight') : 1.7;
                 
                 this.el.content.style.fontFamily = font.family;
-                this.el.content.style.fontSize = this.state.fontSize + 'px';
-                this.el.content.style.lineHeight = this.state.lineHeight;
+                this.el.content.style.fontSize = fontSize + 'px';
+                this.el.content.style.lineHeight = lineHeight;
                 
                 if (this.state.mode === 'flow' && this.wordIndexManager) {
                     this.wordIndexManager.invalidate();
@@ -821,7 +825,8 @@
             if (e.touches.length === 2) {
                 e.preventDefault();
                 this.state.gesture.initDist = this._dist(e.touches[0], e.touches[1]);
-                this.state.gesture.initSize = this.state.fontSize;
+                // STEP 9B: Read from StateManager
+                this.state.gesture.initSize = this.stateManager ? this.stateManager.get('fontSize') : 18;
             }
         }
 
@@ -847,11 +852,15 @@
 
             if (distChange > 10 && distChange > midDelta.x && distChange > midDelta.y) {
                 const scale = curDist / this.state.gesture.initDist;
-                this.state.fontSize = this._clamp(
+                const newSize = this._clamp(
                     this.state.gesture.initSize * scale,
                     this.config.fontSize.min,
                     this.config.fontSize.max
                 );
+                // STEP 9B: Write to StateManager
+                if (this.stateManager) {
+                    this.stateManager.set('fontSize', newSize, true);
+                }
                 this.updateStyles();
             }
         }
@@ -859,11 +868,16 @@
         _handleWheel(e) {
             if (e.ctrlKey || e.metaKey) {
                 e.preventDefault();
-                this.state.fontSize = this._clamp(
-                    this.state.fontSize - e.deltaY * 0.1,
+                // STEP 9B: Read from StateManager and write back
+                const currentSize = this.stateManager ? this.stateManager.get('fontSize') : 18;
+                const newSize = this._clamp(
+                    currentSize - e.deltaY * 0.1,
                     this.config.fontSize.min,
                     this.config.fontSize.max
                 );
+                if (this.stateManager) {
+                    this.stateManager.set('fontSize', newSize, true);
+                }
                 this.updateStyles();
             }
         }
