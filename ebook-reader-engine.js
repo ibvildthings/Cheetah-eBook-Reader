@@ -500,7 +500,8 @@
             requestAnimationFrame(() => {
                 if (this._destroyed) return;
                 
-                const focusWidth = this.state.flow.fingers;
+                // STEP 9F: Read from StateManager
+                const focusWidth = this.stateManager ? this.stateManager.get('flow.focusWidth') : 2;
                 const range = this.wordIndexManager.getActiveRange(centerIndex, focusWidth);
                 const centerIdx = Math.floor(centerIndex);
                 
@@ -593,7 +594,9 @@
             const comfortZoneBottom = readerRect.top + (viewportHeight * this.config.scroll.comfortZoneBottom);
             
             if (wordTop < comfortZoneTop || wordTop > comfortZoneBottom) {
-                const targetRatio = this.config.scroll.gap + (this.state.flow.scrollLevel - 1) * 0.2;
+                // STEP 9F: Read from StateManager
+                const scrollLevel = this.stateManager ? this.stateManager.get('flow.scrollLevel') : 1;
+                const targetRatio = this.config.scroll.gap + (scrollLevel - 1) * 0.2;
                 const targetY = readerRect.top + (viewportHeight * targetRatio);
                 
                 const scrollAdjustment = wordTop - targetY;
@@ -615,12 +618,16 @@
                         this.state.flow.rafId = requestAnimationFrame(frame);
                         return;
                     }
-                    this.state.flow.startTime = t - (this.state.flow.currentWordIndex / (this.state.flow.speed / 60)) * 1000;
+                    // STEP 9F: Read from StateManager
+                    const speed = this.stateManager ? this.stateManager.get('flow.speed') : 400;
+                    this.state.flow.startTime = t - (this.state.flow.currentWordIndex / (speed / 60)) * 1000;
                     this.state.flow.pauseUntil = 0;
                 }
 
                 const elapsed = t - this.state.flow.startTime;
-                const wordsPerSecond = this.state.flow.speed / 60;
+                // STEP 9F: Read from StateManager
+                const speed = this.stateManager ? this.stateManager.get('flow.speed') : 400;
+                const wordsPerSecond = speed / 60;
                 const wordIndex = (elapsed / 1000) * wordsPerSecond;
 
                 this.state.flow.currentWordIndex = wordIndex;
@@ -675,7 +682,9 @@
                 if (currentWord && currentWord.isNewline && 
                     this.state.flow.pauseUntil === 0 && 
                     this.state.flow.lastPausedWord !== currentWordIdx) {
-                    const pauseDuration = (60000 / this.state.flow.speed) * this.config.newlinePause;
+                    // STEP 9F: Read from StateManager
+                    const speed = this.stateManager ? this.stateManager.get('flow.speed') : 400;
+                    const pauseDuration = (60000 / speed) * this.config.newlinePause;
                     this.state.flow.pauseUntil = t + pauseDuration;
                     this.state.flow.lastPausedWord = currentWordIdx;
                 }
@@ -703,7 +712,9 @@
 
                 this.state.flow.playing = true;
                 
-                const wordsPerSecond = this.state.flow.speed / 60;
+                // STEP 9F: Read from StateManager
+                const speed = this.stateManager ? this.stateManager.get('flow.speed') : 400;
+                const wordsPerSecond = speed / 60;
                 this.state.flow.startTime = performance.now() - 
                     (this.state.flow.currentWordIndex / wordsPerSecond) * 1000;
                 this.state.flow.pauseUntil = 0;
@@ -723,7 +734,9 @@
             if (word && this.el && this.el.reader) {
                 const rr = this.el.reader.getBoundingClientRect();
                 const vhh = rr.height;
-                const targetRatio = this.config.scroll.gap + (this.state.flow.scrollLevel - 1) * 0.2;
+                // STEP 9F: Read from StateManager
+                const scrollLevel = this.stateManager ? this.stateManager.get('flow.scrollLevel') : 1;
+                const targetRatio = this.config.scroll.gap + (scrollLevel - 1) * 0.2;
                 const idealY = rr.top + (vhh * targetRatio);
                 const wordTop = word.el.getBoundingClientRect().top;
                 const diff = wordTop - idealY;

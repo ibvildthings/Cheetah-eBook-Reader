@@ -69,14 +69,13 @@
                     mode: 'normal',
                     content: '',
                     flow: {
+                        // STEP 9F: speed, fingers, scrollLevel removed - now in StateManager
+                        // Runtime state only:
                         playing: false,
-                        speed: this.config.speed.default,
                         currentWordIndex: 0,
                         startTime: 0,
                         rafId: null,
                         userScroll: false,
-                        fingers: 2,
-                        scrollLevel: 1,
                         pauseUntil: 0,
                         lastPausedWord: -1
                     },
@@ -380,13 +379,15 @@
                 throw new Error(`Speed must be between ${this.config.speed.min} and ${this.config.speed.max}`);
             }
             
+            // STEP 9F: Write to StateManager
+            if (this.stateManager) {
+                this.stateManager.set('flow.speed', wpm, true);
+            }
+            
             if (this.state.flow.playing) {
                 const currentWordIndex = this.state.flow.currentWordIndex;
-                this.state.flow.speed = wpm;
                 const wordsPerSecond = wpm / 60;
                 this.state.flow.startTime = performance.now() - (currentWordIndex / wordsPerSecond) * 1000;
-            } else {
-                this.state.flow.speed = wpm;
             }
             
             this._emit('onSpeedChange', wpm);
@@ -407,7 +408,10 @@
             if (typeof width !== 'number' || width < 1 || width > 5) {
                 throw new Error('Focus width must be between 1 and 5');
             }
-            this.state.flow.fingers = width;
+            // STEP 9F: Write to StateManager
+            if (this.stateManager) {
+                this.stateManager.set('flow.focusWidth', width, true);
+            }
             if (this.state.mode === 'flow' && !this._destroyed && this.wordIndexManager) {
                 this._updateWordStates(this.state.flow.currentWordIndex);
             }
@@ -417,7 +421,10 @@
             if (typeof level !== 'number' || level < 1 || level > 5) {
                 throw new Error('Scroll level must be between 1 and 5');
             }
-            this.state.flow.scrollLevel = level;
+            // STEP 9F: Write to StateManager
+            if (this.stateManager) {
+                this.stateManager.set('flow.scrollLevel', level, true);
+            }
         }
 
         play() {
@@ -481,11 +488,12 @@
                 font: this.getFont(),
                 theme: this.getTheme(),
                 playing: this.state.flow.playing,
-                speed: this.state.flow.speed,
+                // STEP 9F: Read from StateManager
+                speed: this.stateManager ? this.stateManager.get('flow.speed') : 400,
                 currentWordIndex: this.state.flow.currentWordIndex,
                 totalWords: this.wordIndexManager?.getTotalWords() || 0,
-                focusWidth: this.state.flow.fingers,
-                scrollLevel: this.state.flow.scrollLevel
+                focusWidth: this.stateManager ? this.stateManager.get('flow.focusWidth') : 2,
+                scrollLevel: this.stateManager ? this.stateManager.get('flow.scrollLevel') : 1
             };
         }
 
