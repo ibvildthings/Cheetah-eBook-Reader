@@ -45,6 +45,9 @@
             try {
                 this._validateConstructorArgs(containerSelector, options);
                 
+                // STEP 9A: Store StateManager reference
+                this.stateManager = options.stateManager || null;
+                
                 this.config = {
                     fontSize: { min: 12, default: 18, max: 48 },
                     speed: { min: 100, default: 400, max: 650 },
@@ -57,7 +60,8 @@
                     }
                 };
 
-                this.state = {
+                // STEP 9A: Renamed this.state → this._internal (runtime state only)
+                this._internal = {
                     fontSize: this._validateOption(options.fontSize, this.config.fontSize, 'fontSize'),
                     font: 'opendyslexic',
                     lineHeight: FONTS.opendyslexic.lineHeight,
@@ -86,6 +90,9 @@
                     },
                     saved: null
                 };
+                
+                // STEP 9A: Keep backward compatibility with this.state
+                this.state = this._internal;
 
                 this._lastTapTime = null;
                 this._lastTapWordIndex = null;

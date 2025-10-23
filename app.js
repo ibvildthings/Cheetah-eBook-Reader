@@ -31,7 +31,9 @@ const stateManager = new StateManager({
 });
 
 // Initialize reader and EPUB handler
-const reader = new EBookReader('#reader');
+const reader = new EBookReader('#reader', {
+    stateManager: stateManager  // STEP 9A: Pass StateManager to reader
+});
 reader.loadContent(sampleText);
 EPUBHandler.init(reader);
 
