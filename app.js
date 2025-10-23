@@ -53,24 +53,29 @@ document.querySelectorAll('.section-header').forEach(header => {
     });
 });
 
-// Margin state
-const marginState = { left: 60, right: 60, dragging: false, side: null, initX: 0, initMargin: 0 };
+// ============================================================================
+// STEP 6: Margin state - now using StateManager
+// ============================================================================
+const marginState = { dragging: false, side: null, initX: 0, initMargin: 0 };
 
 function updateMargins() {
+    const left = stateManager.get('marginL');
+    const right = stateManager.get('marginR');
+    
     const content = document.querySelector('.ebook-text-content');
     if (content) {
-        content.style.paddingLeft = `${marginState.left}px`;
-        content.style.paddingRight = `${marginState.right}px`;
+        content.style.paddingLeft = `${left}px`;
+        content.style.paddingRight = `${right}px`;
     }
 
     const leftDrag = document.getElementById('drag-left');
     const rightDrag = document.getElementById('drag-right');
 
-    leftDrag.style.width = `${Math.max(60, marginState.left)}px`;
-    rightDrag.style.width = `${Math.max(60, marginState.right)}px`;
+    leftDrag.style.width = `${Math.max(60, left)}px`;
+    rightDrag.style.width = `${Math.max(60, right)}px`;
 
-    document.getElementById('margin-left-value').textContent = `${marginState.left}px`;
-    document.getElementById('margin-right-value').textContent = `${marginState.right}px`;
+    document.getElementById('margin-left-value').textContent = `${left}px`;
+    document.getElementById('margin-right-value').textContent = `${right}px`;
 
     reader.updateLayout();
 }
@@ -81,7 +86,8 @@ function startDrag(e, side) {
     marginState.dragging = true;
     marginState.side = side;
     marginState.initX = x;
-    marginState.initMargin = marginState[side];
+    const marginKey = side === 'left' ? 'marginL' : 'marginR';
+    marginState.initMargin = stateManager.get(marginKey);
     document.getElementById(`drag-${side}`)?.classList.add('dragging');
 }
 
@@ -90,8 +96,9 @@ function handleDrag(e) {
     const x = e.touches?.[0]?.clientX ?? e.clientX;
     const delta = x - marginState.initX;
     const side = marginState.side;
-    marginState[side] = Math.max(10, Math.min(400, marginState.initMargin + (side === 'left' ? delta : -delta)));
-    updateMargins();
+    const newValue = Math.max(10, Math.min(400, marginState.initMargin + (side === 'left' ? delta : -delta)));
+    const marginKey = side === 'left' ? 'marginL' : 'marginR';
+    stateManager.set(marginKey, newValue);
 }
 
 function stopDrag() {
@@ -115,8 +122,8 @@ function stopDrag() {
 ['left', 'right'].forEach(side => {
     const slider = document.getElementById(`margin-${side}-slider`);
     slider?.addEventListener('input', e => {
-        marginState[side] = parseInt(e.target.value, 10);
-        updateMargins();
+        const marginKey = side === 'left' ? 'marginL' : 'marginR';
+        stateManager.set(marginKey, parseInt(e.target.value, 10));
     });
 });
 
@@ -298,4 +305,17 @@ stateManager.subscribe('autoTheme', (enabled) => {
     } else {
         reader._applyTheme(reader.state.theme);
     }
+});
+
+// ============================================================================
+// STEP 6: Reader subscribes to StateManager for margins
+// ============================================================================
+stateManager.subscribe('marginL', (newMargin) => {
+    reader.state.marginL = newMargin;
+    updateMargins();
+});
+
+stateManager.subscribe('marginR', (newMargin) => {
+    reader.state.marginR = newMargin;
+    updateMargins();
 });
