@@ -161,9 +161,10 @@ document.getElementById('btn-bionic')?.addEventListener('click', function () {
 
 // Sliders for speed, focus, scroll, font size, line height
 const sliders = [
-    { id: 'speed', action: v => reader.setSpeed(v), label: v => `${v} WPM` },
-    { id: 'focus', action: v => reader.setFocusWidth(v), label: v => v },
-    { id: 'scroll', action: v => reader.setScrollLevel(v), label: v => v },
+    // STEP 7: Flow controls now update StateManager
+    { id: 'speed', action: v => stateManager.set('flow.speed', v), label: v => `${v} WPM` },
+    { id: 'focus', action: v => stateManager.set('flow.focusWidth', v), label: v => v },
+    { id: 'scroll', action: v => stateManager.set('flow.scrollLevel', v), label: v => v },
     // STEP 2: Font size now updates StateManager (reader subscribes to it)
     { id: 'fontsize', action: v => stateManager.set('fontSize', v), label: v => `${v}px` },
     // STEP 3: Line height now updates StateManager (reader subscribes to it)
@@ -318,4 +319,29 @@ stateManager.subscribe('marginL', (newMargin) => {
 stateManager.subscribe('marginR', (newMargin) => {
     reader.state.marginR = newMargin;
     updateMargins();
+});
+
+// ============================================================================
+// STEP 7: Reader subscribes to StateManager for flow state
+// ============================================================================
+stateManager.subscribe('flow.speed', (newSpeed) => {
+    if (reader.state.flow.playing) {
+        const currentWordIndex = reader.state.flow.currentWordIndex;
+        reader.state.flow.speed = newSpeed;
+        const wordsPerSecond = newSpeed / 60;
+        reader.state.flow.startTime = performance.now() - (currentWordIndex / wordsPerSecond) * 1000;
+    } else {
+        reader.state.flow.speed = newSpeed;
+    }
+});
+
+stateManager.subscribe('flow.focusWidth', (newWidth) => {
+    reader.state.flow.fingers = newWidth;
+    if (reader.state.mode === 'flow' && !reader._destroyed && reader.wordIndexManager) {
+        reader._updateWordStates(reader.state.flow.currentWordIndex);
+    }
+});
+
+stateManager.subscribe('flow.scrollLevel', (newLevel) => {
+    reader.state.flow.scrollLevel = newLevel;
 });
