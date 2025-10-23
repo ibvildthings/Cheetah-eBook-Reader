@@ -198,6 +198,23 @@ class CheetahReaderApp {
         }
     }
     
+    // STEP 15B: Text formatting logic moved to CheetahReaderApp
+    loadPastedText(text) {
+        if (!text || text.trim().length === 0) {
+            throw new Error('Text is empty');
+        }
+        
+        // Format plain text as HTML
+        let formattedText = text;
+        if (!text.includes('<p>') && !text.includes('<div>')) {
+            const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
+            formattedText = paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+        }
+        
+        this.loadContent(formattedText);
+        return formattedText;
+    }
+    
     loadEPUB(file) {
         if (this.epubService) {
             this.epubService.loadBook(file);

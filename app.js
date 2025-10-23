@@ -1,3 +1,6 @@
+// ============================================================================
+// SAMPLE CONTENT
+// ============================================================================
 const sampleText = `<h1>Tap text to get started</h1>
     <p>In the heart of Silicon Valley, where innovation breathed life into dreams and ambition fueled the relentless pursuit of progress, there existed a small startup that dared to challenge the giants. The morning sun cast long shadows through the floor-to-ceiling windows of their modest office, illuminating screens filled with code and whiteboards covered in sketches of impossible ideas.</p>
     <p>Sarah had always believed that the best products were born from frustration. It was a Tuesday afternoon when she threw her e-reader across the room—not hard enough to break it, but with enough force to express her complete dissatisfaction with the experience. "Why," she asked her co-founder Marcus, "does every reading app feel like it was designed in 2010?"</p>
@@ -9,7 +12,7 @@ const sampleText = `<h1>Tap text to get started</h1>
     <p>They called it Flow Mode. The name came naturally—it was exactly how reading felt when everything worked perfectly. No friction. No distraction. Just you and the words, moving together in perfect harmony.</p>`;
 
 // ============================================================================
-// STEP 14C: Initialize CheetahReaderApp (replaces all old initialization)
+// APP INITIALIZATION
 // ============================================================================
 const app = new CheetahReaderApp('#reader', {
     fontSize: 18,
@@ -25,31 +28,24 @@ const app = new CheetahReaderApp('#reader', {
     scrollLevel: 1
 });
 
-// Load sample content
 app.loadContent(sampleText);
 
 // ============================================================================
-// EPUB UPLOAD
+// CONTENT LOADING - EPUB Upload
 // ============================================================================
-const uploadBtn = document.getElementById('upload-btn');
-const fileInput = document.getElementById('epub-upload');
-
-uploadBtn?.addEventListener('click', () => {
-    fileInput.click();
+document.getElementById('upload-btn')?.addEventListener('click', () => {
+    document.getElementById('epub-upload').click();
 });
 
-fileInput?.addEventListener('change', (e) => {
+document.getElementById('epub-upload')?.addEventListener('change', (e) => {
     const file = e.target.files[0];
-    if (file) {
-        app.loadEPUB(file);
-    }
+    if (file) app.loadEPUB(file);
 });
 
 // ============================================================================
-// PASTE TEXT
+// CONTENT LOADING - Paste Text
 // ============================================================================
-const pasteBtn = document.getElementById('paste-btn');
-pasteBtn?.addEventListener('click', async () => {
+document.getElementById('paste-btn')?.addEventListener('click', async () => {
     try {
         const text = await navigator.clipboard.readText();
         
@@ -58,14 +54,9 @@ pasteBtn?.addEventListener('click', async () => {
             return;
         }
         
-        let formattedText = text;
-        if (!text.includes('<p>') && !text.includes('<div>')) {
-            const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
-            formattedText = paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
-        }
+        app.loadPastedText(text);
         
-        app.loadContent(formattedText);
-        
+        // Update UI
         document.getElementById('book-title').textContent = 'Pasted Text';
         document.getElementById('book-author').textContent = `${text.length} characters`;
         document.getElementById('chapters-list').innerHTML = 
@@ -78,15 +69,15 @@ pasteBtn?.addEventListener('click', async () => {
 });
 
 // ============================================================================
-// SIDEBAR TOGGLES
+// UI - Sidebar Toggles
 // ============================================================================
-const chaptersToggle = document.getElementById('chapters-toggle');
-const chaptersSidebar = document.getElementById('chapters-sidebar');
-chaptersToggle?.addEventListener('click', () => chaptersSidebar?.classList.toggle('collapsed'));
+document.getElementById('chapters-toggle')?.addEventListener('click', () => {
+    document.getElementById('chapters-sidebar')?.classList.toggle('collapsed');
+});
 
-const sidebar = document.getElementById('sidebar');
-const toggleBtn = document.getElementById('sidebar-toggle');
-toggleBtn?.addEventListener('click', () => sidebar?.classList.toggle('collapsed'));
+document.getElementById('sidebar-toggle')?.addEventListener('click', () => {
+    document.getElementById('sidebar')?.classList.toggle('collapsed');
+});
 
 document.querySelectorAll('.section-header').forEach(header => {
     header.addEventListener('click', () => {
@@ -100,25 +91,26 @@ document.querySelectorAll('.section-header').forEach(header => {
 });
 
 // ============================================================================
-// MARGINS
+// UI - Margins (Drag & Sliders)
 // ============================================================================
 const marginState = { dragging: false, side: null, initX: 0, initMargin: 0 };
 
-function updateMargins() {
+function updateMarginsUI() {
     const left = app.state.get('marginL');
     const right = app.state.get('marginR');
     
+    // Update content padding
     const content = document.querySelector('.ebook-text-content');
     if (content) {
         content.style.paddingLeft = `${left}px`;
         content.style.paddingRight = `${right}px`;
     }
 
-    const leftDrag = document.getElementById('drag-left');
-    const rightDrag = document.getElementById('drag-right');
-    leftDrag.style.width = `${Math.max(60, left)}px`;
-    rightDrag.style.width = `${Math.max(60, right)}px`;
+    // Update drag zones
+    document.getElementById('drag-left').style.width = `${Math.max(60, left)}px`;
+    document.getElementById('drag-right').style.width = `${Math.max(60, right)}px`;
 
+    // Update labels
     document.getElementById('margin-left-value').textContent = `${left}px`;
     document.getElementById('margin-right-value').textContent = `${right}px`;
 
@@ -131,8 +123,7 @@ function startDrag(e, side) {
     marginState.dragging = true;
     marginState.side = side;
     marginState.initX = x;
-    const marginKey = side === 'left' ? 'marginL' : 'marginR';
-    marginState.initMargin = app.state.get(marginKey);
+    marginState.initMargin = app.state.get(side === 'left' ? 'marginL' : 'marginR');
     document.getElementById(`drag-${side}`)?.classList.add('dragging');
 }
 
@@ -140,14 +131,13 @@ function handleDrag(e) {
     if (!marginState.dragging) return;
     const x = e.touches?.[0]?.clientX ?? e.clientX;
     const delta = x - marginState.initX;
-    const side = marginState.side;
-    const newValue = Math.max(10, Math.min(400, marginState.initMargin + (side === 'left' ? delta : -delta)));
+    const multiplier = marginState.side === 'left' ? 1 : -1;
+    const newValue = Math.max(10, Math.min(400, marginState.initMargin + (delta * multiplier)));
     
-    if (side === 'left') {
-        app.setMargins(newValue, undefined);
-    } else {
-        app.setMargins(undefined, newValue);
-    }
+    app.setMargins(
+        marginState.side === 'left' ? newValue : undefined,
+        marginState.side === 'right' ? newValue : undefined
+    );
 }
 
 function stopDrag() {
@@ -157,113 +147,97 @@ function stopDrag() {
     }
 }
 
+// Attach drag events
 ['left', 'right'].forEach(side => {
     const el = document.getElementById(`drag-${side}`);
-    if (el) {
-        ['mousedown', 'touchstart'].forEach(ev => el.addEventListener(ev, e => startDrag(e, side)));
-    }
+    ['mousedown', 'touchstart'].forEach(ev => 
+        el?.addEventListener(ev, e => startDrag(e, side))
+    );
 });
 ['mousemove', 'touchmove'].forEach(ev => document.addEventListener(ev, handleDrag));
 ['mouseup', 'touchend'].forEach(ev => document.addEventListener(ev, stopDrag));
 
+// Margin sliders
 ['left', 'right'].forEach(side => {
-    const slider = document.getElementById(`margin-${side}-slider`);
-    slider?.addEventListener('input', e => {
+    document.getElementById(`margin-${side}-slider`)?.addEventListener('input', e => {
         const value = parseInt(e.target.value, 10);
-        if (side === 'left') {
-            app.setMargins(value, undefined);
-        } else {
-            app.setMargins(undefined, value);
-        }
+        app.setMargins(
+            side === 'left' ? value : undefined,
+            side === 'right' ? value : undefined
+        );
     });
 });
 
-app.state.subscribe('marginL', updateMargins);
-app.state.subscribe('marginR', updateMargins);
+// Subscribe to margin changes
+app.state.subscribe('marginL', updateMarginsUI);
+app.state.subscribe('marginR', updateMarginsUI);
 
 // ============================================================================
-// FLOW MODE
+// READING MODES - Flow Mode
 // ============================================================================
-const flowBtn = document.getElementById('btn-flow');
-flowBtn?.addEventListener('click', () => {
-    const state = app.reader.getState();
-    const isFlow = state.mode === 'flow';
-    if (isFlow) {
-        app.stopFlow();
-    } else {
-        app.startFlow();
-    }
+document.getElementById('btn-flow')?.addEventListener('click', () => {
+    const isFlow = app.reader.getState().mode === 'flow';
+    isFlow ? app.stopFlow() : app.startFlow();
 });
 
 app.on('onModeChange', (mode) => {
-    const flowBtn = document.getElementById('btn-flow');
-    if (flowBtn) {
-        const isFlow = mode === 'flow';
-        flowBtn.classList.toggle('active', isFlow);
-        flowBtn.textContent = isFlow ? '⏹ Stop Flow' : '▶ Start Flow';
+    const btn = document.getElementById('btn-flow');
+    if (btn) {
+        btn.classList.toggle('active', mode === 'flow');
+        btn.textContent = mode === 'flow' ? '⏹ Stop Flow' : '▶ Start Flow';
     }
 });
 
 // ============================================================================
-// BIONIC MODE
+// READING MODES - Bionic Mode
 // ============================================================================
-document.getElementById('btn-bionic')?.addEventListener('click', function () {
+document.getElementById('btn-bionic')?.addEventListener('click', function() {
     app.toggleBionic();
     this.classList.toggle('active');
 });
 
 // ============================================================================
-// SLIDERS
+// CONTROLS - Sliders
 // ============================================================================
-const sliders = [
+[
     { id: 'speed', action: v => app.setSpeed(v), label: v => `${v} WPM` },
     { id: 'focus', action: v => app.setFocusWidth(v), label: v => v },
     { id: 'scroll', action: v => app.setScrollLevel(v), label: v => v },
     { id: 'fontsize', action: v => app.setFontSize(v), label: v => `${v}px` },
     { id: 'lineheight', action: v => app.setLineHeight(v), label: v => v.toFixed(1) }
-];
-
-sliders.forEach(({ id, action, label }) => {
+].forEach(({ id, action, label }) => {
     const slider = document.getElementById(`${id}-slider`);
     const valueEl = document.getElementById(`${id}-value`);
     slider?.addEventListener('input', e => {
         const val = parseFloat(e.target.value);
         action(val);
-        valueEl.textContent = label(val);
+        if (valueEl) valueEl.textContent = label(val);
     });
 });
 
 // ============================================================================
-// FONT SELECTOR
+// CONTROLS - Font Selector
 // ============================================================================
 document.getElementById('font-select')?.addEventListener('change', e => {
     app.setFont(e.target.value);
 });
 
 // ============================================================================
-// THEME
+// CONTROLS - Theme
 // ============================================================================
 document.getElementById('theme-select')?.addEventListener('change', e => {
-    const themeValue = e.target.value;
     const autoCheckbox = document.getElementById('theme-auto');
-    if (autoCheckbox) {
-        autoCheckbox.checked = false;
-    }
-    app.setTheme(themeValue);
+    if (autoCheckbox) autoCheckbox.checked = false;
+    app.setTheme(e.target.value);
 });
 
 document.getElementById('theme-auto')?.addEventListener('change', function(e) {
     const themeSelect = document.getElementById('theme-select');
-    if (e.target.checked) {
-        app.setAutoTheme(true);
-        if (themeSelect) themeSelect.disabled = true;
-    } else {
-        app.setAutoTheme(false);
-        if (themeSelect) themeSelect.disabled = false;
-    }
+    app.setAutoTheme(e.target.checked);
+    if (themeSelect) themeSelect.disabled = e.target.checked;
 });
 
 // ============================================================================
-// INITIALIZE LAYOUT
+// INITIALIZE
 // ============================================================================
-setTimeout(updateMargins, 100);
+setTimeout(updateMarginsUI, 100);
