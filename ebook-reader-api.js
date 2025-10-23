@@ -115,7 +115,11 @@
                     );
                 }
 
-                this.wordIndexManager = new WordIndexManager();
+                // STEP 16C: Use WordTracker module (wraps WordIndexManager)
+                this.wordTracker = new WordTracker();
+                // Backward compatibility - keep old name
+                this.wordIndexManager = this.wordTracker.indexManager;
+                
                 this.fontLoader = new FontLoader();
                 this._destroyed = false;
                 this._pendingStyleUpdate = null;
