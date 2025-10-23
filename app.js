@@ -179,6 +179,9 @@ document.getElementById('font-select')?.addEventListener('change', e => {
     stateManager.set('font', e.target.value);
 });
 
+// ============================================================================
+// STEP 5: Theme now updates StateManager (reader subscribes to it)
+// ============================================================================
 // Themes dropdown
 document.getElementById('theme-select')?.addEventListener('change', e => {
     const themeValue = e.target.value;
@@ -188,7 +191,9 @@ document.getElementById('theme-select')?.addEventListener('change', e => {
         autoCheckbox.checked = false;
     }
     
-    reader.setTheme(themeValue);
+    // Update StateManager instead of calling reader directly
+    stateManager.set('autoTheme', false);
+    stateManager.set('theme', themeValue);
 });
 
 // Auto theme checkbox
@@ -196,12 +201,14 @@ document.getElementById('theme-auto')?.addEventListener('change', function(e) {
     const themeSelect = document.getElementById('theme-select');
     
     if (e.target.checked) {
-        reader.setAutoTheme(true);
+        // Update StateManager instead of calling reader directly
+        stateManager.set('autoTheme', true);
         if (themeSelect) {
             themeSelect.disabled = true;
         }
     } else {
-        reader.setAutoTheme(false);
+        // Update StateManager instead of calling reader directly
+        stateManager.set('autoTheme', false);
         if (themeSelect) {
             themeSelect.disabled = false;
         }
@@ -271,4 +278,24 @@ stateManager.subscribe('lineHeight', (newHeight) => {
 // ============================================================================
 stateManager.subscribe('font', (newFont) => {
     reader.setFont(newFont);
+});
+
+// ============================================================================
+// STEP 5: Reader subscribes to StateManager for theme
+// ============================================================================
+stateManager.subscribe('theme', (newTheme) => {
+    reader.state.theme = newTheme;
+    reader.state.autoTheme = false;
+    reader._applyTheme(newTheme);
+});
+
+stateManager.subscribe('autoTheme', (enabled) => {
+    reader.state.autoTheme = enabled;
+    if (enabled) {
+        const isDark = reader.mediaQuery.matches;
+        const autoTheme = isDark ? 'dark' : 'light';
+        reader._applyTheme(autoTheme);
+    } else {
+        reader._applyTheme(reader.state.theme);
+    }
 });
