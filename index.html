@@ -130,7 +130,7 @@
 
                 <div class="sidebar-section collapsible">
                     <h3 class="section-header" data-section="layout">
-                        <span class="section-icon">📐</span>
+                        <span class="section-icon">📏</span>
                         <span>Layout</span>
                         <span class="collapse-arrow">▼</span>
                     </h3>
@@ -192,29 +192,18 @@
     <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
-    
-    <!-- DOMPurify for safe HTML sanitization -->
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.3.0/dist/purify.min.js"></script>
 
     <!-- App Scripts - LOAD IN THIS ORDER -->
-    <!-- 0. State Manager (NEW - Step 1) -->
+    <!-- STEP 14C: Added CheetahReaderApp before app.js -->
     <script src="StateManager.js"></script>
-    
-    <!-- 0.1. Services (Steps 10+) -->
     <script src="FontService.js"></script>
     <script src="ThemeService.js"></script>
     <script src="EPUBService.js"></script>
-    
-    <!-- 1. Core utilities and constants -->
     <script src="ebook-reader-core.js"></script>
-    
-    <!-- 2. Engine with rendering and animation logic -->
     <script src="ebook-reader-engine.js"></script>
-    
-    <!-- 3. Public API that extends engine -->
     <script src="ebook-reader-api.js"></script>
-    
-    <!-- 4. UI controls -->
+    <script src="CheetahReaderApp.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

@@ -9,9 +9,9 @@ const sampleText = `<h1>Tap text to get started</h1>
     <p>They called it Flow Mode. The name came naturally—it was exactly how reading felt when everything worked perfectly. No friction. No distraction. Just you and the words, moving together in perfect harmony.</p>`;
 
 // ============================================================================
-// STEP 1: Initialize StateManager (will replace reader.state eventually)
+// STEP 14C: Initialize CheetahReaderApp (replaces all old initialization)
 // ============================================================================
-const stateManager = new StateManager({
+const app = new CheetahReaderApp('#reader', {
     fontSize: 18,
     font: 'opendyslexic',
     lineHeight: 1.8,
@@ -19,29 +19,18 @@ const stateManager = new StateManager({
     autoTheme: false,
     marginL: 60,
     marginR: 60,
-    mode: 'normal',
     bionic: false,
-    flow: {
-        playing: false,
-        speed: 400,
-        currentWordIndex: 0,
-        focusWidth: 2,
-        scrollLevel: 1
-    }
+    speed: 400,
+    focusWidth: 2,
+    scrollLevel: 1
 });
 
-// Initialize reader and EPUB service
-const reader = new EBookReader('#reader', {
-    stateManager: stateManager  // STEP 9A: Pass StateManager to reader
-});
-reader.loadContent(sampleText);
+// Load sample content
+app.loadContent(sampleText);
 
 // ============================================================================
-// STEP 12C: Initialize EPUBService (replaces old EPUBHandler)
+// EPUB UPLOAD
 // ============================================================================
-const epubService = new EPUBService(reader);
-
-// Setup file upload for EPUB
 const uploadBtn = document.getElementById('upload-btn');
 const fileInput = document.getElementById('epub-upload');
 
@@ -52,56 +41,57 @@ uploadBtn?.addEventListener('click', () => {
 fileInput?.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
-        epubService.loadBook(file);
+        app.loadEPUB(file);
     }
 });
 
-// Chapters sidebar toggle
+// ============================================================================
+// PASTE TEXT
+// ============================================================================
+const pasteBtn = document.getElementById('paste-btn');
+pasteBtn?.addEventListener('click', async () => {
+    try {
+        const text = await navigator.clipboard.readText();
+        
+        if (!text || text.trim().length === 0) {
+            alert('Clipboard is empty or contains no text.');
+            return;
+        }
+        
+        let formattedText = text;
+        if (!text.includes('<p>') && !text.includes('<div>')) {
+            const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
+            formattedText = paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+        }
+        
+        app.loadContent(formattedText);
+        
+        document.getElementById('book-title').textContent = 'Pasted Text';
+        document.getElementById('book-author').textContent = `${text.length} characters`;
+        document.getElementById('chapters-list').innerHTML = 
+            '<div class="chapters-list-empty">No chapters (pasted text)</div>';
+        
+    } catch (error) {
+        console.error('Failed to read clipboard:', error);
+        alert('Failed to read clipboard. Make sure you granted clipboard permissions.');
+    }
+});
+
+// ============================================================================
+// SIDEBAR TOGGLES
+// ============================================================================
 const chaptersToggle = document.getElementById('chapters-toggle');
 const chaptersSidebar = document.getElementById('chapters-sidebar');
+chaptersToggle?.addEventListener('click', () => chaptersSidebar?.classList.toggle('collapsed'));
 
-chaptersToggle?.addEventListener('click', () => {
-    chaptersSidebar?.classList.toggle('collapsed');
-});
-
-// ============================================================================
-// STEP 10D: Initialize FontService
-// ============================================================================
-// Wait for reader DOM to be ready, then initialize FontService
-setTimeout(() => {
-    const contentElement = reader.el?.content;
-    if (contentElement) {
-        const fontService = new FontService(stateManager, contentElement);
-        // Load initial font
-        fontService.loadFont('opendyslexic').then(() => {
-            fontService.applyFont('opendyslexic');
-        });
-    }
-}, 100);
-
-// ============================================================================
-// STEP 11D: Initialize ThemeService
-// ============================================================================
-setTimeout(() => {
-    const container = reader.container;
-    if (container) {
-        const themeService = new ThemeService(stateManager, container);
-        // Apply initial theme
-        themeService.applyTheme('sepia');
-    }
-}, 100);
-
-// Sidebar toggle
 const sidebar = document.getElementById('sidebar');
 const toggleBtn = document.getElementById('sidebar-toggle');
 toggleBtn?.addEventListener('click', () => sidebar?.classList.toggle('collapsed'));
 
-// Collapsible sections
 document.querySelectorAll('.section-header').forEach(header => {
     header.addEventListener('click', () => {
         const section = header.dataset.section;
         const content = document.querySelector(`[data-content="${section}"]`);
-        
         if (content) {
             content.classList.toggle('collapsed');
             header.classList.toggle('collapsed');
@@ -110,13 +100,13 @@ document.querySelectorAll('.section-header').forEach(header => {
 });
 
 // ============================================================================
-// STEP 6: Margin state - now using StateManager
+// MARGINS
 // ============================================================================
 const marginState = { dragging: false, side: null, initX: 0, initMargin: 0 };
 
 function updateMargins() {
-    const left = stateManager.get('marginL');
-    const right = stateManager.get('marginR');
+    const left = app.state.get('marginL');
+    const right = app.state.get('marginR');
     
     const content = document.querySelector('.ebook-text-content');
     if (content) {
@@ -126,14 +116,13 @@ function updateMargins() {
 
     const leftDrag = document.getElementById('drag-left');
     const rightDrag = document.getElementById('drag-right');
-
     leftDrag.style.width = `${Math.max(60, left)}px`;
     rightDrag.style.width = `${Math.max(60, right)}px`;
 
     document.getElementById('margin-left-value').textContent = `${left}px`;
     document.getElementById('margin-right-value').textContent = `${right}px`;
 
-    reader.updateLayout();
+    app.reader.updateLayout();
 }
 
 function startDrag(e, side) {
@@ -143,7 +132,7 @@ function startDrag(e, side) {
     marginState.side = side;
     marginState.initX = x;
     const marginKey = side === 'left' ? 'marginL' : 'marginR';
-    marginState.initMargin = stateManager.get(marginKey);
+    marginState.initMargin = app.state.get(marginKey);
     document.getElementById(`drag-${side}`)?.classList.add('dragging');
 }
 
@@ -153,8 +142,12 @@ function handleDrag(e) {
     const delta = x - marginState.initX;
     const side = marginState.side;
     const newValue = Math.max(10, Math.min(400, marginState.initMargin + (side === 'left' ? delta : -delta)));
-    const marginKey = side === 'left' ? 'marginL' : 'marginR';
-    stateManager.set(marginKey, newValue);
+    
+    if (side === 'left') {
+        app.setMargins(newValue, undefined);
+    } else {
+        app.setMargins(undefined, newValue);
+    }
 }
 
 function stopDrag() {
@@ -164,7 +157,6 @@ function stopDrag() {
     }
 }
 
-// Attach margin drag events efficiently
 ['left', 'right'].forEach(side => {
     const el = document.getElementById(`drag-${side}`);
     if (el) {
@@ -174,33 +166,36 @@ function stopDrag() {
 ['mousemove', 'touchmove'].forEach(ev => document.addEventListener(ev, handleDrag));
 ['mouseup', 'touchend'].forEach(ev => document.addEventListener(ev, stopDrag));
 
-// Margin sliders
 ['left', 'right'].forEach(side => {
     const slider = document.getElementById(`margin-${side}-slider`);
     slider?.addEventListener('input', e => {
-        const marginKey = side === 'left' ? 'marginL' : 'marginR';
-        stateManager.set(marginKey, parseInt(e.target.value, 10));
+        const value = parseInt(e.target.value, 10);
+        if (side === 'left') {
+            app.setMargins(value, undefined);
+        } else {
+            app.setMargins(undefined, value);
+        }
     });
 });
 
-// Flow mode
+app.state.subscribe('marginL', updateMargins);
+app.state.subscribe('marginR', updateMargins);
+
+// ============================================================================
+// FLOW MODE
+// ============================================================================
 const flowBtn = document.getElementById('btn-flow');
 flowBtn?.addEventListener('click', () => {
-    const state = reader.getState();
+    const state = app.reader.getState();
     const isFlow = state.mode === 'flow';
-
     if (isFlow) {
-        // Stop flow - go back to normal
-        reader.setMode('normal');
+        app.stopFlow();
     } else {
-        // Start flow - enter flow mode and auto-play
-        reader.setMode('flow');
-        setTimeout(() => reader.play(), 300);
+        app.startFlow();
     }
 });
 
-// Listen for mode changes to update button
-reader.on('onModeChange', (mode) => {
+app.on('onModeChange', (mode) => {
     const flowBtn = document.getElementById('btn-flow');
     if (flowBtn) {
         const isFlow = mode === 'flow';
@@ -209,24 +204,23 @@ reader.on('onModeChange', (mode) => {
     }
 });
 
-// Bionic mode
-// STEP 8: Bionic now updates StateManager
+// ============================================================================
+// BIONIC MODE
+// ============================================================================
 document.getElementById('btn-bionic')?.addEventListener('click', function () {
-    const currentBionic = stateManager.get('bionic');
-    stateManager.set('bionic', !currentBionic);
+    app.toggleBionic();
     this.classList.toggle('active');
 });
 
-// Sliders for speed, focus, scroll, font size, line height
+// ============================================================================
+// SLIDERS
+// ============================================================================
 const sliders = [
-    // STEP 7: Flow controls now update StateManager
-    { id: 'speed', action: v => stateManager.set('flow.speed', v), label: v => `${v} WPM` },
-    { id: 'focus', action: v => stateManager.set('flow.focusWidth', v), label: v => v },
-    { id: 'scroll', action: v => stateManager.set('flow.scrollLevel', v), label: v => v },
-    // STEP 2: Font size now updates StateManager (reader subscribes to it)
-    { id: 'fontsize', action: v => stateManager.set('fontSize', v), label: v => `${v}px` },
-    // STEP 3: Line height now updates StateManager (reader subscribes to it)
-    { id: 'lineheight', action: v => stateManager.set('lineHeight', v), label: v => v.toFixed(1) }
+    { id: 'speed', action: v => app.setSpeed(v), label: v => `${v} WPM` },
+    { id: 'focus', action: v => app.setFocusWidth(v), label: v => v },
+    { id: 'scroll', action: v => app.setScrollLevel(v), label: v => v },
+    { id: 'fontsize', action: v => app.setFontSize(v), label: v => `${v}px` },
+    { id: 'lineheight', action: v => app.setLineHeight(v), label: v => v.toFixed(1) }
 ];
 
 sliders.forEach(({ id, action, label }) => {
@@ -239,90 +233,37 @@ sliders.forEach(({ id, action, label }) => {
     });
 });
 
-// Font selector
-// STEP 4: Font now updates StateManager (reader subscribes to it)
+// ============================================================================
+// FONT SELECTOR
+// ============================================================================
 document.getElementById('font-select')?.addEventListener('change', e => {
-    stateManager.set('font', e.target.value);
+    app.setFont(e.target.value);
 });
 
 // ============================================================================
-// STEP 5: Theme now updates StateManager (reader subscribes to it)
+// THEME
 // ============================================================================
-// Themes dropdown
 document.getElementById('theme-select')?.addEventListener('change', e => {
     const themeValue = e.target.value;
     const autoCheckbox = document.getElementById('theme-auto');
-    
     if (autoCheckbox) {
         autoCheckbox.checked = false;
     }
-    
-    // Update StateManager instead of calling reader directly
-    stateManager.set('autoTheme', false);
-    stateManager.set('theme', themeValue);
+    app.setTheme(themeValue);
 });
 
-// Auto theme checkbox
 document.getElementById('theme-auto')?.addEventListener('change', function(e) {
     const themeSelect = document.getElementById('theme-select');
-    
     if (e.target.checked) {
-        // Update StateManager instead of calling reader directly
-        stateManager.set('autoTheme', true);
-        if (themeSelect) {
-            themeSelect.disabled = true;
-        }
+        app.setAutoTheme(true);
+        if (themeSelect) themeSelect.disabled = true;
     } else {
-        // Update StateManager instead of calling reader directly
-        stateManager.set('autoTheme', false);
-        if (themeSelect) {
-            themeSelect.disabled = false;
-        }
+        app.setAutoTheme(false);
+        if (themeSelect) themeSelect.disabled = false;
     }
 });
 
-// Paste text button
-const pasteBtn = document.getElementById('paste-btn');
-pasteBtn?.addEventListener('click', async () => {
-    try {
-        // Read text from clipboard
-        const text = await navigator.clipboard.readText();
-        
-        if (!text || text.trim().length === 0) {
-            alert('Clipboard is empty or contains no text.');
-            return;
-        }
-        
-        // Wrap text in paragraph tags if it's plain text
-        let formattedText = text;
-        if (!text.includes('<p>') && !text.includes('<div>')) {
-            // Split by double newlines to create paragraphs
-            const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
-            formattedText = paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
-        }
-        
-        // Load the pasted content into the reader
-        reader.loadContent(formattedText);
-        
-        // Update book metadata to show it's pasted content
-        document.getElementById('book-title').textContent = 'Pasted Text';
-        document.getElementById('book-author').textContent = `${text.length} characters`;
-        
-        // Clear chapters list since this isn't an EPUB
-        document.getElementById('chapters-list').innerHTML = 
-            '<div class="chapters-list-empty">No chapters (pasted text)</div>';
-        
-    } catch (error) {
-        console.error('Failed to read clipboard:', error);
-        alert('Failed to read clipboard. Make sure you granted clipboard permissions.');
-    }
-});
-
-// Initialize layout after render
+// ============================================================================
+// INITIALIZE LAYOUT
+// ============================================================================
 setTimeout(updateMargins, 100);
-
-// STEP 10E: Font loading removed from reader - FontService handles it now
-
-// ============================================================================
-// STEP 9G: All subscriptions removed - reader reads directly from StateManager
-// ============================================================================
