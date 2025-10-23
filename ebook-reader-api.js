@@ -63,11 +63,10 @@
                 // STEP 9A: Renamed this.state → this._internal (runtime state only)
                 this._internal = {
                     // STEP 9B: fontSize, font, lineHeight removed - now in StateManager
+                    // STEP 9C: theme, autoTheme removed - now in StateManager
                     fontLoading: false,
                     mode: 'normal',
                     bionic: false,
-                    theme: 'sepia',
-                    autoTheme: false,
                     content: '',
                     flow: {
                         playing: false,
@@ -136,7 +135,9 @@
                 
                 requestAnimationFrame(() => {
                     this.updateStyles();
-                    this._applyTheme(this.state.theme);
+                    // STEP 9C: Read from StateManager
+                    const theme = this.stateManager ? this.stateManager.get('theme') : 'sepia';
+                    this._applyTheme(theme);
                     
                     if (this.el.dragZoneL && this.el.dragZoneR && this.el.content) {
                         const contentHeight = this.el.content.scrollHeight;
@@ -188,9 +189,12 @@
 
                 this.updateStyles();
                 
-                const currentTheme = this.state.autoTheme 
+                // STEP 9C: Read from StateManager
+                const autoTheme = this.stateManager ? this.stateManager.get('autoTheme') : false;
+                const selectedTheme = this.stateManager ? this.stateManager.get('theme') : 'sepia';
+                const currentTheme = autoTheme 
                     ? (this.mediaQuery.matches ? 'dark' : 'light')
-                    : this.state.theme;
+                    : selectedTheme;
                 this._applyTheme(currentTheme);
 
                 this._emit('onFontLoaded', fontKey);
@@ -320,33 +324,44 @@
             if (!THEMES[themeName]) {
                 throw new Error(`Invalid theme: ${themeName}. Valid themes: ${Object.keys(THEMES).join(', ')}`);
             }
-            this.state.theme = themeName;
-            this.state.autoTheme = false;
+            // STEP 9C: Write to StateManager
+            if (this.stateManager) {
+                this.stateManager.set('theme', themeName, true);
+                this.stateManager.set('autoTheme', false, true);
+            }
             this._applyTheme(themeName);
             this._emit('onThemeChange', { theme: themeName, auto: false });
         }
 
         setAutoTheme(enabled) {
-            this.state.autoTheme = enabled;
+            // STEP 9C: Write to StateManager
+            if (this.stateManager) {
+                this.stateManager.set('autoTheme', enabled, true);
+            }
             if (enabled) {
                 const isDark = this.mediaQuery.matches;
                 const autoTheme = isDark ? 'dark' : 'light';
                 this._applyTheme(autoTheme);
                 this._emit('onThemeChange', { theme: autoTheme, auto: true });
             } else {
-                this._applyTheme(this.state.theme);
-                this._emit('onThemeChange', { theme: this.state.theme, auto: false });
+                // STEP 9C: Read from StateManager
+                const selectedTheme = this.stateManager ? this.stateManager.get('theme') : 'sepia';
+                this._applyTheme(selectedTheme);
+                this._emit('onThemeChange', { theme: selectedTheme, auto: false });
             }
         }
 
         getTheme() {
-            const currentTheme = this.state.autoTheme 
+            // STEP 9C: Read from StateManager
+            const autoTheme = this.stateManager ? this.stateManager.get('autoTheme') : false;
+            const selectedTheme = this.stateManager ? this.stateManager.get('theme') : 'sepia';
+            const currentTheme = autoTheme 
                 ? (this.mediaQuery.matches ? 'dark' : 'light')
-                : this.state.theme;
+                : selectedTheme;
             return {
                 current: currentTheme,
-                selected: this.state.theme,
-                auto: this.state.autoTheme,
+                selected: selectedTheme,
+                auto: autoTheme,
                 colors: THEMES[currentTheme]
             };
         }

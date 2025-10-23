@@ -52,10 +52,12 @@
         // ========================================
 
         _handleSystemThemeChange(e) {
-            if (this.state.autoTheme && !this._destroyed) {
-                const autoTheme = e.matches ? 'dark' : 'light';
-                this._applyTheme(autoTheme);
-                this._emit('onThemeChange', { theme: autoTheme, auto: true });
+            // STEP 9C: Read from StateManager
+            const autoTheme = this.stateManager ? this.stateManager.get('autoTheme') : false;
+            if (autoTheme && !this._destroyed) {
+                const autoThemeName = e.matches ? 'dark' : 'light';
+                this._applyTheme(autoThemeName);
+                this._emit('onThemeChange', { theme: autoThemeName, auto: true });
             }
         }
 
@@ -370,9 +372,12 @@
                         this.el.dragZoneR.style.height = contentHeight + 'px';
                     }
                     
-                    const currentTheme = this.state.autoTheme 
+                    // STEP 9C: Read from StateManager
+                    const autoTheme = this.stateManager ? this.stateManager.get('autoTheme') : false;
+                    const selectedTheme = this.stateManager ? this.stateManager.get('theme') : 'sepia';
+                    const currentTheme = autoTheme 
                         ? (this.mediaQuery.matches ? 'dark' : 'light')
-                        : this.state.theme;
+                        : selectedTheme;
                     this._applyTheme(currentTheme);
                 }
             }, 200);
