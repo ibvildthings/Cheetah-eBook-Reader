@@ -154,6 +154,11 @@
            
            // STEP 16F: Initialize Renderer module
            this.renderer = new Renderer(this.el, this.stateManager);
+           
+           // STEP 16I: Initialize Animator module
+           this.animator = new Animator(this.stateManager, {
+               newlinePause: this.config.newlinePause
+           });
         }
 
         _attachEventListeners() {
@@ -399,89 +404,71 @@
         }
 
         _animate() {
-            const frame = (t) => {
-                if (!this.state.flow.playing || this._destroyed || !this.wordIndexManager) return;
-
-                if (this.state.flow.pauseUntil > 0) {
-                    if (t < this.state.flow.pauseUntil) {
-                        this.state.flow.rafId = requestAnimationFrame(frame);
-                        return;
-                    }
-                    // STEP 9F: Read from StateManager
-                    const speed = this.stateManager ? this.stateManager.get('flow.speed') : 400;
-                    this.state.flow.startTime = t - (this.state.flow.currentWordIndex / (speed / 60)) * 1000;
-                    this.state.flow.pauseUntil = 0;
-                }
-
-                const elapsed = t - this.state.flow.startTime;
-                // STEP 9F: Read from StateManager
-                const speed = this.stateManager ? this.stateManager.get('flow.speed') : 400;
-                const wordsPerSecond = speed / 60;
-                const wordIndex = (elapsed / 1000) * wordsPerSecond;
-
-                this.state.flow.currentWordIndex = wordIndex;
-
-                const totalWords = this.wordIndexManager.getTotalWords();
-                if (wordIndex >= totalWords) {
-                    // Chapter finished - try to load next chapter
-                    if (window.EPUBHandler && typeof window.EPUBHandler.loadNextChapter === 'function') {
-                        // IMPORTANT: Capture playing state BEFORE we stop the animation
-                        const wasPlayingBeforeStop = this.state.flow.playing;
-                        console.log('📖 Chapter end - wasPlaying:', wasPlayingBeforeStop);
-                        
-                        // Stop current animation
-                        this.state.flow.playing = false;
-                        if (this.state.flow.rafId) {
-                            cancelAnimationFrame(this.state.flow.rafId);
-                            this.state.flow.rafId = null;
-                        }
-                        
-                        const hasNext = window.EPUBHandler.loadNextChapter(() => {
-                            // This callback fires when chapter is fully loaded and ready
-                            // Just reset state - EPUB handler will call play() after a delay
-                            console.log('Engine callback: Chapter transition complete, resetting state');
-                            if (!this._destroyed && this.wordIndexManager) {
-                                this.state.flow.currentWordIndex = 0;
-                                this.state.flow.pauseUntil = 0;
-                                this.state.flow.lastPausedWord = -1;
-                                console.log('Engine callback: State reset complete');
-                            } else {
-                                console.warn('Engine callback: Reader destroyed or no word manager');
+            // STEP 16I: Delegate to Animator module
+            if (this._destroyed || !this.wordIndexManager || !this.animator) return;
+            
+            const totalWords = this.wordIndexManager.getTotalWords();
+            
+            this.animator.start(
+                this.state.flow.currentWordIndex,
+                // onTick callback
+                (wordIndex, t) => {
+                    if (this._destroyed) return { complete: true };
+                    
+                    this.state.flow.currentWordIndex = wordIndex;
+                    
+                    // Check if animation should complete
+                    if (wordIndex >= totalWords) {
+                        // Try to load next chapter
+                        if (window.EPUBHandler && typeof window.EPUBHandler.loadNextChapter === 'function') {
+                            const wasPlayingBeforeStop = this.state.flow.playing;
+                            console.log('📖 Chapter end - wasPlaying:', wasPlayingBeforeStop);
+                            
+                            this.state.flow.playing = false;
+                            this.animator.stop();
+                            
+                            const hasNext = window.EPUBHandler.loadNextChapter(() => {
+                                console.log('Engine callback: Chapter transition complete, resetting state');
+                                if (!this._destroyed && this.wordIndexManager) {
+                                    this.state.flow.currentWordIndex = 0;
+                                    this.state.flow.pauseUntil = 0;
+                                    this.state.flow.lastPausedWord = -1;
+                                }
+                            }, wasPlayingBeforeStop);
+                            
+                            if (hasNext) {
+                                return { complete: true };
                             }
-                        }, wasPlayingBeforeStop); // Pass the captured state
-                        
-                        if (hasNext) {
-                            return;
                         }
+                        
+                        // Restart current chapter
+                        this.state.flow.currentWordIndex = 0;
+                        this.animator.jumpTo(0);
+                        return {};
                     }
                     
-                    // No next chapter or no EPUB handler - restart current chapter
-                    this.state.flow.currentWordIndex = 0;
-                    this.state.flow.startTime = t;
-                    this.state.flow.pauseUntil = 0;
-                    this.state.flow.lastPausedWord = -1;
+                    // Update visuals
+                    this._scrollToWordIfNeeded(wordIndex);
+                    this._updateWordStates(wordIndex);
+                    
+                    // Check for newline pause
+                    const currentWordIdx = Math.floor(wordIndex);
+                    const currentWord = this.wordIndexManager.getWord(currentWordIdx);
+                    
+                    if (currentWord && currentWord.isNewline && 
+                        this.state.flow.pauseUntil === 0 && 
+                        this.state.flow.lastPausedWord !== currentWordIdx) {
+                        return { pauseAtNewline: true };
+                    }
+                    
+                    return {};
+                },
+                // onComplete callback
+                () => {
+                    this.state.flow.playing = false;
+                    this._emit('onPlayChange', false);
                 }
-
-                const currentWordIdx = Math.floor(wordIndex);
-                const currentWord = this.wordIndexManager.getWord(currentWordIdx);
-
-                this._scrollToWordIfNeeded(wordIndex);
-                this._updateWordStates(wordIndex);
-
-                if (currentWord && currentWord.isNewline && 
-                    this.state.flow.pauseUntil === 0 && 
-                    this.state.flow.lastPausedWord !== currentWordIdx) {
-                    // STEP 9F: Read from StateManager
-                    const speed = this.stateManager ? this.stateManager.get('flow.speed') : 400;
-                    const pauseDuration = (60000 / speed) * this.config.newlinePause;
-                    this.state.flow.pauseUntil = t + pauseDuration;
-                    this.state.flow.lastPausedWord = currentWordIdx;
-                }
-
-                this.state.flow.rafId = requestAnimationFrame(frame);
-            };
-
-            this.state.flow.rafId = requestAnimationFrame(frame);
+            );
         }
 
         _togglePlay() {
