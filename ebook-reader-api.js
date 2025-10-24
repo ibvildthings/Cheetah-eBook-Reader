@@ -21,7 +21,7 @@
         THEMES,
         LINE_BREAK_THRESHOLD,
         WordIndexManager,
-        FontLoader,
+        // FontLoader removed in Step 18B - use FontService instead
         EBookReaderError,
         ConfigurationError,
         ContentError,
@@ -115,12 +115,8 @@
                     );
                 }
 
-                // STEP 16C: Use WordTracker module (wraps WordIndexManager)
-                this.wordTracker = new WordTracker();
-                // Backward compatibility - keep old name
-                this.wordIndexManager = this.wordTracker.indexManager;
-                
-                this.fontLoader = new FontLoader();
+                this.wordIndexManager = new WordIndexManager();
+                // Step 18B: fontLoader removed - FontService used instead
                 this._destroyed = false;
                 this._pendingStyleUpdate = null;
                 
@@ -206,7 +202,7 @@
                 category: font.category,
                 lineHeight: font.lineHeight,
                 source: font.source,
-                loaded: this.fontLoader.isLoaded(fontKey),
+                loaded: false, // Step 18B: FontService handles loading now
                 loading: this.state.fontLoading
             };
         }
@@ -215,8 +211,8 @@
             return Object.keys(FONTS).map(key => ({
                 key,
                 ...FONTS[key],
-                loaded: this.fontLoader.isLoaded(key),
-                loading: this.fontLoader.isLoading(key)
+                loaded: false, // Step 18B: FontService handles loading now
+                loading: false
             }));
         }
 
@@ -482,7 +478,7 @@
             }
 
             this.wordIndexManager = null;
-            this.fontLoader = null;
+            // Step 18B: fontLoader removed
             
             if (this.container) {
                 this.container.innerHTML = '';
