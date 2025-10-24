@@ -7,7 +7,8 @@
  * @license MIT
  */
 
-export const DEFAULT_CONFIG = {
+// STEP 17E: Fixed to use window namespace instead of ES6 export
+window.DEFAULT_CONFIG = {
     // Typography
     fontSize: 18,
     font: 'opendyslexic',
@@ -43,7 +44,4 @@ export const DEFAULT_CONFIG = {
     }
 };
 
-// For non-module usage
-if (typeof window !== 'undefined') {
-    window.DEFAULT_CONFIG = DEFAULT_CONFIG;
-}
+console.log('✅ DEFAULT_CONFIG loaded');

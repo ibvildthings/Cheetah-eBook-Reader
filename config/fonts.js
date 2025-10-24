@@ -7,7 +7,8 @@
  * @license MIT
  */
 
-export const FONTS = {
+// STEP 17E: Fixed to use window namespace instead of ES6 export
+window.FONTS = {
     // SERIF
     georgia: {
         name: 'Georgia',
@@ -144,7 +145,4 @@ export const FONTS = {
     }
 };
 
-// For non-module usage
-if (typeof window !== 'undefined') {
-    window.FONTS = FONTS;
-}
+console.log('✅ FONTS loaded:', Object.keys(window.FONTS).length, 'fonts');

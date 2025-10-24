@@ -7,7 +7,8 @@
  * @license MIT
  */
 
-export const THEMES = {
+// STEP 17E: Fixed to use window namespace instead of ES6 export
+window.THEMES = {
     light: {
         name: 'Light',
         background: '#E8E8E8',
@@ -292,7 +293,4 @@ export const THEMES = {
     }
 };
 
-// For non-module usage
-if (typeof window !== 'undefined') {
-    window.THEMES = THEMES;
-}
+console.log('✅ THEMES loaded:', Object.keys(window.THEMES).length, 'themes');
