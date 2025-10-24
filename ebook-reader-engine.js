@@ -146,10 +146,14 @@
             this.container.innerHTML = html;
 
             this.el = {
+               root: this.container,
                reader: this.container.querySelector('.ebook-reader-area'),
                content: this.container.querySelector('.ebook-text-content'),
                focus: this.container.querySelector('.ebook-focus-indicator')
            };
+           
+           // STEP 16F: Initialize Renderer module
+           this.renderer = new Renderer(this.el, this.stateManager);
         }
 
         _attachEventListeners() {
@@ -265,78 +269,41 @@
         // ========================================
 
         updateStyles() {
-            if (this._destroyed || !this.el || !this.el.content) return;
-            
-            if (this._pendingStyleUpdate) {
-                cancelAnimationFrame(this._pendingStyleUpdate);
+            // STEP 16F: Delegate to Renderer
+            if (this.renderer) {
+                this.renderer.updateStyles(() => {
+                    if (this.state.mode === 'flow' && this.wordIndexManager) {
+                        this.wordIndexManager.invalidate();
+                        requestAnimationFrame(() => {
+                            if (!this._destroyed && this.wordIndexManager) {
+                                this._updateWordStates(this.state.flow.currentWordIndex);
+                            }
+                        });
+                    }
+                });
             }
-            
-            this._pendingStyleUpdate = requestAnimationFrame(() => {
-                if (this._destroyed || !this.el || !this.el.content) return;
-                
-                // STEP 9B: Read from StateManager
-                const fontKey = this.stateManager ? this.stateManager.get('font') : 'opendyslexic';
-                const font = FONTS[fontKey];
-                const fontSize = this.stateManager ? this.stateManager.get('fontSize') : 18;
-                const lineHeight = this.stateManager ? this.stateManager.get('lineHeight') : 1.7;
-                
-                this.el.content.style.fontFamily = font.family;
-                this.el.content.style.fontSize = fontSize + 'px';
-                this.el.content.style.lineHeight = lineHeight;
-                
-                if (this.state.mode === 'flow' && this.wordIndexManager) {
-                    this.wordIndexManager.invalidate();
-                    requestAnimationFrame(() => {
-                        if (!this._destroyed && this.wordIndexManager) {
-                            this._updateWordStates(this.state.flow.currentWordIndex);
-                        }
-                    });
-                }
-                
-                this._pendingStyleUpdate = null;
-            });
         }
 
-        _render() {
+        async _render() {
             if (this._destroyed || !this.el || !this.el.content) return;
             
             if (this.wordIndexManager) {
                 this.wordIndexManager.disconnectObserver();
             }
             
-            this.el.content.classList.add('transitioning');
-            
-            let html = this.state.content;
-            // STEP 9E: Read from StateManager
+            // STEP 16F: Delegate to Renderer
             const bionic = this.stateManager ? this.stateManager.get('bionic') : false;
+            await this.renderer.renderContent(this.state.content, this.state.mode, bionic);
+            
             if (this.state.mode === 'flow') {
-                html = this._makeFlow(html, bionic);
                 if (!this.state.saved) {
                     this.state.flow.currentWordIndex = 0;
                 }
-            } else if (bionic) {
-                html = this._makeBionic(html);
             }
-
-            this.el.content.innerHTML = html;
             
             if (this.wordIndexManager) {
                 this.wordIndexManager.invalidate();
             }
-
-            setTimeout(() => {
-                if (!this._destroyed && this.el && this.el.content) {
-                    this.el.content.classList.remove('transitioning');
-                    
-                    const contentHeight = this.el.content.scrollHeight;
-                    if (this.el.dragZoneL && this.el.dragZoneR) {
-                        this.el.dragZoneL.style.height = contentHeight + 'px';
-                        this.el.dragZoneR.style.height = contentHeight + 'px';
-                    }
-                    
-                    // STEP 11E: Theme application removed - ThemeService handles it
-                }
-            }, 200);
 
             if (this.state.mode === 'flow') {
                 setTimeout(() => {
@@ -374,152 +341,20 @@
             });
         }
 
-        _bionicWord(w) {
-            if (w.length <= 2) return w;
-            const n = Math.ceil(w.length / 2);
-            return `<span class="bionic">${w.slice(0, n)}</span>${w.slice(n)}`;
-        }
-
-        _makeBionic(text) {
-            // Create a temporary container to safely parse HTML
-            const temp = document.createElement('div');
-            temp.innerHTML = text;
-            
-            // Process only text nodes, leave HTML structure intact
-            const processNode = (node) => {
-                if (node.nodeType === 3) { // Text node
-                    const text = node.textContent;
-                    const processedText = text.replace(/\b(\w+)\b/g, this._bionicWord.bind(this));
-                    
-                    if (processedText !== text) {
-                        const span = document.createElement('span');
-                        span.innerHTML = processedText;
-                        node.replaceWith(...span.childNodes);
-                    }
-                } else if (node.nodeType === 1 && node.tagName !== 'SCRIPT' && node.tagName !== 'STYLE') {
-                    // Element node - process children
-                    [...node.childNodes].forEach(processNode);
-                }
-            };
-            
-            [...temp.childNodes].forEach(processNode);
-            return temp.innerHTML;
-        }
-
-        _makeFlow(html, useBionic) {
-            const temp = document.createElement('div');
-            temp.innerHTML = html;
-
-            let wordIndex = 0;
-            const wrap = text => text.replace(/(\S+)/g, word => {
-                // Split hyphenated words into separate spans
-                const parts = word.match(/[^-]+-?/g) || [word];
-                
-                return parts.map(part => {
-                    let content = part;
-                    if (useBionic && /\w{3,}/.test(part)) {
-                        const match = part.match(/\w+/);
-                        if (match) {
-                            content = part.replace(match[0], this._bionicWord(match[0]));
-                        }
-                    }
-                    const idx = wordIndex++;
-                    return `<span class="flow-word inactive" data-word-index="${idx}">${content}</span>`;
-                }).join('');
-            });
-
-            const process = node => {
-                if (node.nodeType === 3) {
-                    const t = document.createElement('span');
-                    t.innerHTML = wrap(node.textContent);
-                    node.replaceWith(...t.childNodes);
-                } else if (node.nodeType === 1) {
-                    [...node.childNodes].forEach(process);
-                }
-            };
-
-            [...temp.childNodes].forEach(process);
-            return temp.innerHTML;
-        }
-
         // ========================================
         // PRIVATE METHODS - FLOW MODE
         // ========================================
 
         _updateWordStates(centerIndex) {
-            if (this._destroyed || !this.wordIndexManager || !this.el || !this.el.content) return;
+            // STEP 16F: Delegate to Renderer
+            if (this._destroyed || !this.wordIndexManager || !this.renderer) return;
             
             const allWords = this.wordIndexManager.wordNodes || this.el.content.querySelectorAll('.flow-word');
+            const visibleIndices = this.wordIndexManager.observerEnabled 
+                ? this.wordIndexManager.visibleIndices 
+                : new Set(Array.from({length: allWords.length}, (_, i) => i));
             
-            requestAnimationFrame(() => {
-                if (this._destroyed) return;
-                
-                // STEP 9F: Read from StateManager
-                const focusWidth = this.stateManager ? this.stateManager.get('flow.focusWidth') : 2;
-                const range = this.wordIndexManager.getActiveRange(centerIndex, focusWidth);
-                const centerIdx = Math.floor(centerIndex);
-                
-                const visibleIndices = this.wordIndexManager.observerEnabled 
-                    ? this.wordIndexManager.visibleIndices 
-                    : new Set(Array.from({length: allWords.length}, (_, i) => i));
-                
-                const indicesToUpdate = new Set(visibleIndices);
-                for (let i = range.start; i <= range.end; i++) {
-                    indicesToUpdate.add(i);
-                }
-                indicesToUpdate.add(centerIdx);
-                
-                const activeElements = [];
-                
-                indicesToUpdate.forEach(idx => {
-                    const word = this.wordIndexManager.getWord(idx);
-                    if (word && word.el) {
-                        const isActive = idx >= range.start && idx <= range.end;
-                        
-                        if (isActive) {
-                            word.el.classList.remove('inactive');
-                            word.el.classList.add('active');
-                            activeElements.push(word.el);
-                        } else {
-                            word.el.classList.remove('active');
-                            word.el.classList.add('inactive');
-                        }
-                    }
-                });
-
-                if (this.state.mode !== 'flow' || activeElements.length === 0) {
-                    this.el.focus.classList.remove('visible');
-                    return;
-                }
-
-                const activeRects = activeElements.map(el => el.getBoundingClientRect());
-                const byLine = {};
-                activeRects.forEach(r => {
-                    const k = Math.round(r.top);
-                    (byLine[k] = byLine[k] || []).push(r);
-                });
-
-                const primary = Object.values(byLine).sort((a, b) => b.length - a.length)[0];
-                if (!primary) {
-                    this.el.focus.classList.remove('visible');
-                    return;
-                }
-
-                const minL = Math.min(...primary.map(r => r.left));
-                const maxR = Math.max(...primary.map(r => r.right));
-                const minT = Math.min(...primary.map(r => r.top));
-                const maxB = Math.max(...primary.map(r => r.bottom));
-
-                const rr = this.el.reader.getBoundingClientRect();
-                
-                this.el.focus.style.cssText = `
-                    left: ${minL - rr.left}px;
-                    width: ${maxR - minL}px;
-                    top: ${minT - rr.top + this.el.reader.scrollTop}px;
-                    height: ${maxB - minT}px;
-                `;
-                this.el.focus.classList.add('visible');
-            });
+            this.renderer.updateWordStates(centerIndex, this.wordIndexManager, visibleIndices);
         }
 
         _scrollToWordIfNeeded(wordIndex) {
