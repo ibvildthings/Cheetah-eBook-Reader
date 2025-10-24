@@ -154,7 +154,9 @@ class Animator {
 
             // Call tick callback with current state
             if (this.onTick) {
+                console.log('🎯 Calling onTick with wordIndex:', wordIndex.toFixed(2));
                 const result = this.onTick(wordIndex, t);
+                console.log('🎯 onTick returned:', result);
                 
                 // Check if tick wants to pause at newline
                 if (result && result.pauseAtNewline) {

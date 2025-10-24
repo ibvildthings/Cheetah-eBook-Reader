@@ -1,19 +1,19 @@
 /**
- * EBookReader Engine v2.4.1-autoflow-fix
+ * EBookReader Engine v2.4.5-pause-fix
  * Flow mode engine, rendering logic, and gesture handling
  * Requires: ebook-reader-core.js to be loaded first
  * 
- * VERSION: 2.4.1-autoflow-fix (2024-10-21)
- * FIX: Captures wasPlaying state BEFORE stopping animation
+ * VERSION: 2.4.4-restart-fix (2024-10-21)
+ * FIX: Fixed infinite pause loop + restart behavior
  * 
  * @license MIT
- * @version 2.4.1
+ * @version 2.4.4
  */
 
 (function() {
     'use strict';
     
-    console.log('🐆 EBookReader Engine v2.4.1-autoflow-fix loaded');
+    console.log('🐆 EBookReader Engine v2.4.5-pause-fix loaded');
 
     // Import from core
     const {
@@ -417,34 +417,38 @@
                     
                     this.state.flow.currentWordIndex = wordIndex;
                     
-                    // Check if animation should complete
-                    if (wordIndex >= totalWords) {
-                        // Try to load next chapter
+                    // Check if animation should complete (FIXED: Works like old v2.4.0)
+                    const centerIdx = Math.floor(wordIndex);
+                    if (centerIdx >= totalWords) {
+                        // Chapter finished - try to load next chapter
                         if (window.EPUBHandler && typeof window.EPUBHandler.loadNextChapter === 'function') {
-                            const wasPlayingBeforeStop = this.state.flow.playing;
-                            console.log('📖 Chapter end - wasPlaying:', wasPlayingBeforeStop);
-                            
-                            this.state.flow.playing = false;
-                            this.animator.stop();
-                            
-                            const hasNext = window.EPUBHandler.loadNextChapter(() => {
-                                console.log('Engine callback: Chapter transition complete, resetting state');
-                                if (!this._destroyed && this.wordIndexManager) {
-                                    this.state.flow.currentWordIndex = 0;
-                                    this.state.flow.pauseUntil = 0;
-                                    this.state.flow.lastPausedWord = -1;
-                                }
-                            }, wasPlayingBeforeStop);
-                            
+                            const hasNext = window.EPUBHandler.loadNextChapter();
                             if (hasNext) {
+                                // Next chapter loading - stop and wait for it
+                                this.state.flow.playing = false;
+                                this.animator.stop();
+                                
+                                // Auto-resume after chapter loads
+                                setTimeout(() => {
+                                    if (!this._destroyed && this.wordIndexManager) {
+                                        this.state.flow.currentWordIndex = 0;
+                                        this.state.flow.pauseUntil = 0;
+                                        this.state.flow.lastPausedWord = -1;
+                                        this.state.flow.playing = true;
+                                        this._animate();
+                                    }
+                                }, 500);
+                                
                                 return { complete: true };
                             }
                         }
                         
-                        // Restart current chapter
-                        this.state.flow.currentWordIndex = 0;
+                        // No next chapter - restart current chapter
+                        // CRITICAL: Jump to 0 and continue animating (don't stop!)
                         this.animator.jumpTo(0);
-                        return {};
+                        this.state.flow.pauseUntil = 0;
+                        this.state.flow.lastPausedWord = -1;
+                        return {}; // Continue animation
                     }
                     
                     // Update visuals
@@ -455,9 +459,10 @@
                     const currentWordIdx = Math.floor(wordIndex);
                     const currentWord = this.wordIndexManager.getWord(currentWordIdx);
                     
+                    // Check Animator's state, not engine's state
                     if (currentWord && currentWord.isNewline && 
-                        this.state.flow.pauseUntil === 0 && 
-                        this.state.flow.lastPausedWord !== currentWordIdx) {
+                        this.animator.pauseUntil === 0 && 
+                        this.animator.lastPausedWord !== currentWordIdx) {
                         return { pauseAtNewline: true };
                     }
                     
