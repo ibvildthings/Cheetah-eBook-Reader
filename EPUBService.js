@@ -249,34 +249,125 @@ class EPUBService {
     }
 
     /**
-     * Process images in content
+     * Process images in content - use section URL and archive.request()
      */
-    async _processImages(content, chapterHref) {
-        if (!content || !this.book) return content;
+    async _processImages(html, currentHref) {
+        console.log('🖼️ _processImages called:', { currentHref, htmlLength: html.length });
+        
+        if (!this.book || !this.book.archive) {
+            console.warn('❌ No book or archive available');
+            return html;
+        }
 
         const parser = new DOMParser();
-        const doc = parser.parseFromString(content, 'text/html');
+        const doc = parser.parseFromString(html, 'text/html');
         const images = doc.querySelectorAll('img[src]');
+        
+        console.log(`🖼️ Found ${images.length} images to process`);
 
         for (const img of images) {
             const src = img.getAttribute('src');
-            if (!src || src.startsWith('data:') || src.startsWith('http')) continue;
+            console.log('🔍 Processing image:', src);
+            
+            if (!src || src.startsWith('data:') || src.startsWith('http') || src.startsWith('blob:')) {
+                console.log('⏭️ Skipping image (data/http/blob):', src);
+                continue;
+            }
 
             try {
-                const resolvedPath = this._resolveHref(src, chapterHref);
-                const blob = await this.book.load(resolvedPath);
+                // Check cache first
+                if (this.imageCache.has(src)) {
+                    const cachedUrl = this.imageCache.get(src);
+                    console.log('✅ Using cached URL for:', src);
+                    img.setAttribute('src', cachedUrl);
+                    continue;
+                }
+
+                // Get section to find its base URL
+                const section = this.book.spine.get(currentHref);
+                let resolvedUrl;
                 
-                if (blob) {
-                    const blobUrl = URL.createObjectURL(blob);
+                if (section && section.url) {
+                    // Section URL is like "/OEBPS/xhtml/001_cvi_Cover.xhtml"
+                    // We need to resolve "../images/cover.jpg" relative to it
+                    const baseUrl = section.url;
+                    console.log('📍 Base URL:', baseUrl);
+                    
+                    // Manually resolve the relative path
+                    const baseParts = baseUrl.split('/');
+                    baseParts.pop(); // Remove filename, keep directory
+                    
+                    const srcParts = src.split('/');
+                    for (const part of srcParts) {
+                        if (part === '..') {
+                            baseParts.pop();
+                        } else if (part !== '.') {
+                            baseParts.push(part);
+                        }
+                    }
+                    
+                    resolvedUrl = baseParts.join('/');
+                    console.log('✅ Resolved URL:', src, '→', resolvedUrl);
+                } else {
+                    // Fallback
+                    resolvedUrl = '/' + this._resolveHref(src, currentHref);
+                    console.log('⚠️ Fallback resolution:', resolvedUrl);
+                }
+                
+                // Now use archive.request() with type 'blob' - this is the proper API
+                console.log('🔧 Calling archive.request() for:', resolvedUrl);
+                const blob = await this.book.archive.request(resolvedUrl, 'blob');
+                console.log('📦 Got blob:', blob?.constructor?.name, 'Type:', blob?.type, 'Size:', blob?.size);
+                
+                if (blob && blob instanceof Blob) {
+                    // Ensure proper MIME type
+                    const mimeType = this._getMimeType(src);
+                    const typedBlob = blob.type ? blob : new Blob([blob], { type: mimeType });
+                    
+                    // Create blob URL
+                    const blobUrl = URL.createObjectURL(typedBlob);
+                    console.log('✅ Created blobUrl:', blobUrl);
+                    
+                    // Cache it
                     this.imageCache.set(src, blobUrl);
+                    
+                    // Update the image src
                     img.setAttribute('src', blobUrl);
+                    
+                    // Add responsive styles
+                    if (!img.getAttribute('style')) {
+                        img.setAttribute('style', 'max-width: 100%; height: auto; display: block; margin: 1em auto;');
+                    }
+                } else {
+                    console.warn('❌ archive.request() did not return a valid blob for:', resolvedUrl);
+                    img.remove();
                 }
             } catch (error) {
-                console.warn('Failed to load image:', src, error);
+                console.error('❌ Failed to load image:', src, error);
+                console.error('Error details:', error.message);
+                img.remove();
             }
         }
 
-        return doc.body.innerHTML;
+        const finalHtml = doc.body.innerHTML;
+        console.log('✅ _processImages complete. Output length:', finalHtml.length);
+        return finalHtml;
+    }
+
+    /**
+     * Get MIME type from file extension
+     */
+    _getMimeType(path) {
+        const ext = path.split('.').pop().toLowerCase();
+        const mimeTypes = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'gif': 'image/gif',
+            'svg': 'image/svg+xml',
+            'webp': 'image/webp'
+        };
+        return mimeTypes[ext] || 'image/jpeg';
     }
 
     /**
@@ -312,8 +403,10 @@ class EPUBService {
 
         return DOMPurify.sanitize(content, {
             ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 
-                           'span', 'div', 'img', 'a', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code'],
-            ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'style'],
+                           'span', 'div', 'img', 'a', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code',
+                           'table', 'thead', 'tbody', 'tr', 'td', 'th', 'figure', 'figcaption'],
+            ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class', 'id', 'style', 'role'],
+            ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|blob):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
             KEEP_CONTENT: true
         });
     }
