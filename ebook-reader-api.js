@@ -102,7 +102,8 @@
                     onFontChange: [],
                     onFontLoading: [],
                     onFontLoaded: [],
-                    onStateChange: []
+                    onStateChange: [],
+                    onChapterEnd: []
                 };
 
                 this.container = typeof containerSelector === 'string' 
@@ -162,32 +163,14 @@
         // ========================================
 
         async setFont(fontKey) {
-            // STEP 10E: Simplified - FontService handles loading now
-            // Reader just updates StateManager and re-renders
             if (!FONTS[fontKey]) {
                 throw new FontError(`Invalid font: ${fontKey}. Valid fonts: ${Object.keys(FONTS).join(', ')}`);
             }
 
-            if (this.wordIndexManager) {
-                this.wordIndexManager.disableObserver();
-            }
-
-            // Update StateManager (FontService will load and apply)
+            // Update StateManager (FontService will handle loading,
+            // applying, and triggering the layout update)
             if (this.stateManager) {
                 this.stateManager.set('font', fontKey);
-            }
-
-            // Invalidate word index for flow mode
-            if (this.state.mode === 'flow' && this.wordIndexManager) {
-                this.wordIndexManager.invalidate();
-                setTimeout(() => {
-                    if (!this._destroyed && this.wordIndexManager) {
-                        this.wordIndexManager.enableObserver();
-                        this._updateWordStates(this.state.flow.currentWordIndex);
-                    }
-                }, 150);
-            } else if (this.wordIndexManager) {
-                this.wordIndexManager.enableObserver();
             }
         }
 
@@ -263,6 +246,11 @@
             }
 
             this.state.content = html;
+            
+            // CRITICAL: Reset word index SYNCHRONOUSLY before async render starts
+            // This prevents race conditions where play() is called before render completes
+            this.state.flow.currentWordIndex = 0;
+            
             this._render();
         }
 
@@ -336,11 +324,15 @@
                 this.stateManager.set('flow.speed', wpm, true);
             }
             
-            if (this.state.flow.playing) {
-                const currentWordIndex = this.state.flow.currentWordIndex;
-                const wordsPerSecond = wpm / 60;
-                this.state.flow.startTime = performance.now() - (currentWordIndex / wordsPerSecond) * 1000;
+            //
+            // --- FIX BUG #5 ---
+            //
+            // If playing, tell the Animator to jump to its current position.
+            // This forces it to recalculate its internal startTime with the new speed.
+            if (this.state.flow.playing && this.animator) {
+                this.animator.jumpTo(this.state.flow.currentWordIndex);
             }
+            // --- END OF FIX ---
             
             this._emit('onSpeedChange', wpm);
         }

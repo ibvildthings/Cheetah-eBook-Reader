@@ -197,8 +197,12 @@ class Renderer {
         const width = bounds.right - bounds.left;
         const height = bounds.bottom - bounds.top;
 
+        // Correct calculation relative to the scroll container
+        const absoluteTop = relTop + this.el.reader.scrollTop;
+
         this.el.focus.style.left = relLeft + 'px';
-        this.el.focus.style.top = relTop + 'px';
+        // FIXED BUG #7: Add scrollTop for correct positioning within the scrollable area
+        this.el.focus.style.top = absoluteTop + 'px';
         this.el.focus.style.width = width + 'px';
         this.el.focus.style.height = height + 'px';
         this.el.focus.classList.add('visible');

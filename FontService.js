@@ -7,9 +7,10 @@
  */
 
 class FontService {
-    constructor(stateManager, contentElement) {
+    constructor(stateManager, contentElement, reader) { // Add reader
         this.stateManager = stateManager;
         this.contentElement = contentElement;
+        this.reader = reader; // Store reader
         this.loadedFonts = new Set();
         this.loadingFonts = new Map();
         this.fontTimeouts = new Map();
@@ -42,6 +43,16 @@ class FontService {
         if (this.stateManager) {
             this.stateManager.set('lineHeight', font.lineHeight, true);
         }
+
+        //
+        // --- ADD THIS BLOCK ---
+        //
+        // Tell the reader to invalidate its index *after* the font has
+        // actually been applied, preventing the race condition.
+        if (this.reader && this.reader.updateLayout) {
+            this.reader.updateLayout();
+        }
+        // --- END OF BLOCK ---
     }
 
     /**

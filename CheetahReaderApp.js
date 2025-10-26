@@ -46,7 +46,7 @@ class CheetahReaderApp {
             const contentElement = this.reader.el?.content;
             
             if (contentElement) {
-                this.fontService = new FontService(this.state, contentElement);
+                this.fontService = new FontService(this.state, contentElement, this.reader);
                 
                 // Load initial font
                 this.fontService.loadFont(this.state.get('font')).then(() => {
@@ -61,6 +61,30 @@ class CheetahReaderApp {
             }
             
             this.epubService = new EPUBService(this.reader);
+
+            //
+            // Listen for the engine to signal the chapter end
+            //
+            this.reader.on('onChapterEnd', () => {
+                // Get the index that the EPUB service *thinks* is current
+                const expectedCurrentIndex = this.epubService.currentChapterIndex;
+
+                // Get the index the reader *actually* had when it finished
+                const readerState = this.reader.getState(); // Use API getState for safety
+                const actualFinishedIndex = readerState?.currentWordIndex >= (readerState?.totalWords - 1)
+                                            ? expectedCurrentIndex // Assume it finished the one we thought was loaded
+                                            : -1; // Event fired unexpectedly, ignore it
+
+                console.log(`🏁 onChapterEnd received. Expected: ${expectedCurrentIndex}, Actual finished index relates to: ${actualFinishedIndex}`);
+
+                // FIXED BUG #9: Only proceed if the finished chapter matches the one we expected to be running
+                if (actualFinishedIndex !== -1 && actualFinishedIndex === expectedCurrentIndex) {
+                    console.log('✅ Chapter end matches current index, loading next...');
+                    this.epubService.nextChapter();
+                } else {
+                    console.warn('⚠️ Chapter end event ignored (likely from a previous chapter or race condition).');
+                }
+            });
             
             console.log('✅ CheetahReaderApp initialized');
         }, 100);

@@ -300,12 +300,9 @@
             const bionic = this.stateManager ? this.stateManager.get('bionic') : false;
             await this.renderer.renderContent(this.state.content, this.state.mode, bionic);
             
-            if (this.state.mode === 'flow') {
-                if (!this.state.saved) {
-                    this.state.flow.currentWordIndex = 0;
-                }
-            }
-            
+            // Note: currentWordIndex reset is now handled synchronously in loadContent()
+            // to prevent race conditions with play() being called before render completes
+
             if (this.wordIndexManager) {
                 this.wordIndexManager.invalidate();
             }
@@ -400,6 +397,16 @@
                     top: targetScroll,
                     behavior: 'smooth'
                 });
+
+                //
+                // --- FIX BUG #4 ---
+                //
+                // The scroll just invalidated all cached rects.
+                // Mark the index as dirty to force a rebuild on the next tick.
+                if (this.wordIndexManager) {
+                    this.wordIndexManager.invalidate();
+                }
+                // --- END OF FIX ---
             }
         }
 
@@ -417,38 +424,18 @@
                     
                     this.state.flow.currentWordIndex = wordIndex;
                     
-                    // Check if animation should complete (FIXED: Works like old v2.4.0)
+                    // Check if animation should complete
                     const centerIdx = Math.floor(wordIndex);
                     if (centerIdx >= totalWords) {
-                        // Chapter finished - try to load next chapter
-                        if (window.EPUBHandler && typeof window.EPUBHandler.loadNextChapter === 'function') {
-                            const hasNext = window.EPUBHandler.loadNextChapter();
-                            if (hasNext) {
-                                // Next chapter loading - stop and wait for it
-                                this.state.flow.playing = false;
-                                this.animator.stop();
-                                
-                                // Auto-resume after chapter loads
-                                setTimeout(() => {
-                                    if (!this._destroyed && this.wordIndexManager) {
-                                        this.state.flow.currentWordIndex = 0;
-                                        this.state.flow.pauseUntil = 0;
-                                        this.state.flow.lastPausedWord = -1;
-                                        this.state.flow.playing = true;
-                                        this._animate();
-                                    }
-                                }, 500);
-                                
-                                return { complete: true };
-                            }
-                        }
+                        // Chapter finished - emit an event for the app to handle
+                        this._emit('onChapterEnd');
                         
-                        // No next chapter - restart current chapter
-                        // CRITICAL: Jump to 0 and continue animating (don't stop!)
-                        this.animator.jumpTo(0);
-                        this.state.flow.pauseUntil = 0;
-                        this.state.flow.lastPausedWord = -1;
-                        return {}; // Continue animation
+                        // Stop this animator instance
+                        this.state.flow.playing = false;
+                        this.animator.stop();
+                        
+                        // Signal to the Animator that this loop is complete
+                        return { complete: true };
                     }
                     
                     // Update visuals
@@ -480,10 +467,9 @@
             if (this._destroyed || !this.wordIndexManager) return;
             
             if (this.state.flow.playing) {
-                // Cancel animation frame
-                if (this.state.flow.rafId) {
-                    cancelAnimationFrame(this.state.flow.rafId);
-                    this.state.flow.rafId = null;
+                // FIXED: Call stop() on the Animator module
+                if (this.animator) {
+                    this.animator.stop();
                 }
                 this.state.flow.playing = false;
             } else {
@@ -528,11 +514,18 @@
             if (!this.state.flow.playing) {
                 this._updateWordStates(idx);
             } else {
-                const wordsPerSecond = this.state.flow.speed / 60;
-                this.state.flow.startTime = performance.now() - (idx / wordsPerSecond) * 1000;
+                //
+                // --- FIX BUG #6 ---
+                //
+                // If playing, tell the Animator to jump to the new position.
+                // It will handle recalculating its internal timeline.
+                if (this.animator) {
+                    this.animator.jumpTo(idx);
+                }
                 this.state.flow.pauseUntil = 0;
                 this.state.flow.lastPausedWord = -1;
                 this._updateWordStates(idx);
+                // --- END OF FIX ---
             }
         }
 
