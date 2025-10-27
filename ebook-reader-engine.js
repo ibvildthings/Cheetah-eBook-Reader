@@ -467,28 +467,70 @@
             if (this._destroyed || !this.wordIndexManager) return;
             
             if (this.state.flow.playing) {
-                // FIXED: Call stop() on the Animator module
+                // --- PAUSE LOGIC (REVISED) ---
+                
+                // Stop the main animator module
                 if (this.animator) {
                     this.animator.stop();
                 }
+                
+                // Also clear any pending "0-word" timeout timer
+                // (clearTimeout and cancelAnimationFrame are safe to call on the wrong ID)
+                if (this.state.flow.rafId) {
+                    clearTimeout(this.state.flow.rafId);
+                    this.state.flow.rafId = null;
+                }
+                
                 this.state.flow.playing = false;
             } else {
+                // --- PLAY LOGIC (REVISED) ---
                 this.wordIndexManager.rebuild();
                 const totalWords = this.wordIndexManager.getTotalWords();
-                if (!totalWords) return;
+                
+                this.state.flow.playing = true; // Set state to playing *first*
 
-                this.state.flow.playing = true;
-                
-                // STEP 9F: Read from StateManager
-                const speed = this.stateManager ? this.stateManager.get('flow.speed') : 400;
-                const wordsPerSecond = speed / 60;
-                this.state.flow.startTime = performance.now() - 
-                    (this.state.flow.currentWordIndex / wordsPerSecond) * 1000;
-                this.state.flow.pauseUntil = 0;
-                this.state.flow.lastPausedWord = -1;
-                
-                this._animate();
+                if (!totalWords) {
+                    // --- 0-WORD (IMAGE CHAPTER) LOGIC ---
+                    console.warn('Flow mode started on a chapter with 0 words. Pausing for 2s...');
+                    
+                    // Use rafId to store the TIMEOUT id (safe, as animator isn't running)
+                    this.state.flow.rafId = setTimeout(() => {
+                        this.state.flow.rafId = null; // Clear the ID
+                        
+                        // Check if user paused during the 2-second wait
+                        if (!this.state.flow.playing) {
+                            console.log('0-word pause cancelled by user.');
+                            return; 
+                        }
+                        
+                        console.log('Image chapter pause complete. Emitting onChapterEnd.');
+                        this._emit('onChapterEnd');
+                        
+                        // This "play" session is over.
+                        this.state.flow.playing = false; 
+                        this._emit('onPlayChange', false); // Update UI
+
+                    }, 2000); // 2-second pause for the image
+                    
+                    // Note: We DO NOT call _animate() here.
+                    
+                } else {
+                    // --- NORMAL PLAY LOGIC (Text Chapter) ---
+                    
+                    // This logic correctly sets up the animator
+                    const speed = this.stateManager ? this.stateManager.get('flow.speed') : 400;
+                    const wordsPerSecond = speed / 60;
+                    this.state.flow.startTime = performance.now() - 
+                        (this.state.flow.currentWordIndex / wordsPerSecond) * 1000;
+                    this.state.flow.pauseUntil = 0;
+                    this.state.flow.lastPausedWord = -1;
+                    
+                    // Start the animator
+                    this._animate(); 
+                }
             }
+            
+            // Emit the final state
             this._emit('onPlayChange', this.state.flow.playing);
         }
 
