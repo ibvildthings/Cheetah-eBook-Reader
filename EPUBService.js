@@ -280,7 +280,13 @@ class EPUBService {
                     const cachedUrl = this.imageCache.get(src);
                     console.log('✅ Using cached URL for:', src);
                     img.setAttribute('src', cachedUrl);
-                    continue;
+
+                    // FIXED BUG #10: Apply styling to cached images as well
+                    if (!img.getAttribute('style')) {
+                        img.setAttribute('style', 'max-width: 100%; height: auto; display: block; margin: 1em auto;');
+                    }
+
+                    continue; // Now it's safe to continue
                 }
 
                 // Get section to find its base URL
