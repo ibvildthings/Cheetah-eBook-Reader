@@ -91,6 +91,9 @@ class EPUBService {
 
         chaptersList.innerHTML = '';
         this.chapters = [];
+        
+        // Reset scroll position
+        chaptersList.scrollTop = 0;
 
         const toc = await this.book.loaded.navigation.then(nav => nav.toc);
 
