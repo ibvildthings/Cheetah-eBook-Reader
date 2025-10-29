@@ -1,9 +1,11 @@
 /**
- * EPUBService v1.0.0
+ * EPUBService v1.1.0
  * Service for managing EPUB file loading, parsing, and navigation
  * 
+ * FIXED: Internal link handling (footnotes, TOC, etc.)
+ * 
  * @license MIT
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 class EPUBService {
@@ -13,7 +15,6 @@ class EPUBService {
         this.chapters = [];
         this.currentChapterIndex = -1;
         this.imageCache = new Map();
-        this._linkHandlers = [];
         
         console.log('EPUBService initialized');
     }
@@ -28,6 +29,12 @@ class EPUBService {
         try {
             // Clean up previous book
             this._cleanup();
+            
+            // Reset sidebar scroll position immediately
+            const chaptersList = document.getElementById('chapters-list');
+            if (chaptersList) {
+                chaptersList.scrollTop = 0;
+            }
 
             // Read file as array buffer
             const arrayBuffer = await file.arrayBuffer();
@@ -152,8 +159,6 @@ class EPUBService {
         }
 
         try {
-            this._cleanupCurrentChapter();
-            
             console.log('Loading chapter:', index, this.chapters[index].label);
 
             const chapter = this.chapters[index];
@@ -208,10 +213,13 @@ class EPUBService {
                 }
             }
 
-            // Attach link handlers
-            setTimeout(() => {
-                this._attachLinkHandlers();
-            }, 100);
+            // FIXED: Attach link handlers after content is fully rendered
+            // Wait for the next animation frame to ensure DOM is ready
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    this._attachLinkHandlers();
+                });
+            });
 
         } catch (error) {
             console.error('Failed to load chapter:', error);
@@ -284,12 +292,12 @@ class EPUBService {
                     console.log('✅ Using cached URL for:', src);
                     img.setAttribute('src', cachedUrl);
 
-                    // FIXED BUG #10: Apply styling to cached images as well
+                    // Apply styling to cached images as well
                     if (!img.getAttribute('style')) {
                         img.setAttribute('style', 'max-width: 100%; height: auto; display: block; margin: 1em auto;');
                     }
 
-                    continue; // Now it's safe to continue
+                    continue;
                 }
 
                 // Get section to find its base URL
@@ -428,6 +436,20 @@ class EPUBService {
         items.forEach((item, i) => {
             if (i === index) {
                 item.classList.add('active');
+                
+                // Scroll sidebar to show active chapter
+                const chaptersList = document.getElementById('chapters-list');
+                if (chaptersList && item) {
+                    // For first chapter, scroll to top
+                    if (index === 0) {
+                        chaptersList.scrollTop = 0;
+                    } else {
+                        // For other chapters, scroll into view
+                        requestAnimationFrame(() => {
+                            item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        });
+                    }
+                }
             } else {
                 item.classList.remove('active');
             }
@@ -435,59 +457,145 @@ class EPUBService {
     }
 
     /**
-     * Attach handlers to internal links
+     * FIXED: Attach handlers to internal links
+     * Simplified approach - query all links fresh each time, no manual tracking
      */
     _attachLinkHandlers() {
         const contentArea = document.querySelector('.ebook-text-content');
-        if (!contentArea) return;
+        if (!contentArea) {
+            console.warn('Content area not found for link attachment');
+            return;
+        }
 
+        // Query all links in the content
         const links = contentArea.querySelectorAll('a[href]');
+        console.log(`📎 Attaching handlers to ${links.length} links`);
         
-        // Remove existing handlers
-        this._linkHandlers.forEach(({element, handler}) => {
-            element.removeEventListener('click', handler);
-        });
-        this._linkHandlers = [];
-        
-        links.forEach(link => {
-            const handler = (e) => {
-                const href = link.getAttribute('href');
-                
-                if (href && !href.startsWith('http') && !href.startsWith('mailto:')) {
-                    e.preventDefault();
-                    this._handleInternalLink(href);
-                }
-            };
+        // Simply attach click handler to each link
+        // Since loadChapter() re-renders content, old event listeners are naturally removed
+        links.forEach((link, index) => {
+            const href = link.getAttribute('href');
             
-            link.addEventListener('click', handler);
-            this._linkHandlers.push({ element: link, handler });
+            // Only handle internal links (not http://, https://, mailto:, etc.)
+            if (href && !href.startsWith('http') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log(`🔗 Internal link clicked [${index}]:`, href);
+                    this._handleInternalLink(href);
+                });
+            }
         });
+        
+        console.log('✅ Link handlers attached');
     }
 
     /**
-     * Handle internal link navigation
+     * FIXED: Handle internal link navigation
+     * Improved to handle more href variations
      */
     _handleInternalLink(href) {
-        console.log('Internal link clicked:', href);
+        console.log('🔍 Processing internal link:', href);
 
+        // Split into path and anchor
         const [path, anchor] = href.split('#');
         
-        if (path) {
-            const chapterIndex = this.chapters.findIndex(ch => 
-                ch.href === path || ch.href === path + '.xhtml' || ch.href === path + '.html'
-            );
+        // Case 1: Link has a path - find and load that chapter
+        if (path && path.length > 0) {
+            console.log('Looking for chapter with path:', path);
+            
+            // Try multiple matching strategies to find the chapter
+            let chapterIndex = -1;
+            
+            // Strategy 1: Exact match
+            chapterIndex = this.chapters.findIndex(ch => ch.href === path);
+            
+            // Strategy 2: Match with .xhtml extension
+            if (chapterIndex === -1) {
+                chapterIndex = this.chapters.findIndex(ch => ch.href === path + '.xhtml');
+            }
+            
+            // Strategy 3: Match with .html extension
+            if (chapterIndex === -1) {
+                chapterIndex = this.chapters.findIndex(ch => ch.href === path + '.html');
+            }
+            
+            // Strategy 4: Match without leading directory
+            if (chapterIndex === -1) {
+                const pathFilename = path.split('/').pop();
+                chapterIndex = this.chapters.findIndex(ch => {
+                    const chapterFilename = ch.href.split('/').pop();
+                    return chapterFilename === pathFilename;
+                });
+            }
+            
+            // Strategy 5: Match chapter href ends with path
+            if (chapterIndex === -1) {
+                chapterIndex = this.chapters.findIndex(ch => ch.href.endsWith(path));
+            }
+            
+            // Strategy 6: Match path ends with chapter href
+            if (chapterIndex === -1) {
+                chapterIndex = this.chapters.findIndex(ch => path.endsWith(ch.href));
+            }
             
             if (chapterIndex !== -1) {
-                this.loadChapter(chapterIndex);
+                console.log(`✅ Found chapter at index ${chapterIndex}`);
+                // Store anchor to scroll to after chapter loads
+                if (anchor) {
+                    // Scroll to anchor after chapter loads
+                    this.loadChapter(chapterIndex).then(() => {
+                        setTimeout(() => {
+                            this._scrollToAnchor(anchor);
+                        }, 300);
+                    });
+                } else {
+                    this.loadChapter(chapterIndex);
+                }
                 return;
+            } else {
+                console.warn('❌ No matching chapter found for path:', path);
             }
         }
 
+        // Case 2: No path, just anchor - scroll within current chapter
         if (anchor) {
-            const element = document.getElementById(anchor);
-            if (element) {
-                element.scrollIntoView({ behavior: 'smooth' });
+            console.log('Scrolling to anchor within current chapter:', anchor);
+            this._scrollToAnchor(anchor);
+        }
+    }
+
+    /**
+     * Scroll to an anchor element
+     * @param {string} anchor - ID of element to scroll to
+     */
+    _scrollToAnchor(anchor) {
+        console.log('Attempting to scroll to anchor:', anchor);
+        
+        // Try finding by ID
+        let element = document.getElementById(anchor);
+        
+        // If not found by ID, try finding by name attribute (older HTML)
+        if (!element) {
+            element = document.querySelector(`[name="${anchor}"]`);
+        }
+        
+        // If still not found, try finding within the content area
+        if (!element) {
+            const contentArea = document.querySelector('.ebook-text-content');
+            if (contentArea) {
+                element = contentArea.querySelector(`#${anchor}, [name="${anchor}"]`);
             }
+        }
+        
+        if (element) {
+            console.log('✅ Found anchor element, scrolling...');
+            element.scrollIntoView({ 
+                behavior: 'smooth',
+                block: 'start'
+            });
+        } else {
+            console.warn('❌ Anchor element not found:', anchor);
         }
     }
 
@@ -518,21 +626,9 @@ class EPUBService {
     }
 
     /**
-     * Cleanup current chapter
-     */
-    _cleanupCurrentChapter() {
-        this._linkHandlers.forEach(({element, handler}) => {
-            element.removeEventListener('click', handler);
-        });
-        this._linkHandlers = [];
-    }
-
-    /**
      * Full cleanup
      */
     _cleanup() {
-        this._cleanupCurrentChapter();
-        
         this.imageCache.forEach(url => URL.revokeObjectURL(url));
         this.imageCache.clear();
         
