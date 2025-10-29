@@ -48,6 +48,14 @@
                 // STEP 9A: Store StateManager reference
                 this.stateManager = options.stateManager || null;
                 
+                // Subscribe to Bionic state changes
+                if (this.stateManager) {
+                    this.stateManager.subscribe('bionic', (isBionic) => {
+                        // When state changes, call the safe re-render method
+                        this._handleBionicRender();
+                    });
+                }
+                
                 this.config = {
                     fontSize: { min: 12, default: 18, max: 48 },
                     speed: { min: 100, default: 400, max: 650 },
@@ -263,12 +271,12 @@
         }
 
         setBionic(enabled) {
-            // STEP 9E: Read from StateManager
-            const currentBionic = this.stateManager ? this.stateManager.get('bionic') : false;
-            if (currentBionic !== enabled) {
-                this._toggleBionic();
-                this._emit('onBionicChange', enabled);
+            // This is the public API. It just sets the state.
+            // The subscription will handle the reaction.
+            if (this.stateManager) {
+                this.stateManager.set('bionic', enabled);
             }
+            this._emit('onBionicChange', enabled);
         }
 
         // ========================================

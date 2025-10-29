@@ -623,17 +623,13 @@
             }
         }
 
-        _toggleBionic() {
+        _handleBionicRender() {
             if (this._destroyed) return;
+            
+            console.log('Reacting to Bionic state change, re-rendering...');
             
             const wasPlaying = this.state.flow.playing;
             const savedIdx = this.state.flow.currentWordIndex;
-            
-            // STEP 9E: Toggle in StateManager
-            const currentBionic = this.stateManager ? this.stateManager.get('bionic') : false;
-            if (this.stateManager) {
-                this.stateManager.set('bionic', !currentBionic, true);
-            }
             
             if (wasPlaying) this._togglePlay();
             

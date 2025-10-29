@@ -156,6 +156,11 @@ class CheetahReaderApp {
     toggleBionic() {
         const current = this.state.get('bionic');
         this.setBionic(!current);
+        
+        // Trigger re-render
+        if (this.reader) {
+            this.reader.setBionic(!current);
+        }
     }
     
     // ========================================
