@@ -23,6 +23,7 @@ class CheetahReaderApp {
             marginR: options.marginR || 60,
             mode: 'normal',
             bionic: options.bionic || false,
+            bionicStrength: options.bionicStrength || 0.5,
             flow: {
                 playing: false,
                 speed: options.speed || 400,
@@ -160,6 +161,17 @@ class CheetahReaderApp {
         // Trigger re-render
         if (this.reader) {
             this.reader.setBionic(!current);
+        }
+    }
+    
+    setBionicStrength(strength) {
+        // Clamp between 0.2 and 0.7
+        const clamped = Math.max(0.2, Math.min(0.7, strength));
+        this.state.set('bionicStrength', clamped);
+        
+        // Re-render if bionic is active
+        if (this.reader && this.state.get('bionic')) {
+            this.reader.setBionic(true);
         }
     }
     

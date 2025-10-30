@@ -218,7 +218,15 @@ class Renderer {
      */
     _bionicWord(w) {
         if (w.length <= 2) return w;
-        const n = Math.ceil(w.length / 2);
+        
+        // Get bionic strength from state (default 0.5 = 50%)
+        const strength = this.stateManager ? this.stateManager.get('bionicStrength') : 0.5;
+        
+        // Calculate number of characters to bold based on strength
+        // Clamp between 0.2 and 0.7 for reasonable results
+        const clampedStrength = Math.max(0.2, Math.min(0.7, strength));
+        const n = Math.ceil(w.length * clampedStrength);
+        
         return `<span class="bionic">${w.slice(0, n)}</span>${w.slice(n)}`;
     }
 

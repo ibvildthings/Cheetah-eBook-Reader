@@ -23,6 +23,7 @@ const app = new CheetahReaderApp('#reader', {
     marginL: 60,
     marginR: 60,
     bionic: false,
+    bionicStrength: 0.5,
     speed: 400,
     focusWidth: 2,
     scrollLevel: 1
@@ -195,17 +196,42 @@ app.on('onModeChange', (mode) => {
     const btn = document.getElementById('btn-flow');
     if (btn) {
         btn.classList.toggle('active', mode === 'flow');
-        btn.textContent = mode === 'flow' ? '⏹ Stop Flow' : '▶ Start Flow';
+        btn.textContent = mode === 'flow' ? '⏸ Stop Flow' : '▶ Start Flow';
     }
 });
 
 // ============================================================================
 // READING MODES - Bionic Mode
 // ============================================================================
+const bionicStrengthSlider = document.getElementById('bionic-strength-slider');
+
+// Update slider enabled/disabled state based on bionic mode
+function updateBionicSliderState() {
+    const bionicEnabled = app.state.get('bionic');
+    if (bionicStrengthSlider) {
+        bionicStrengthSlider.disabled = !bionicEnabled;
+        bionicStrengthSlider.style.opacity = bionicEnabled ? '1' : '0.5';
+    }
+}
+
 document.getElementById('btn-bionic')?.addEventListener('click', function() {
     app.toggleBionic();
     this.classList.toggle('active');
+    updateBionicSliderState();
 });
+
+// Bionic Strength Slider
+bionicStrengthSlider?.addEventListener('input', e => {
+    const value = parseInt(e.target.value, 10);
+    const valueEl = document.getElementById('bionic-strength-value');
+    if (valueEl) valueEl.textContent = `${value}%`;
+    
+    // Convert percentage to decimal (20-70% -> 0.2-0.7)
+    app.setBionicStrength(value / 100);
+});
+
+// Initialize slider state
+updateBionicSliderState();
 
 // ============================================================================
 // CONTROLS - Sliders

@@ -25,6 +25,7 @@ window.DEFAULT_CONFIG = {
     // Reading modes
     mode: 'normal',
     bionic: false,
+    bionicStrength: 0.5,  // 50% of word bolded (range: 0.2 to 0.7)
     
     // Flow mode
     flow: {
