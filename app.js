@@ -91,6 +91,17 @@ document.querySelectorAll('.section-header').forEach(header => {
 });
 
 // ============================================================================
+// UI - Chapter Navigation Buttons
+// ============================================================================
+document.getElementById('prev-chapter-btn')?.addEventListener('click', () => {
+    app.previousChapter();
+});
+
+document.getElementById('next-chapter-btn')?.addEventListener('click', () => {
+    app.nextChapter();
+});
+
+// ============================================================================
 // UI - Margins (Drag & Sliders)
 // ============================================================================
 const marginState = { dragging: false, side: null, initX: 0, initMargin: 0 };

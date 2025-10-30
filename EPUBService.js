@@ -127,6 +127,9 @@ class EPUBService {
         }
 
         console.log(`Extracted ${this.chapters.length} chapters`);
+        
+        // Show/hide chapter navigation bar
+        this._updateChapterNavBar();
     }
 
     /**
@@ -185,6 +188,9 @@ class EPUBService {
             // Update current chapter
             this.currentChapterIndex = index;
             this._updateActiveChapter(index);
+            
+            // Update navigation bar buttons
+            this._updateChapterNavBar();
 
             // Load content into reader
             if (this.reader) {
@@ -454,6 +460,9 @@ class EPUBService {
                 item.classList.remove('active');
             }
         });
+        
+        // Update chapter navigation buttons
+        this._updateChapterNavBar();
     }
 
     /**
@@ -600,6 +609,28 @@ class EPUBService {
     }
 
     /**
+     * Update chapter navigation bar visibility and button states
+     */
+    _updateChapterNavBar() {
+        const navBar = document.getElementById('chapter-nav-bar');
+        const prevBtn = document.getElementById('prev-chapter-btn');
+        const nextBtn = document.getElementById('next-chapter-btn');
+        
+        if (!navBar || !prevBtn || !nextBtn) return;
+        
+        // Show bar if there are chapters
+        if (this.chapters.length > 0) {
+            navBar.style.display = 'flex';
+            
+            // Update button states
+            prevBtn.disabled = this.currentChapterIndex <= 0;
+            nextBtn.disabled = this.currentChapterIndex >= this.chapters.length - 1;
+        } else {
+            navBar.style.display = 'none';
+        }
+    }
+
+    /**
      * Navigate to next chapter
      */
     nextChapter() {
@@ -635,6 +666,12 @@ class EPUBService {
         this.book = null;
         this.chapters = [];
         this.currentChapterIndex = -1;
+        
+        // Hide chapter navigation bar
+        const navBar = document.getElementById('chapter-nav-bar');
+        if (navBar) {
+            navBar.style.display = 'none';
+        }
     }
 
     /**
