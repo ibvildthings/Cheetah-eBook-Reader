@@ -138,101 +138,121 @@ setTimeout(syncUIWithState, 200);
 // EPUB EVENT LISTENERS
 // ============================================================================
 // ✅ NEW: Subscribe to EPUB events (refactoring - event-driven architecture)
+// IMPORTANT: Wait for services to initialize (they're created in a setTimeout)
+setTimeout(() => {
+    console.log('🔌 Setting up EPUB event listeners...');
 
-app.onEPUB('metadataUpdated', (data) => {
-    console.log('📖 Metadata updated:', data);
-    document.getElementById('book-title').textContent = data.title;
-    document.getElementById('book-author').textContent = data.author;
-});
-
-app.onEPUB('chaptersExtracted', (data) => {
-    console.log('📚 Chapters extracted:', data);
-    const chaptersList = document.getElementById('chapters-list');
-    if (!chaptersList) return;
-
-    // Reset scroll position
-    chaptersList.scrollTop = 0;
-
-    if (data.isEmpty) {
-        chaptersList.innerHTML = '<div class="chapters-list-empty">No chapters found</div>';
-        return;
-    }
-
-    chaptersList.innerHTML = '';
-
-    data.chapters.forEach((chapter) => {
-        const div = document.createElement('div');
-        div.className = 'chapter-item';
-        div.dataset.index = chapter.index;
-
-        div.innerHTML = `
-            <span class="chapter-number">${chapter.index + 1}</span>
-            <span class="chapter-title">${truncateText(chapter.label, 60)}</span>
-        `;
-
-        div.addEventListener('click', () => {
-            app.loadChapter(chapter.index);
-        });
-
-        chaptersList.appendChild(div);
+    app.onEPUB('metadataUpdated', (data) => {
+        console.log('📖 Metadata updated:', data);
+        document.getElementById('book-title').textContent = data.title;
+        document.getElementById('book-author').textContent = data.author;
     });
-});
 
-app.onEPUB('chapterChanged', (data) => {
-    console.log('📄 Chapter changed:', data);
+    app.onEPUB('chaptersExtracted', (data) => {
+        console.log('📚 Chapters extracted:', data);
+        const chaptersList = document.getElementById('chapters-list');
+        if (!chaptersList) return;
 
-    // Update active chapter in sidebar
-    const items = document.querySelectorAll('.chapter-item');
-    items.forEach((item, i) => {
-        if (i === data.index) {
-            item.classList.add('active');
+        // Reset scroll position
+        chaptersList.scrollTop = 0;
 
-            // Scroll sidebar to show active chapter
-            const chaptersList = document.getElementById('chapters-list');
-            if (chaptersList && item) {
-                if (data.isFirst) {
-                    chaptersList.scrollTop = 0;
-                } else {
-                    requestAnimationFrame(() => {
-                        item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    });
-                }
-            }
-        } else {
-            item.classList.remove('active');
+        if (data.isEmpty) {
+            chaptersList.innerHTML = '<div class="chapters-list-empty">No chapters found</div>';
+            return;
         }
+
+        chaptersList.innerHTML = '';
+
+        data.chapters.forEach((chapter) => {
+            const div = document.createElement('div');
+            div.className = 'chapter-item';
+            div.dataset.index = chapter.index;
+
+            div.innerHTML = `
+                <span class="chapter-number">${chapter.index + 1}</span>
+                <span class="chapter-title">${truncateText(chapter.label, 60)}</span>
+            `;
+
+            div.addEventListener('click', () => {
+                app.loadChapter(chapter.index);
+            });
+
+            chaptersList.appendChild(div);
+        });
     });
-});
 
-app.onEPUB('navigationStateChanged', (data) => {
-    console.log('🧭 Navigation state changed:', data);
+    app.onEPUB('chapterChanged', (data) => {
+        console.log('📄 Chapter changed:', data);
 
-    const navBar = document.getElementById('chapter-nav-bar');
-    const prevBtn = document.getElementById('prev-chapter-btn');
-    const nextBtn = document.getElementById('next-chapter-btn');
+        // Update active chapter in sidebar
+        const items = document.querySelectorAll('.chapter-item');
+        items.forEach((item, i) => {
+            if (i === data.index) {
+                item.classList.add('active');
 
-    if (!navBar || !prevBtn || !nextBtn) return;
+                // Scroll sidebar to show active chapter
+                const chaptersList = document.getElementById('chapters-list');
+                if (chaptersList && item) {
+                    if (data.isFirst) {
+                        chaptersList.scrollTop = 0;
+                    } else {
+                        requestAnimationFrame(() => {
+                            item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        });
+                    }
+                }
+            } else {
+                item.classList.remove('active');
+            }
+        });
+    });
 
-    // Show/hide navigation bar
-    navBar.style.display = data.visible ? 'flex' : 'none';
+    app.onEPUB('navigationStateChanged', (data) => {
+        console.log('🧭 Navigation state changed:', data);
 
-    // Update button states
-    prevBtn.disabled = !data.hasPrev;
-    nextBtn.disabled = !data.hasNext;
-});
+        const navBar = document.getElementById('chapter-nav-bar');
+        const prevBtn = document.getElementById('prev-chapter-btn');
+        const nextBtn = document.getElementById('next-chapter-btn');
 
-app.onEPUB('epubError', (data) => {
-    console.error('❌ EPUB error:', data);
-    alert(data.message);
-});
+        if (!navBar) {
+            console.error('❌ Chapter nav bar not found!');
+            return;
+        }
+        if (!prevBtn) {
+            console.error('❌ Previous chapter button not found!');
+            return;
+        }
+        if (!nextBtn) {
+            console.error('❌ Next chapter button not found!');
+            return;
+        }
 
-app.onEPUB('bookLoadStarted', (data) => {
-    console.log('⏳ Loading EPUB:', data.filename);
-});
+        // Show/hide navigation bar
+        const shouldShow = data.visible;
+        console.log(`🧭 Setting nav bar display to: ${shouldShow ? 'flex' : 'none'}`);
+        navBar.style.display = shouldShow ? 'flex' : 'none';
 
-app.onEPUB('bookLoaded', (data) => {
-    console.log('✅ EPUB loaded:', data);
-});
+        // Update button states
+        prevBtn.disabled = !data.hasPrev;
+        nextBtn.disabled = !data.hasNext;
+        console.log(`🧭 Prev button: ${!data.hasPrev ? 'disabled' : 'enabled'}, Next button: ${!data.hasNext ? 'disabled' : 'enabled'}`);
+    });
+
+    app.onEPUB('epubError', (data) => {
+        console.error('❌ EPUB error:', data);
+        alert(data.message);
+    });
+
+    app.onEPUB('bookLoadStarted', (data) => {
+        console.log('⏳ Loading EPUB:', data.filename);
+    });
+
+    app.onEPUB('bookLoaded', (data) => {
+        console.log('✅ EPUB loaded:', data);
+    });
+
+    console.log('✅ EPUB event listeners set up successfully');
+}, 200); // Wait 200ms for services to initialize
 
 // Helper function for truncating text
 function truncateText(text, maxLength) {
