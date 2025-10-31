@@ -1,24 +1,24 @@
 /**
- * CheetahReaderApp v1.0.0
+ * CheetahReaderApp v2.0.0
  * Main application coordinator that manages reader, state, and services
- * 
- * STEP 14: Application Controller Layer
- * 
+ *
+ * REFACTORED: Properties are now private, use public API only
+ *
  * @license MIT
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 class CheetahReaderApp {
     constructor(selector, options = {}) {
-        console.log('🐆 CheetahReaderApp initializing...');
-        
-        // Initialize persistence manager first (before StateManager)
+        console.log('🐆 CheetahReaderApp v2.0.0 initializing...');
+
+        // ✅ PRIVATE: Initialize persistence manager first
         const tempState = new StateManager({});
-        this.persistence = new SettingsPersistence(tempState);
-        
+        this._persistence = new SettingsPersistence(tempState);
+
         // Try to load saved settings
-        const savedSettings = this.persistence.loadSettings() || {};
-        
+        const savedSettings = this._persistence.loadSettings() || {};
+
         // Merge saved settings with defaults and options (priority: saved > options > defaults)
         const defaults = {
             fontSize: 18,
@@ -39,9 +39,9 @@ class CheetahReaderApp {
                 scrollLevel: 1
             }
         };
-        
-        // STEP 14A: Initialize StateManager with merged state
-        this.state = new StateManager({
+
+        // ✅ PRIVATE: Initialize StateManager with merged state
+        this._state = new StateManager({
             fontSize: savedSettings.fontSize ?? options.fontSize ?? defaults.fontSize,
             font: savedSettings.font ?? options.font ?? defaults.font,
             lineHeight: savedSettings.lineHeight ?? options.lineHeight ?? defaults.lineHeight,
@@ -60,52 +60,52 @@ class CheetahReaderApp {
                 scrollLevel: savedSettings.flow?.scrollLevel ?? options.scrollLevel ?? defaults.flow.scrollLevel
             }
         });
-        
+
         // Update persistence manager to use the real state manager
-        this.persistence.stateManager = this.state;
-        
+        this._persistence.stateManager = this._state;
+
         // Enable auto-save for settings
-        this.persistence.enableAutoSave();
-        
-        // STEP 14A: Initialize reader with StateManager
-        this.reader = new EBookReader(selector, {
-            stateManager: this.state
+        this._persistence.enableAutoSave();
+
+        // ✅ PRIVATE: Initialize reader with StateManager
+        this._reader = new EBookReader(selector, {
+            stateManager: this._state
         });
-        
-        // Store container reference for services
-        this.container = this.reader.container;
-        
-        // STEP 14A: Initialize services
+
+        // ✅ PRIVATE: Store container reference for services
+        this._container = this._reader.container;
+
+        // ✅ PRIVATE: Initialize services
         // Wait for DOM to be ready before initializing services
         setTimeout(() => {
-            const contentElement = this.reader.el?.content;
-            
+            const contentElement = this._reader.el?.content;
+
             if (contentElement) {
-                this.fontService = new FontService(this.state, contentElement, this.reader);
-                
+                this._fontService = new FontService(this._state, contentElement, this._reader);
+
                 // Load initial font
-                this.fontService.loadFont(this.state.get('font')).then(() => {
-                    this.fontService.applyFont(this.state.get('font'));
+                this._fontService.loadFont(this._state.get('font')).then(() => {
+                    this._fontService.applyFont(this._state.get('font'));
                 });
             }
-            
-            if (this.container) {
-                this.themeService = new ThemeService(this.state, this.container);
+
+            if (this._container) {
+                this._themeService = new ThemeService(this._state, this._container);
                 // Apply initial theme
-                this.themeService.applyTheme(this.state.get('theme'));
+                this._themeService.applyTheme(this._state.get('theme'));
             }
-            
-            this.epubService = new EPUBService(this.reader);
+
+            this._epubService = new EPUBService(this._reader);
 
             //
             // Listen for the engine to signal the chapter end
             //
-            this.reader.on('onChapterEnd', () => {
+            this._reader.on('onChapterEnd', () => {
                 // Get the index that the EPUB service *thinks* is current
-                const expectedCurrentIndex = this.epubService.currentChapterIndex;
+                const expectedCurrentIndex = this._epubService.currentChapterIndex;
 
                 // Get the index the reader *actually* had when it finished
-                const readerState = this.reader.getState(); // Use API getState for safety
+                const readerState = this._reader.getState(); // Use API getState for safety
                 const actualFinishedIndex = readerState?.currentWordIndex >= (readerState?.totalWords - 1)
                                             ? expectedCurrentIndex // Assume it finished the one we thought was loaded
                                             : -1; // Event fired unexpectedly, ignore it
@@ -115,14 +115,42 @@ class CheetahReaderApp {
                 // FIXED BUG #9: Only proceed if the finished chapter matches the one we expected to be running
                 if (actualFinishedIndex !== -1 && actualFinishedIndex === expectedCurrentIndex) {
                     console.log('✅ Chapter end matches current index, loading next...');
-                    this.epubService.nextChapter();
+                    this._epubService.nextChapter();
                 } else {
                     console.warn('⚠️ Chapter end event ignored (likely from a previous chapter or race condition).');
                 }
             });
-            
-            console.log('✅ CheetahReaderApp initialized');
+
+            console.log('✅ CheetahReaderApp v2.0.0 initialized');
         }, 100);
+    }
+
+    // ========================================
+    // DEPRECATED GETTERS (Backwards Compatibility)
+    // ========================================
+
+    /**
+     * @deprecated Use getCurrentSettings() instead
+     */
+    get state() {
+        console.warn('[DEPRECATED] Direct access to app.state is deprecated. Use app.getCurrentSettings() or onSettingChange() instead.');
+        return this._state;
+    }
+
+    /**
+     * @deprecated Internal reader should not be accessed directly
+     */
+    get reader() {
+        console.warn('[DEPRECATED] Direct access to app.reader is deprecated. Use public API methods instead.');
+        return this._reader;
+    }
+
+    /**
+     * @deprecated Internal service should not be accessed directly
+     */
+    get epubService() {
+        console.warn('[DEPRECATED] Direct access to app.epubService is deprecated. Use app.onEPUB() for events instead.');
+        return this._epubService;
     }
     
     // ========================================
@@ -130,20 +158,20 @@ class CheetahReaderApp {
     // ========================================
     
     setFontSize(size) {
-        this.state.set('fontSize', size);
-        if (this.reader) {
-            this.reader.updateStyles();
+        this._state.set('fontSize', size);
+        if (this._reader) {
+            this._reader.updateStyles();
         }
     }
     
     setFont(fontKey) {
-        this.state.set('font', fontKey);
+        this._state.set('font', fontKey);
     }
     
     setLineHeight(height) {
-        this.state.set('lineHeight', height);
-        if (this.reader) {
-            this.reader.updateStyles();
+        this._state.set('lineHeight', height);
+        if (this._reader) {
+            this._reader.updateStyles();
         }
     }
     
@@ -152,16 +180,16 @@ class CheetahReaderApp {
     // ========================================
     
     setTheme(themeName) {
-        this.state.set('theme', themeName);
-        this.state.set('autoTheme', false);
+        this._state.set('theme', themeName);
+        this._state.set('autoTheme', false);
     }
     
     setAutoTheme(enabled) {
-        this.state.set('autoTheme', enabled);
+        this._state.set('autoTheme', enabled);
     }
     
     getTheme() {
-        return this.themeService ? this.themeService.getCurrentTheme() : this.state.get('theme');
+        return this._themeService ? this.themeService.getCurrentTheme() : this.state.get('theme');
     }
     
     // ========================================
@@ -170,13 +198,13 @@ class CheetahReaderApp {
     
     setMargins(left, right) {
         if (left !== undefined) {
-            this.state.set('marginL', Math.max(10, Math.min(400, left)));
+            this._state.set('marginL', Math.max(10, Math.min(400, left)));
         }
         if (right !== undefined) {
-            this.state.set('marginR', Math.max(10, Math.min(400, right)));
+            this._state.set('marginR', Math.max(10, Math.min(400, right)));
         }
-        if (this.reader) {
-            this.reader.updateLayout();
+        if (this._reader) {
+            this._reader.updateLayout();
         }
     }
     
@@ -185,7 +213,7 @@ class CheetahReaderApp {
     // ========================================
     
     setBionic(enabled) {
-        this.state.set('bionic', enabled);
+        this._state.set('bionic', enabled);
     }
     
     toggleBionic() {
@@ -193,19 +221,19 @@ class CheetahReaderApp {
         this.setBionic(!current);
         
         // Trigger re-render
-        if (this.reader) {
-            this.reader.setBionic(!current);
+        if (this._reader) {
+            this._reader.setBionic(!current);
         }
     }
     
     setBionicStrength(strength) {
         // Clamp between 0.2 and 0.7
         const clamped = Math.max(0.2, Math.min(0.7, strength));
-        this.state.set('bionicStrength', clamped);
+        this._state.set('bionicStrength', clamped);
         
         // Re-render if bionic is active
         if (this.reader && this.state.get('bionic')) {
-            this.reader.setBionic(true);
+            this._reader.setBionic(true);
         }
     }
     
@@ -215,51 +243,51 @@ class CheetahReaderApp {
     
     setSpeed(wpm) {
         const clamped = Math.max(100, Math.min(650, wpm));
-        this.state.set('flow.speed', clamped);
+        this._state.set('flow.speed', clamped);
     }
     
     setFocusWidth(width) {
         const clamped = Math.max(1, Math.min(5, width));
-        this.state.set('flow.focusWidth', clamped);
+        this._state.set('flow.focusWidth', clamped);
     }
     
     setScrollLevel(level) {
         const clamped = Math.max(1, Math.min(5, level));
-        this.state.set('flow.scrollLevel', clamped);
+        this._state.set('flow.scrollLevel', clamped);
     }
     
     startFlow() {
-        if (this.reader) {
-            this.reader.setMode('flow');
+        if (this._reader) {
+            this._reader.setMode('flow');
             setTimeout(() => {
-                if (this.reader) {
-                    this.reader.play();
+                if (this._reader) {
+                    this._reader.play();
                 }
             }, 300);
         }
     }
     
     stopFlow() {
-        if (this.reader) {
-            this.reader.setMode('normal');
+        if (this._reader) {
+            this._reader.setMode('normal');
         }
     }
     
     play() {
-        if (this.reader) {
-            this.reader.play();
+        if (this._reader) {
+            this._reader.play();
         }
     }
     
     pause() {
-        if (this.reader) {
-            this.reader.pause();
+        if (this._reader) {
+            this._reader.pause();
         }
     }
     
     togglePlay() {
-        if (this.reader) {
-            this.reader.togglePlay();
+        if (this._reader) {
+            this._reader.togglePlay();
         }
     }
     
@@ -268,8 +296,8 @@ class CheetahReaderApp {
     // ========================================
     
     loadContent(html) {
-        if (this.reader) {
-            this.reader.loadContent(html);
+        if (this._reader) {
+            this._reader.loadContent(html);
         }
     }
     
@@ -291,8 +319,8 @@ class CheetahReaderApp {
     }
     
     loadEPUB(file) {
-        if (this.epubService) {
-            this.epubService.loadBook(file);
+        if (this._epubService) {
+            this._epubService.loadBook(file);
         } else {
             console.error('EPUBService not initialized yet');
         }
@@ -303,48 +331,99 @@ class CheetahReaderApp {
     // ========================================
     
     nextChapter() {
-        if (this.epubService) {
-            this.epubService.nextChapter();
+        if (this._epubService) {
+            this._epubService.nextChapter();
         }
     }
     
     previousChapter() {
-        if (this.epubService) {
-            this.epubService.previousChapter();
+        if (this._epubService) {
+            this._epubService.previousChapter();
         }
     }
     
     loadChapter(index) {
-        if (this.epubService) {
-            this.epubService.loadChapter(index);
+        if (this._epubService) {
+            this._epubService.loadChapter(index);
         }
     }
     
     // ========================================
     // PUBLIC API - STATE ACCESS
     // ========================================
-    
+
+    /**
+     * Get all settings (read-only copy)
+     * ✅ NEW: Returns copy of state, not reference
+     * @deprecated Use getCurrentSettings() instead for clarity
+     */
     getState() {
-        return this.state.getAll();
+        return this._state.getAll();
     }
-    
+
+    /**
+     * Get current settings (read-only copy)
+     * ✅ NEW: Preferred method for getting settings
+     * @returns {Object} Copy of current settings
+     */
+    getCurrentSettings() {
+        return this._state.getAll();
+    }
+
+    /**
+     * Get current chapter index
+     * ✅ NEW: Safe access to EPUB state
+     * @returns {number} Current chapter index (-1 if no EPUB loaded)
+     */
+    getCurrentChapterIndex() {
+        return this._epubService ? this._epubService.currentChapterIndex : -1;
+    }
+
+    /**
+     * Get chapters list
+     * ✅ NEW: Safe access to EPUB chapters
+     * @returns {Array} Copy of chapters array
+     */
+    getChapters() {
+        if (!this._epubService) return [];
+        return this._epubService.chapters.map(ch => ({ ...ch }));
+    }
+
+    /**
+     * Get reader engine state
+     * @returns {Object|null} Reader state or null
+     */
     getReaderState() {
-        return this.reader ? this.reader.getState() : null;
+        return this._reader ? this._reader.getState() : null;
     }
-    
+
+    /**
+     * Subscribe to setting changes
+     * ✅ NEW: Allows UI to react to setting changes
+     * @param {string|Array<string>} keys - Setting key(s) to watch
+     * @param {Function} callback - Callback when settings change
+     * @returns {Function} Unsubscribe function
+     */
+    onSettingChange(keys, callback) {
+        if (this._state) {
+            return this._state.subscribe(keys, callback);
+        }
+        return () => {};
+    }
+
     // ========================================
     // PUBLIC API - EVENT SYSTEM
     // ========================================
-    
+
     on(event, callback) {
-        if (this.reader) {
-            return this.reader.on(event, callback);
+        if (this._reader) {
+            return this._reader.on(event, callback);
         }
     }
 
     off(event, callback) {
-        if (this.reader) {
-            this.reader.off(event, callback);
+        if (this._reader) {
+            this._reader.off(event, callback);
         }
     }
 
@@ -370,7 +449,7 @@ class CheetahReaderApp {
      * @returns {Function} Unsubscribe function
      */
     onEPUB(event, callback) {
-        if (this.epubService) {
+        if (this._epubService) {
             return this.epubService.on(event, callback);
         }
         // Return no-op unsubscribe if service not ready
@@ -383,8 +462,8 @@ class CheetahReaderApp {
      * @param {Function} callback - Callback function
      */
     offEPUB(event, callback) {
-        if (this.epubService) {
-            this.epubService.off(event, callback);
+        if (this._epubService) {
+            this._epubService.off(event, callback);
         }
     }
 
@@ -397,7 +476,7 @@ class CheetahReaderApp {
      */
     clearSettings() {
         if (this.persistence) {
-            this.persistence.clearSettings();
+            this._persistence.clearSettings();
         }
     }
     
@@ -406,7 +485,7 @@ class CheetahReaderApp {
      * @returns {string}
      */
     exportSettings() {
-        return this.persistence ? this.persistence.exportSettings() : '{}';
+        return this._persistence ? this.persistence.exportSettings() : '{}';
     }
     
     /**
@@ -415,7 +494,7 @@ class CheetahReaderApp {
      * @returns {boolean}
      */
     importSettings(jsonString) {
-        return this.persistence ? this.persistence.importSettings(jsonString) : false;
+        return this._persistence ? this.persistence.importSettings(jsonString) : false;
     }
     
     // ========================================
@@ -423,14 +502,14 @@ class CheetahReaderApp {
     // ========================================
     
     destroy() {
-        if (this.epubService) {
-            this.epubService.destroy();
+        if (this._epubService) {
+            this._epubService.destroy();
         }
         if (this.themeService) {
             this.themeService.destroy();
         }
-        if (this.reader) {
-            this.reader.destroy();
+        if (this._reader) {
+            this._reader.destroy();
         }
         console.log('CheetahReaderApp destroyed');
     }

@@ -1,21 +1,28 @@
 /**
- * FontService v1.0.0
+ * FontService v2.0.0
  * Service for managing font loading and application
- * 
+ *
+ * REFACTORED: Now uses dependency injection for DOM operations
+ *
  * @license MIT
- * @version 1.0.0
+ * @version 2.0.0
  */
 
 class FontService {
-    constructor(stateManager, contentElement, reader) { // Add reader
+    constructor(stateManager, contentElement, reader, options = {}) {
         this.stateManager = stateManager;
         this.contentElement = contentElement;
-        this.reader = reader; // Store reader
+        this.reader = reader;
         this.loadedFonts = new Set();
         this.loadingFonts = new Map();
         this.fontTimeouts = new Map();
         this.fontsReady = null;
-        
+
+        // ✅ NEW: Dependency injection for DOM operations
+        // Consumers can provide custom implementations for testing or different environments
+        this.injectStyleElement = options.injectStyleElement || this._defaultInjectStyleElement.bind(this);
+        this.queryStyleElement = options.queryStyleElement || this._defaultQueryStyleElement.bind(this);
+
         // STEP 10C: Subscribe to font changes and auto-load + apply
         if (this.stateManager) {
             this.stateManager.subscribe('font', async (fontKey) => {
@@ -23,6 +30,35 @@ class FontService {
                 this.applyFont(fontKey);
             });
         }
+
+        console.log('FontService v2.0.0 initialized (dependency injection)');
+    }
+
+    // ========================================
+    // DEFAULT IMPLEMENTATIONS (Backwards Compatible)
+    // ========================================
+
+    /**
+     * Default style element injection (appends to document.head)
+     * ✅ Can be overridden via constructor options
+     * @private
+     */
+    _defaultInjectStyleElement(element) {
+        if (document && document.head) {
+            document.head.appendChild(element);
+        }
+    }
+
+    /**
+     * Default style element query (queries document)
+     * ✅ Can be overridden via constructor options
+     * @private
+     */
+    _defaultQueryStyleElement(selector) {
+        if (document) {
+            return document.querySelector(selector);
+        }
+        return null;
     }
     
     /**
@@ -109,8 +145,8 @@ class FontService {
      */
     async _loadCDNFont(fontKey, font) {
         return new Promise((resolve, reject) => {
-            // Check if font face already exists
-            const existingStyle = document.querySelector(`style[data-font="${fontKey}"]`);
+            // ✅ Use injected query function instead of direct document access
+            const existingStyle = this.queryStyleElement(`style[data-font="${fontKey}"]`);
             if (existingStyle) {
                 resolve();
                 return;
@@ -140,8 +176,8 @@ class FontService {
 
             this.fontTimeouts.set(fontKey, timeout);
 
-            // Append style and wait for fonts to load
-            document.head.appendChild(style);
+            // ✅ Use injected inject function instead of direct document.head access
+            this.injectStyleElement(style);
             
             // Wait for font to be ready
             if (document.fonts && document.fonts.ready) {
@@ -173,7 +209,8 @@ class FontService {
      */
     async _loadGoogleFont(fontKey, font) {
         return new Promise((resolve, reject) => {
-            const existingLink = document.querySelector(`link[data-font="${fontKey}"]`);
+            // ✅ Use injected query function instead of direct document access
+            const existingLink = this.queryStyleElement(`link[data-font="${fontKey}"]`);
             if (existingLink) {
                 resolve();
                 return;
@@ -197,7 +234,7 @@ class FontService {
                     }
                     await this.fontsReady;
                     await new Promise(r => setTimeout(r, 50));
-                    
+
                     clearTimeout(timeout);
                     this.fontTimeouts.delete(fontKey);
                     resolve();
@@ -214,7 +251,8 @@ class FontService {
                 reject(new Error('Failed to load font stylesheet'));
             };
 
-            document.head.appendChild(link);
+            // ✅ Use injected inject function instead of direct document.head access
+            this.injectStyleElement(link);
         });
     }
 
