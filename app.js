@@ -378,6 +378,36 @@ document.getElementById('theme-auto')?.addEventListener('change', function(e) {
 });
 
 // ============================================================================
+// CONTROLS - Reset Settings
+// ============================================================================
+document.getElementById('reset-settings-btn')?.addEventListener('click', function() {
+    // Confirm before resetting
+    const confirmed = confirm(
+        'Reset all settings to defaults?\n\n' +
+        'This will clear:\n' +
+        '• Font, size, and line height\n' +
+        '• Theme preferences\n' +
+        '• Margins\n' +
+        '• Bionic settings\n' +
+        '• Flow mode preferences\n\n' +
+        'The page will reload with default settings.'
+    );
+    
+    if (confirmed) {
+        // Clear saved settings
+        app.clearSettings();
+        
+        // Show confirmation message
+        console.log('✅ Settings reset to defaults');
+        
+        // Reload page to apply defaults
+        setTimeout(() => {
+            location.reload();
+        }, 100);
+    }
+});
+
+// ============================================================================
 // INITIALIZE
 // ============================================================================
 setTimeout(updateMarginsUI, 100);

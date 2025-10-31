@@ -352,3 +352,15 @@ input[type="checkbox"] {
     opacity: 0.3;
     cursor: not-allowed;
 }
+
+/* Reset Settings Button */
+.reset-btn {
+    background: #dc2626 !important;
+    border-color: #dc2626 !important;
+    color: #fff !important;
+}
+
+.reset-btn:hover {
+    background: #b91c1c !important;
+    border-color: #b91c1c !important;
+}
