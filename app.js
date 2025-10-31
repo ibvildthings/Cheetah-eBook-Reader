@@ -135,6 +135,112 @@ function syncUIWithState() {
 setTimeout(syncUIWithState, 200);
 
 // ============================================================================
+// EPUB EVENT LISTENERS
+// ============================================================================
+// ✅ NEW: Subscribe to EPUB events (refactoring - event-driven architecture)
+
+app.onEPUB('metadataUpdated', (data) => {
+    console.log('📖 Metadata updated:', data);
+    document.getElementById('book-title').textContent = data.title;
+    document.getElementById('book-author').textContent = data.author;
+});
+
+app.onEPUB('chaptersExtracted', (data) => {
+    console.log('📚 Chapters extracted:', data);
+    const chaptersList = document.getElementById('chapters-list');
+    if (!chaptersList) return;
+
+    // Reset scroll position
+    chaptersList.scrollTop = 0;
+
+    if (data.isEmpty) {
+        chaptersList.innerHTML = '<div class="chapters-list-empty">No chapters found</div>';
+        return;
+    }
+
+    chaptersList.innerHTML = '';
+
+    data.chapters.forEach((chapter) => {
+        const div = document.createElement('div');
+        div.className = 'chapter-item';
+        div.dataset.index = chapter.index;
+
+        div.innerHTML = `
+            <span class="chapter-number">${chapter.index + 1}</span>
+            <span class="chapter-title">${truncateText(chapter.label, 60)}</span>
+        `;
+
+        div.addEventListener('click', () => {
+            app.loadChapter(chapter.index);
+        });
+
+        chaptersList.appendChild(div);
+    });
+});
+
+app.onEPUB('chapterChanged', (data) => {
+    console.log('📄 Chapter changed:', data);
+
+    // Update active chapter in sidebar
+    const items = document.querySelectorAll('.chapter-item');
+    items.forEach((item, i) => {
+        if (i === data.index) {
+            item.classList.add('active');
+
+            // Scroll sidebar to show active chapter
+            const chaptersList = document.getElementById('chapters-list');
+            if (chaptersList && item) {
+                if (data.isFirst) {
+                    chaptersList.scrollTop = 0;
+                } else {
+                    requestAnimationFrame(() => {
+                        item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    });
+                }
+            }
+        } else {
+            item.classList.remove('active');
+        }
+    });
+});
+
+app.onEPUB('navigationStateChanged', (data) => {
+    console.log('🧭 Navigation state changed:', data);
+
+    const navBar = document.getElementById('chapter-nav-bar');
+    const prevBtn = document.getElementById('prev-chapter-btn');
+    const nextBtn = document.getElementById('next-chapter-btn');
+
+    if (!navBar || !prevBtn || !nextBtn) return;
+
+    // Show/hide navigation bar
+    navBar.style.display = data.visible ? 'flex' : 'none';
+
+    // Update button states
+    prevBtn.disabled = !data.hasPrev;
+    nextBtn.disabled = !data.hasNext;
+});
+
+app.onEPUB('epubError', (data) => {
+    console.error('❌ EPUB error:', data);
+    alert(data.message);
+});
+
+app.onEPUB('bookLoadStarted', (data) => {
+    console.log('⏳ Loading EPUB:', data.filename);
+});
+
+app.onEPUB('bookLoaded', (data) => {
+    console.log('✅ EPUB loaded:', data);
+});
+
+// Helper function for truncating text
+function truncateText(text, maxLength) {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+}
+
+// ============================================================================
 // CONTENT LOADING - EPUB Upload
 // ============================================================================
 document.getElementById('upload-btn')?.addEventListener('click', () => {

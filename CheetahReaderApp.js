@@ -341,13 +341,53 @@ class CheetahReaderApp {
             return this.reader.on(event, callback);
         }
     }
-    
+
     off(event, callback) {
         if (this.reader) {
             this.reader.off(event, callback);
         }
     }
-    
+
+    // ========================================
+    // PUBLIC API - EPUB EVENT SYSTEM
+    // ========================================
+
+    /**
+     * Subscribe to EPUB service events
+     * ✅ NEW: Exposes EPUB events to external consumers
+     *
+     * Available events:
+     * - 'bookLoadStarted' - { filename }
+     * - 'bookLoaded' - { filename, chapterCount }
+     * - 'metadataUpdated' - { title, author, publisher, language, ... }
+     * - 'chaptersExtracted' - { chapters: [...], isEmpty }
+     * - 'chapterChanged' - { index, title, isFirst, isLast, totalChapters }
+     * - 'navigationStateChanged' - { visible, hasPrev, hasNext, currentIndex, totalChapters }
+     * - 'epubError' - { code, message, details }
+     *
+     * @param {string} event - Event name
+     * @param {Function} callback - Callback function
+     * @returns {Function} Unsubscribe function
+     */
+    onEPUB(event, callback) {
+        if (this.epubService) {
+            return this.epubService.on(event, callback);
+        }
+        // Return no-op unsubscribe if service not ready
+        return () => {};
+    }
+
+    /**
+     * Unsubscribe from EPUB service events
+     * @param {string} event - Event name
+     * @param {Function} callback - Callback function
+     */
+    offEPUB(event, callback) {
+        if (this.epubService) {
+            this.epubService.off(event, callback);
+        }
+    }
+
     // ========================================
     // PUBLIC API - SETTINGS PERSISTENCE
     // ========================================

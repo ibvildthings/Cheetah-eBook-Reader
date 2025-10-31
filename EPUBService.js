@@ -1,11 +1,12 @@
 /**
- * EPUBService v1.1.0
+ * EPUBService v2.0.0
  * Service for managing EPUB file loading, parsing, and navigation
- * 
+ *
+ * REFACTORED: Now event-driven, no direct DOM manipulation
  * FIXED: Internal link handling (footnotes, TOC, etc.)
- * 
+ *
  * @license MIT
- * @version 1.1.0
+ * @version 2.0.0
  */
 
 class EPUBService {
@@ -15,8 +16,60 @@ class EPUBService {
         this.chapters = [];
         this.currentChapterIndex = -1;
         this.imageCache = new Map();
-        
-        console.log('EPUBService initialized');
+
+        // ✅ NEW: Event system for decoupling
+        this._callbacks = {};
+
+        console.log('EPUBService v2.0.0 initialized (event-driven)');
+    }
+
+    // ========================================
+    // EVENT SYSTEM
+    // ========================================
+
+    /**
+     * Subscribe to an event
+     * @param {string} event - Event name
+     * @param {Function} callback - Callback function
+     * @returns {Function} Unsubscribe function
+     */
+    on(event, callback) {
+        if (!this._callbacks[event]) {
+            this._callbacks[event] = [];
+        }
+        this._callbacks[event].push(callback);
+
+        // Return unsubscribe function
+        return () => this.off(event, callback);
+    }
+
+    /**
+     * Unsubscribe from an event
+     * @param {string} event - Event name
+     * @param {Function} callback - Callback function
+     */
+    off(event, callback) {
+        if (!this._callbacks[event]) return;
+        const index = this._callbacks[event].indexOf(callback);
+        if (index > -1) {
+            this._callbacks[event].splice(index, 1);
+        }
+    }
+
+    /**
+     * Emit an event
+     * @private
+     */
+    _emit(event, data) {
+        if (this._callbacks[event]) {
+            this._callbacks[event].forEach(cb => {
+                try {
+                    cb(data);
+                } catch (error) {
+                    console.error(`Error in ${event} callback:`, error);
+                }
+            });
+        }
     }
 
     /**
@@ -29,26 +82,29 @@ class EPUBService {
         try {
             // Clean up previous book
             this._cleanup();
-            
-            // Reset sidebar scroll position immediately
-            const chaptersList = document.getElementById('chapters-list');
-            if (chaptersList) {
-                chaptersList.scrollTop = 0;
-            }
+
+            // ✅ Emit event instead of DOM manipulation
+            this._emit('bookLoadStarted', { filename: file.name });
 
             // Read file as array buffer
             const arrayBuffer = await file.arrayBuffer();
 
             // Parse EPUB using ePub.js
             this.book = ePub(arrayBuffer);
-            
+
             await this.book.ready;
 
-            // Update metadata
+            // Update metadata (now emits events)
             this._updateMetadata();
 
-            // Extract chapters
+            // Extract chapters (now emits events)
             await this._extractChapters();
+
+            // ✅ Emit success event
+            this._emit('bookLoaded', {
+                filename: file.name,
+                chapterCount: this.chapters.length
+            });
 
             // Load first chapter
             if (this.chapters.length > 0) {
@@ -58,99 +114,84 @@ class EPUBService {
             console.log('EPUB loaded successfully');
         } catch (error) {
             console.error('Failed to load EPUB:', error);
-            alert('Failed to load EPUB file. Please check the file format.');
+
+            // ✅ Emit error event instead of alert
+            this._emit('epubError', {
+                code: 'LOAD_FAILED',
+                message: 'Failed to load EPUB file. Please check the file format.',
+                details: error.message
+            });
         }
     }
 
     /**
-     * Update book metadata in UI
+     * Extract and emit book metadata
+     * ✅ REFACTORED: No DOM manipulation, emits event instead
      */
     _updateMetadata() {
         const metadata = this.book.packaging.metadata;
-        
-        const titleEl = document.getElementById('book-title');
-        const authorEl = document.getElementById('book-author');
 
-        if (titleEl) {
-            titleEl.textContent = metadata.title || 'Unknown Title';
-        }
+        const metadataData = {
+            title: metadata.title || 'Unknown Title',
+            author: metadata.creator || 'Unknown Author',
+            publisher: metadata.publisher || '',
+            language: metadata.language || '',
+            publicationDate: metadata.pubdate || '',
+            description: metadata.description || '',
+            rights: metadata.rights || ''
+        };
 
-        if (authorEl) {
-            const author = metadata.creator || 'Unknown Author';
-            authorEl.textContent = author;
-        }
+        // ✅ Emit event for UI to handle
+        this._emit('metadataUpdated', metadataData);
 
-        console.log('Metadata:', {
-            title: metadata.title,
-            author: metadata.creator
-        });
+        console.log('Metadata:', metadataData);
     }
 
     /**
      * Extract chapters from EPUB table of contents
+     * ✅ REFACTORED: No DOM manipulation, emits event instead
      */
     async _extractChapters() {
-        const chaptersList = document.getElementById('chapters-list');
-        if (!chaptersList) {
-            console.warn('Chapters list element not found');
-            return;
-        }
-
-        chaptersList.innerHTML = '';
         this.chapters = [];
-        
-        // Reset scroll position
-        chaptersList.scrollTop = 0;
 
         const toc = await this.book.loaded.navigation.then(nav => nav.toc);
 
         if (!toc || toc.length === 0) {
             console.warn('No chapters found in EPUB');
-            chaptersList.innerHTML = '<div class="chapters-list-empty">No chapters found</div>';
+
+            // ✅ Emit event for empty chapters
+            this._emit('chaptersExtracted', {
+                chapters: [],
+                isEmpty: true
+            });
             return;
         }
 
         // Process each chapter
         for (let i = 0; i < toc.length; i++) {
             const item = toc[i];
-            
+
             this.chapters.push({
                 id: item.id,
                 href: item.href,
                 label: item.label,
                 index: i
             });
-
-            // Create chapter list item
-            const chapterElement = this._createChapterElement(i, item.label);
-            chaptersList.appendChild(chapterElement);
         }
 
         console.log(`Extracted ${this.chapters.length} chapters`);
-        
-        // Show/hide chapter navigation bar
-        this._updateChapterNavBar();
+
+        // ✅ Emit event with chapters data
+        this._emit('chaptersExtracted', {
+            chapters: this.chapters.map(ch => ({ ...ch })), // Return copy
+            isEmpty: false
+        });
     }
 
     /**
-     * Create a chapter list item element
+     * ✅ REMOVED: _createChapterElement - UI layer handles DOM creation now
+     * The UI will subscribe to 'chaptersExtracted' event and create elements
      */
-    _createChapterElement(index, title) {
-        const div = document.createElement('div');
-        div.className = 'chapter-item';
-        div.dataset.index = index;
-
-        div.innerHTML = `
-            <span class="chapter-number">${index + 1}</span>
-            <span class="chapter-title">${this._truncateText(title, 60)}</span>
-        `;
-
-        div.addEventListener('click', () => {
-            this.loadChapter(index);
-        });
-
-        return div;
-    }
 
     /**
      * Load a specific chapter by index
@@ -435,33 +476,20 @@ class EPUBService {
     }
 
     /**
-     * Update active chapter in UI
+     * Update active chapter
+     * ✅ REFACTORED: No DOM manipulation, emits event instead
      */
     _updateActiveChapter(index) {
-        const items = document.querySelectorAll('.chapter-item');
-        items.forEach((item, i) => {
-            if (i === index) {
-                item.classList.add('active');
-                
-                // Scroll sidebar to show active chapter
-                const chaptersList = document.getElementById('chapters-list');
-                if (chaptersList && item) {
-                    // For first chapter, scroll to top
-                    if (index === 0) {
-                        chaptersList.scrollTop = 0;
-                    } else {
-                        // For other chapters, scroll into view
-                        requestAnimationFrame(() => {
-                            item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        });
-                    }
-                }
-            } else {
-                item.classList.remove('active');
-            }
+        // ✅ Emit event with chapter change data
+        this._emit('chapterChanged', {
+            index: index,
+            title: this.chapters[index]?.label || '',
+            isFirst: index === 0,
+            isLast: index >= this.chapters.length - 1,
+            totalChapters: this.chapters.length
         });
-        
-        // Update chapter navigation buttons
+
+        // Update navigation state (also emits event)
         this._updateChapterNavBar();
     }
 
@@ -609,25 +637,18 @@ class EPUBService {
     }
 
     /**
-     * Update chapter navigation bar visibility and button states
+     * Update chapter navigation state
+     * ✅ REFACTORED: No DOM manipulation, emits event instead
      */
     _updateChapterNavBar() {
-        const navBar = document.getElementById('chapter-nav-bar');
-        const prevBtn = document.getElementById('prev-chapter-btn');
-        const nextBtn = document.getElementById('next-chapter-btn');
-        
-        if (!navBar || !prevBtn || !nextBtn) return;
-        
-        // Show bar if there are chapters
-        if (this.chapters.length > 0) {
-            navBar.style.display = 'flex';
-            
-            // Update button states
-            prevBtn.disabled = this.currentChapterIndex <= 0;
-            nextBtn.disabled = this.currentChapterIndex >= this.chapters.length - 1;
-        } else {
-            navBar.style.display = 'none';
-        }
+        // ✅ Emit event with navigation state
+        this._emit('navigationStateChanged', {
+            visible: this.chapters.length > 0,
+            hasPrev: this.currentChapterIndex > 0,
+            hasNext: this.currentChapterIndex < this.chapters.length - 1,
+            currentIndex: this.currentChapterIndex,
+            totalChapters: this.chapters.length
+        });
     }
 
     /**

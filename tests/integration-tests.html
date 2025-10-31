@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cheetah Reader - Integration Tests</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        h1 {
+            color: #1f2937;
+        }
+
+        #test-results {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .test-suite {
+            margin-bottom: 30px;
+        }
+
+        .test-suite h2 {
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+        }
+
+        .test-case {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .test-case.pass {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .test-case.fail {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .test-case.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .test-icon {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .summary {
+            background: #e0e7ff;
+            color: #3730a3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-weight: 600;
+        }
+
+        #reader-test-container {
+            width: 600px;
+            height: 400px;
+            margin: 20px auto;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .error-details {
+            margin-top: 5px;
+            padding: 10px;
+            background: #fef2f2;
+            border-left: 3px solid #dc2626;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🐆 Cheetah Reader - Integration Tests</h1>
+
+    <div id="test-results">
+        <p>Initializing tests...</p>
+    </div>
+
+    <div id="reader-test-container"></div>
+
+    <!-- Load dependencies -->
+    <script src="../config/fonts.js"></script>
+    <script src="../config/themes.js"></script>
+    <script src="../ebook-reader-core.js"></script>
+    <script src="../Renderer.js"></script>
+    <script src="../Animator.js"></script>
+    <script src="../WordTracker.js"></script>
+    <script src="../ebook-reader-engine.js"></script>
+    <script src="../ebook-reader-api.js"></script>
+    <script src="../StateManager.js"></script>
+    <script src="../FontService.js"></script>
+    <script src="../ThemeService.js"></script>
+    <script src="../EPUBService.js"></script>
+    <script src="../SettingsPersistence.js"></script>
+    <script src="../CheetahReaderApp.js"></script>
+
+    <script>
+        // Simple test framework
+        class TestRunner {
+            constructor() {
+                this.suites = [];
+                this.results = {
+                    passed: 0,
+                    failed: 0,
+                    pending: 0
+                };
+            }
+
+            suite(name, tests) {
+                this.suites.push({ name, tests });
+            }
+
+            async run() {
+                const resultsDiv = document.getElementById('test-results');
+                resultsDiv.innerHTML = '<h2>Running Tests...</h2>';
+
+                for (const suite of this.suites) {
+                    const suiteDiv = document.createElement('div');
+                    suiteDiv.className = 'test-suite';
+                    suiteDiv.innerHTML = `<h2>${suite.name}</h2>`;
+
+                    for (const test of suite.tests) {
+                        const testDiv = document.createElement('div');
+                        testDiv.className = 'test-case pending';
+                        testDiv.innerHTML = `<span class="test-icon">⏳</span><span>${test.name}</span>`;
+                        suiteDiv.appendChild(testDiv);
+                        resultsDiv.appendChild(suiteDiv);
+
+                        try {
+                            await test.fn();
+                            testDiv.className = 'test-case pass';
+                            testDiv.innerHTML = `<span class="test-icon">✅</span><span>${test.name}</span>`;
+                            this.results.passed++;
+                        } catch (error) {
+                            testDiv.className = 'test-case fail';
+                            testDiv.innerHTML = `
+                                <span class="test-icon">❌</span>
+                                <span>${test.name}</span>
+                            `;
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'error-details';
+                            errorDiv.textContent = error.message || error.toString();
+                            testDiv.appendChild(errorDiv);
+                            this.results.failed++;
+                            console.error(`Test failed: ${test.name}`, error);
+                        }
+                    }
+                }
+
+                // Add summary
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = 'summary';
+                const total = this.results.passed + this.results.failed;
+                summaryDiv.innerHTML = `
+                    <strong>Test Results:</strong>
+                    ${this.results.passed}/${total} passed
+                    ${this.results.failed > 0 ? `(${this.results.failed} failed)` : '✓'}
+                `;
+                resultsDiv.appendChild(summaryDiv);
+
+                return this.results;
+            }
+        }
+
+        // Test utilities
+        function assert(condition, message) {
+            if (!condition) {
+                throw new Error(message || 'Assertion failed');
+            }
+        }
+
+        function assertEqual(actual, expected, message) {
+            if (actual !== expected) {
+                throw new Error(message || `Expected ${expected}, got ${actual}`);
+            }
+        }
+
+        function assertNotNull(value, message) {
+            if (value === null || value === undefined) {
+                throw new Error(message || 'Value is null or undefined');
+            }
+        }
+
+        function wait(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Initialize test runner
+        const runner = new TestRunner();
+
+        // ============================================================================
+        // TEST SUITE 1: INITIALIZATION
+        // ============================================================================
+        runner.suite('Initialization', [
+            {
+                name: 'Can create CheetahReaderApp instance',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container', {
+                        fontSize: 18,
+                        theme: 'sepia'
+                    });
+                    assertNotNull(app, 'App should be created');
+                    assert(typeof app.loadContent === 'function', 'Should have loadContent method');
+                }
+            },
+            {
+                name: 'StateManager is initialized',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+                    const state = app.getState();
+                    assertNotNull(state, 'State should exist');
+                    assert(typeof state.fontSize === 'number', 'Should have fontSize');
+                }
+            },
+            {
+                name: 'Reader engine is created',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+                    const readerState = app.getReaderState();
+                    assertNotNull(readerState, 'Reader state should exist');
+                    assertEqual(readerState.mode, 'normal', 'Initial mode should be normal');
+                }
+            }
+        ]);
+
+        // ============================================================================
+        // TEST SUITE 2: CONTENT LOADING
+        // ============================================================================
+        runner.suite('Content Loading', [
+            {
+                name: 'Can load HTML content',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+                    const testContent = '<p>Test content for integration testing</p>';
+                    app.loadContent(testContent);
+                    await wait(200);
+                    const content = container.querySelector('.ebook-text-content');
+                    assertNotNull(content, 'Content area should exist');
+                }
+            },
+            {
+                name: 'Can load pasted text',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+                    const testText = 'Plain text content\n\nSecond paragraph';
+                    const formatted = app.loadPastedText(testText);
+                    assert(formatted.includes('<p>'), 'Should format as HTML');
+                }
+            }
+        ]);
+
+        // ============================================================================
+        // TEST SUITE 3: FLOW MODE
+        // ============================================================================
+        runner.suite('Flow Mode', [
+            {
+                name: 'Can enter flow mode',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+                    app.loadContent('<p>Flow mode test content with multiple words</p>');
+                    await wait(200);
+
+                    app.startFlow();
+                    await wait(400);
+
+                    const state = app.getReaderState();
+                    assertEqual(state.mode, 'flow', 'Should be in flow mode');
+                }
+            },
+            {
+                name: 'Can exit flow mode',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+                    app.loadContent('<p>Test content</p>');
+                    await wait(200);
+
+                    app.startFlow();
+                    await wait(300);
+                    app.stopFlow();
+                    await wait(300);
+
+                    const state = app.getReaderState();
+                    assertEqual(state.mode, 'normal', 'Should be back in normal mode');
+                }
+            },
+            {
+                name: 'Play and pause work',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+                    app.loadContent('<p>Play pause test content with enough words</p>');
+                    await wait(200);
+
+                    app.startFlow();
+                    await wait(300);
+                    app.play();
+                    await wait(100);
+
+                    let state = app.getReaderState();
+                    assertEqual(state.playing, true, 'Should be playing');
+
+                    app.pause();
+                    await wait(100);
+
+                    state = app.getReaderState();
+                    assertEqual(state.playing, false, 'Should be paused');
+                }
+            }
+        ]);
+
+        // ============================================================================
+        // TEST SUITE 4: SETTINGS
+        // ============================================================================
+        runner.suite('Settings', [
+            {
+                name: 'Can change font size',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+
+                    app.setFontSize(24);
+                    await wait(100);
+
+                    const state = app.getState();
+                    assertEqual(state.fontSize, 24, 'Font size should be 24');
+                }
+            },
+            {
+                name: 'Can change theme',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+
+                    app.setTheme('dark');
+                    await wait(100);
+
+                    const theme = app.getTheme();
+                    assert(theme === 'dark' || theme.current === 'dark', 'Theme should be dark');
+                }
+            },
+            {
+                name: 'Can change speed',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+
+                    app.setSpeed(500);
+                    await wait(100);
+
+                    const state = app.getState();
+                    assertEqual(state.speed, 500, 'Speed should be 500');
+                }
+            },
+            {
+                name: 'Can toggle bionic mode',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+                    app.loadContent('<p>Bionic test content</p>');
+                    await wait(200);
+
+                    app.toggleBionic();
+                    await wait(100);
+
+                    const state = app.getState();
+                    assertEqual(state.bionic, true, 'Bionic should be enabled');
+                }
+            }
+        ]);
+
+        // ============================================================================
+        // TEST SUITE 5: EVENTS
+        // ============================================================================
+        runner.suite('Events', [
+            {
+                name: 'onModeChange event fires',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+                    app.loadContent('<p>Event test content</p>');
+                    await wait(200);
+
+                    let eventFired = false;
+                    let eventMode = null;
+
+                    app.on('onModeChange', (mode) => {
+                        eventFired = true;
+                        eventMode = mode;
+                    });
+
+                    app.startFlow();
+                    await wait(400);
+
+                    assert(eventFired, 'Event should have fired');
+                    assertEqual(eventMode, 'flow', 'Event should report flow mode');
+                }
+            },
+            {
+                name: 'onPlayChange event fires',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+                    app.loadContent('<p>Play event test content</p>');
+                    await wait(200);
+
+                    let playEvents = [];
+
+                    app.on('onPlayChange', (playing) => {
+                        playEvents.push(playing);
+                    });
+
+                    app.startFlow();
+                    await wait(400);
+                    app.play();
+                    await wait(200);
+
+                    assert(playEvents.length > 0, 'Play events should have fired');
+                }
+            }
+        ]);
+
+        // ============================================================================
+        // TEST SUITE 6: STATE MANAGEMENT
+        // ============================================================================
+        runner.suite('State Management', [
+            {
+                name: 'getState returns current state',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container', {
+                        fontSize: 20,
+                        theme: 'dark',
+                        speed: 450
+                    });
+
+                    const state = app.getState();
+                    assertEqual(state.fontSize, 20, 'Should return fontSize');
+                    assertEqual(state.speed, 450, 'Should return speed');
+                }
+            },
+            {
+                name: 'getReaderState returns reader internals',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+
+                    const readerState = app.getReaderState();
+                    assertNotNull(readerState, 'Reader state should exist');
+                    assert('mode' in readerState, 'Should have mode property');
+                    assert('playing' in readerState, 'Should have playing property');
+                }
+            }
+        ]);
+
+        // ============================================================================
+        // RUN ALL TESTS
+        // ============================================================================
+        (async () => {
+            console.log('🧪 Starting integration tests...');
+            const results = await runner.run();
+            console.log('✅ Tests complete:', results);
+
+            if (results.failed > 0) {
+                console.error(`❌ ${results.failed} test(s) failed`);
+            } else {
+                console.log('🎉 All tests passed!');
+            }
+        })();
+    </script>
+</body>
+</html>

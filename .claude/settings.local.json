@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(for file in COUPLING_ANALYSIS_INDEX.md COUPLING_ANALYSIS.md COUPLING_QUICK_REFERENCE.md REMEDIATION_EXAMPLES.md)",
+      "Bash(do if [ -f /Users/priteshdesai/Developer/eBook-Reader/$file ])",
+      "Bash(then echo '✓ $file')",
+      "Bash(else echo '✗ $file')",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(awk '{print $9, \"\"\"\"(\"\"\"\" $5 \"\"\"\")\"\"\"\"}')"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
