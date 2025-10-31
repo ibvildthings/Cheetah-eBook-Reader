@@ -175,21 +175,24 @@ class Renderer {
             (byLine[k] = byLine[k] || []).push(r);
         });
 
-        const lines = Object.keys(byLine).map(k => byLine[k]);
-        if (lines.length === 0) return;
+        // --- START OF FIX ---
+        // Find the "primary" line (the one with the most active words)
+        // This prevents the highlighter from spanning two lines during a wrap.
+        const primaryLineRects = Object.values(byLine).sort((a, b) => b.length - a.length)[0];
 
-        const bounds = lines.reduce((acc, rects) => {
-            const lineLeft = Math.min(...rects.map(r => r.left));
-            const lineRight = Math.max(...rects.map(r => r.right));
-            const lineTop = rects[0].top;
-            const lineBottom = rects[0].bottom;
-            return {
-                left: Math.min(acc.left, lineLeft),
-                right: Math.max(acc.right, lineRight),
-                top: Math.min(acc.top, lineTop),
-                bottom: Math.max(acc.bottom, lineBottom)
-            };
-        }, { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity });
+        if (!primaryLineRects || primaryLineRects.length === 0) {
+            this.el.focus.classList.remove('visible');
+            return;
+        }
+
+        // Calculate bounds based ONLY on the primary line
+        const bounds = {
+            left: Math.min(...primaryLineRects.map(r => r.left)),
+            right: Math.max(...primaryLineRects.map(r => r.right)),
+            top: primaryLineRects[0].top,
+            bottom: primaryLineRects[0].bottom
+        };
+        // --- END OF FIX ---
 
         const readerRect = this.el.reader.getBoundingClientRect();
         const relLeft = bounds.left - readerRect.left;

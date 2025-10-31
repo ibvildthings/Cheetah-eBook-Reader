@@ -32,6 +32,109 @@ const app = new CheetahReaderApp('#reader', {
 app.loadContent(sampleText);
 
 // ============================================================================
+// SYNC UI WITH LOADED SETTINGS
+// ============================================================================
+// After settings are loaded, update UI controls to match
+function syncUIWithState() {
+    // Font selector
+    const fontSelect = document.getElementById('font-select');
+    if (fontSelect) fontSelect.value = app.state.get('font');
+    
+    // Font size
+    const fontsizeSlider = document.getElementById('fontsize-slider');
+    const fontsizeValue = document.getElementById('fontsize-value');
+    if (fontsizeSlider) {
+        const fontSize = app.state.get('fontSize');
+        fontsizeSlider.value = fontSize;
+        if (fontsizeValue) fontsizeValue.textContent = `${fontSize}px`;
+    }
+    
+    // Line height
+    const lineheightSlider = document.getElementById('lineheight-slider');
+    const lineheightValue = document.getElementById('lineheight-value');
+    if (lineheightSlider) {
+        const lineHeight = app.state.get('lineHeight');
+        lineheightSlider.value = lineHeight;
+        if (lineheightValue) lineheightValue.textContent = lineHeight.toFixed(1);
+    }
+    
+    // Theme
+    const themeSelect = document.getElementById('theme-select');
+    if (themeSelect) themeSelect.value = app.state.get('theme');
+    
+    const themeAuto = document.getElementById('theme-auto');
+    if (themeAuto) {
+        themeAuto.checked = app.state.get('autoTheme');
+        if (themeSelect) themeSelect.disabled = app.state.get('autoTheme');
+    }
+    
+    // Margins
+    const marginLeftSlider = document.getElementById('margin-left-slider');
+    const marginLeftValue = document.getElementById('margin-left-value');
+    if (marginLeftSlider) {
+        const marginL = app.state.get('marginL');
+        marginLeftSlider.value = marginL;
+        if (marginLeftValue) marginLeftValue.textContent = `${marginL}px`;
+    }
+    
+    const marginRightSlider = document.getElementById('margin-right-slider');
+    const marginRightValue = document.getElementById('margin-right-value');
+    if (marginRightSlider) {
+        const marginR = app.state.get('marginR');
+        marginRightSlider.value = marginR;
+        if (marginRightValue) marginRightValue.textContent = `${marginR}px`;
+    }
+    
+    // Bionic
+    const bionicBtn = document.getElementById('btn-bionic');
+    if (bionicBtn && app.state.get('bionic')) {
+        bionicBtn.classList.add('active');
+    }
+    
+    // Bionic strength
+    const bionicStrengthSlider = document.getElementById('bionic-strength-slider');
+    const bionicStrengthValue = document.getElementById('bionic-strength-value');
+    if (bionicStrengthSlider) {
+        const strength = Math.round(app.state.get('bionicStrength') * 100);
+        bionicStrengthSlider.value = strength;
+        if (bionicStrengthValue) bionicStrengthValue.textContent = `${strength}%`;
+    }
+    
+    // Flow speed
+    const speedSlider = document.getElementById('speed-slider');
+    const speedValue = document.getElementById('speed-value');
+    if (speedSlider) {
+        const speed = app.state.get('flow.speed');
+        speedSlider.value = speed;
+        if (speedValue) speedValue.textContent = `${speed} WPM`;
+    }
+    
+    // Flow focus width
+    const focusSlider = document.getElementById('focus-slider');
+    const focusValue = document.getElementById('focus-value');
+    if (focusSlider) {
+        const focus = app.state.get('flow.focusWidth');
+        focusSlider.value = focus;
+        if (focusValue) focusValue.textContent = focus;
+    }
+    
+    // Flow scroll level
+    const scrollSlider = document.getElementById('scroll-slider');
+    const scrollValue = document.getElementById('scroll-value');
+    if (scrollSlider) {
+        const scroll = app.state.get('flow.scrollLevel');
+        scrollSlider.value = scroll;
+        if (scrollValue) scrollValue.textContent = scroll;
+    }
+    
+    updateBionicSliderState();
+    console.log('✅ UI synced with loaded settings');
+}
+
+// Sync UI after a short delay to ensure everything is initialized
+setTimeout(syncUIWithState, 200);
+
+// ============================================================================
 // CONTENT LOADING - EPUB Upload
 // ============================================================================
 document.getElementById('upload-btn')?.addEventListener('click', () => {

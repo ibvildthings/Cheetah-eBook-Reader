@@ -12,26 +12,60 @@ class CheetahReaderApp {
     constructor(selector, options = {}) {
         console.log('🐆 CheetahReaderApp initializing...');
         
-        // STEP 14A: Initialize StateManager with default state
-        this.state = new StateManager({
-            fontSize: options.fontSize || 18,
-            font: options.font || 'opendyslexic',
-            lineHeight: options.lineHeight || 1.8,
-            theme: options.theme || 'sepia',
-            autoTheme: options.autoTheme || false,
-            marginL: options.marginL || 60,
-            marginR: options.marginR || 60,
+        // Initialize persistence manager first (before StateManager)
+        const tempState = new StateManager({});
+        this.persistence = new SettingsPersistence(tempState);
+        
+        // Try to load saved settings
+        const savedSettings = this.persistence.loadSettings() || {};
+        
+        // Merge saved settings with defaults and options (priority: saved > options > defaults)
+        const defaults = {
+            fontSize: 18,
+            font: 'opendyslexic',
+            lineHeight: 1.8,
+            theme: 'sepia',
+            autoTheme: false,
+            marginL: 60,
+            marginR: 60,
             mode: 'normal',
-            bionic: options.bionic || false,
-            bionicStrength: options.bionicStrength || 0.5,
+            bionic: false,
+            bionicStrength: 0.5,
             flow: {
                 playing: false,
-                speed: options.speed || 400,
+                speed: 400,
                 currentWordIndex: 0,
-                focusWidth: options.focusWidth || 2,
-                scrollLevel: options.scrollLevel || 1
+                focusWidth: 2,
+                scrollLevel: 1
+            }
+        };
+        
+        // STEP 14A: Initialize StateManager with merged state
+        this.state = new StateManager({
+            fontSize: savedSettings.fontSize ?? options.fontSize ?? defaults.fontSize,
+            font: savedSettings.font ?? options.font ?? defaults.font,
+            lineHeight: savedSettings.lineHeight ?? options.lineHeight ?? defaults.lineHeight,
+            theme: savedSettings.theme ?? options.theme ?? defaults.theme,
+            autoTheme: savedSettings.autoTheme ?? options.autoTheme ?? defaults.autoTheme,
+            marginL: savedSettings.marginL ?? options.marginL ?? defaults.marginL,
+            marginR: savedSettings.marginR ?? options.marginR ?? defaults.marginR,
+            mode: defaults.mode,
+            bionic: savedSettings.bionic ?? options.bionic ?? defaults.bionic,
+            bionicStrength: savedSettings.bionicStrength ?? options.bionicStrength ?? defaults.bionicStrength,
+            flow: {
+                playing: defaults.flow.playing,
+                speed: savedSettings.flow?.speed ?? options.speed ?? defaults.flow.speed,
+                currentWordIndex: defaults.flow.currentWordIndex,
+                focusWidth: savedSettings.flow?.focusWidth ?? options.focusWidth ?? defaults.flow.focusWidth,
+                scrollLevel: savedSettings.flow?.scrollLevel ?? options.scrollLevel ?? defaults.flow.scrollLevel
             }
         });
+        
+        // Update persistence manager to use the real state manager
+        this.persistence.stateManager = this.state;
+        
+        // Enable auto-save for settings
+        this.persistence.enableAutoSave();
         
         // STEP 14A: Initialize reader with StateManager
         this.reader = new EBookReader(selector, {
@@ -312,6 +346,36 @@ class CheetahReaderApp {
         if (this.reader) {
             this.reader.off(event, callback);
         }
+    }
+    
+    // ========================================
+    // PUBLIC API - SETTINGS PERSISTENCE
+    // ========================================
+    
+    /**
+     * Clear all saved settings
+     */
+    clearSettings() {
+        if (this.persistence) {
+            this.persistence.clearSettings();
+        }
+    }
+    
+    /**
+     * Export settings as JSON string
+     * @returns {string}
+     */
+    exportSettings() {
+        return this.persistence ? this.persistence.exportSettings() : '{}';
+    }
+    
+    /**
+     * Import settings from JSON string
+     * @param {string} jsonString
+     * @returns {boolean}
+     */
+    importSettings(jsonString) {
+        return this.persistence ? this.persistence.importSettings(jsonString) : false;
     }
     
     // ========================================
