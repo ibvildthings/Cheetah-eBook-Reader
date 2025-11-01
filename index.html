@@ -6,10 +6,10 @@
     <title>🐆 Cheetah Reader v3.0</title>
 
     <!-- Reader Engine CSS (framework-agnostic bubble) -->
-    <link rel="stylesheet" href="reader-engine.css">
+    <link rel="stylesheet" href="lib/styles/reader-engine.css">
     <!-- App UI CSS (outer interface) -->
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="chapters-sidebar.css">
+    <link rel="stylesheet" href="web-app/styles/app.css">
+    <link rel="stylesheet" href="web-app/styles/chapters-sidebar.css">
 </head>
 <body>
     <div id="app">
@@ -211,28 +211,31 @@
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.3.0/dist/purify.min.js"></script>
 
     <!-- App Scripts - LOAD IN THIS ORDER -->
-    <!-- STEP 17: Configuration files -->
-    <script src="config/fonts.js"></script>
-    <script src="config/themes.js"></script>
-    <script src="config/defaults.js"></script>
-    
-    <!-- STEP 14C: Added CheetahReaderApp before app.js -->
-    <script src="StateManager.js"></script>
-    <script src="SettingsPersistence.js"></script>
-    <script src="FontService.js"></script>
-    <script src="ThemeService.js"></script>
-    <script src="EPUBService.js"></script>
-    <!-- STEP 16: Core modules -->
-    <script src="WordTracker.js"></script>
-    <script src="Renderer.js"></script>
-    <script src="Animator.js"></script>
-    
-    <script src="ebook-reader-core.js"></script>
-    <script src="ebook-reader-engine.js"></script>
-    <script src="ebook-reader-api.js"></script>
-    <script src="CheetahReaderApp.js"></script>
-    <!-- STEP: Phase 4 - UIController handles all UI interactions -->
-    <script src="UIController.js"></script>
-    <script src="app.js"></script>
+    <!-- Configuration files -->
+    <script src="lib/config/fonts.js"></script>
+    <script src="lib/config/themes.js"></script>
+    <script src="lib/config/defaults.js"></script>
+
+    <!-- Core Library -->
+    <script src="lib/StateManager.js"></script>
+    <script src="lib/services/SettingsPersistence.js"></script>
+    <script src="lib/services/FontService.js"></script>
+    <script src="lib/services/ThemeService.js"></script>
+    <script src="lib/services/EPUBService.js"></script>
+
+    <!-- Core Modules -->
+    <script src="lib/modules/WordTracker.js"></script>
+    <script src="lib/modules/Renderer.js"></script>
+    <script src="lib/modules/Animator.js"></script>
+
+    <!-- Reader Engine -->
+    <script src="lib/ebook-reader-core.js"></script>
+    <script src="lib/ebook-reader-engine.js"></script>
+    <script src="lib/ebook-reader-api.js"></script>
+    <script src="lib/CheetahReaderApp.js"></script>
+
+    <!-- Web App (Vanilla JS) -->
+    <script src="web-app/UIController.js"></script>
+    <script src="web-app/app.js"></script>
 </body>
 </html>
