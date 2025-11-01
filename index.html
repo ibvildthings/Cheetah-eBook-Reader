@@ -95,6 +95,49 @@
                 </div>
 
                 <div class="sidebar-section collapsible">
+                    <h3 class="section-header" data-section="theme">
+                        <span class="section-icon">🎨</span>
+                        <span>Theme</span>
+                        <span class="collapse-arrow">▼</span>
+                    </h3>
+                    <div class="section-content collapsed" data-content="theme">
+                        <div class="control-group">
+                            <label>Color Scheme</label>
+                            <select id="theme-select">
+                                <optgroup label="Light Themes">
+                                    <option value="light">Light</option>
+                                    <option value="sepia" selected>Sepia</option>
+                                    <option value="gray">Gray</option>
+                                    <option value="parchment">Parchment</option>
+                                </optgroup>
+                                <optgroup label="Dark Themes">
+                                    <option value="dark">Dark</option>
+                                    <option value="nord">Nord</option>
+                                    <option value="dracula">Dracula</option>
+                                    <option value="solarized">Solarized Dark</option>
+                                    <option value="monokai">Monokai</option>
+                                    <option value="ocean">Ocean Blue</option>
+                                    <option value="forest">Forest</option>
+                                </optgroup>
+                                <optgroup label="Special">
+                                    <option value="matrix">Matrix</option>
+                                    <option value="terminal">Terminal Green</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="theme-auto">
+                                <span>Auto (System)</span>
+                            </label>
+                        </div>
+                        <div class="btn-group">
+                            <button id="reset-settings-btn" class="reset-btn" title="Reset all settings to defaults">🔄 Reset Settings</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section collapsible">
                     <h3 class="section-header" data-section="typography">
                         <span class="section-icon">🔤</span>
                         <span>Typography</span>
@@ -155,49 +198,6 @@
                         <div class="control-group">
                             <label>Right Margin <span class="control-value" id="margin-right-value">60px</span></label>
                             <input type="range" id="margin-right-slider" min="10" max="400" value="60">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="sidebar-section collapsible">
-                    <h3 class="section-header" data-section="theme">
-                        <span class="section-icon">🎨</span>
-                        <span>Theme</span>
-                        <span class="collapse-arrow">▼</span>
-                    </h3>
-                    <div class="section-content collapsed" data-content="theme">
-                        <div class="control-group">
-                            <label>Color Scheme</label>
-                            <select id="theme-select">
-                                <optgroup label="Light Themes">
-                                    <option value="light">Light</option>
-                                    <option value="sepia" selected>Sepia</option>
-                                    <option value="gray">Gray</option>
-                                    <option value="parchment">Parchment</option>
-                                </optgroup>
-                                <optgroup label="Dark Themes">
-                                    <option value="dark">Dark</option>
-                                    <option value="nord">Nord</option>
-                                    <option value="dracula">Dracula</option>
-                                    <option value="solarized">Solarized Dark</option>
-                                    <option value="monokai">Monokai</option>
-                                    <option value="ocean">Ocean Blue</option>
-                                    <option value="forest">Forest</option>
-                                </optgroup>
-                                <optgroup label="Special">
-                                    <option value="matrix">Matrix</option>
-                                    <option value="terminal">Terminal Green</option>
-                                </optgroup>
-                            </select>
-                        </div>
-                        <div class="control-group">
-                            <label style="display: flex; align-items: center; gap: 8px;">
-                                <input type="checkbox" id="theme-auto">
-                                <span>Auto (System)</span>
-                            </label>
-                        </div>
-                        <div class="btn-group">
-                            <button id="reset-settings-btn" class="reset-btn" title="Reset all settings to defaults">🔄 Reset Settings</button>
                         </div>
                     </div>
                 </div>
