@@ -189,7 +189,7 @@ class CheetahReaderApp {
     }
     
     getTheme() {
-        return this._themeService ? this.themeService.getCurrentTheme() : this.state.get('theme');
+        return this._themeService ? this._themeService.getCurrentTheme() : this._state.get('theme');
     }
     
     // ========================================

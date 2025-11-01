@@ -389,12 +389,15 @@
                     await wait(100);
 
                     const state = app.getState();
-                    assertEqual(state.speed, 500, 'Speed should be 500');
+                    assertEqual(state.flow.speed, 500, 'Speed should be 500');
                 }
             },
             {
                 name: 'Can toggle bionic mode',
                 fn: async () => {
+                    // Clear saved settings to ensure bionic starts as false
+                    localStorage.removeItem('cheetah-reader-settings');
+
                     const container = document.getElementById('reader-test-container');
                     container.innerHTML = '';
                     const app = new CheetahReaderApp('#reader-test-container');
@@ -470,6 +473,9 @@
             {
                 name: 'getState returns current state',
                 fn: async () => {
+                    // Clear saved settings to avoid interference
+                    localStorage.removeItem('cheetah-reader-settings');
+
                     const container = document.getElementById('reader-test-container');
                     container.innerHTML = '';
                     const app = new CheetahReaderApp('#reader-test-container', {
@@ -480,7 +486,7 @@
 
                     const state = app.getState();
                     assertEqual(state.fontSize, 20, 'Should return fontSize');
-                    assertEqual(state.speed, 450, 'Should return speed');
+                    assertEqual(state.flow.speed, 450, 'Should return speed');
                 }
             },
             {
@@ -502,6 +508,10 @@
         // RUN ALL TESTS
         // ============================================================================
         (async () => {
+            // Clear any saved settings before starting tests
+            console.log('🧹 Clearing saved settings...');
+            localStorage.clear();
+
             console.log('🧪 Starting integration tests...');
             const results = await runner.run();
             console.log('✅ Tests complete:', results);
