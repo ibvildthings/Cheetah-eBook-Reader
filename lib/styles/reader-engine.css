@@ -53,25 +53,30 @@
     contain: style;
 }
 
+/* Base flow-word styling (always present for click detection) */
 .flow-word {
-    font-weight: 400;
-    cursor: pointer;
     display: inline;
     position: relative;
+    cursor: pointer;
+}
+
+/* Flow mode specific styling (opacity effects) */
+.ebook-text-content.flow-mode .flow-word {
+    font-weight: 400;
     transition: opacity 0.2s ease;
     will-change: opacity;
     contain: layout style;
 }
 
-.flow-word:hover {
+.ebook-text-content.flow-mode .flow-word:hover {
     opacity: .7;
 }
 
-.flow-word.active {
+.ebook-text-content.flow-mode .flow-word.active {
     opacity: 1;
 }
 
-.flow-word.inactive {
+.ebook-text-content.flow-mode .flow-word.inactive {
     opacity: .2;
 }
 

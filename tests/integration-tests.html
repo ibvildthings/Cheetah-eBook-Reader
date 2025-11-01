@@ -343,6 +343,38 @@
                     state = app.getReaderState();
                     assertEqual(state.playing, false, 'Should be paused');
                 }
+            },
+            {
+                name: 'Click word in normal mode starts flow',
+                fn: async () => {
+                    const container = document.getElementById('reader-test-container');
+                    container.innerHTML = '';
+                    const app = new CheetahReaderApp('#reader-test-container');
+                    app.loadContent('<p>Click this word to start flow mode from here</p>');
+                    await wait(200);
+
+                    // Verify we're in normal mode
+                    let state = app.getReaderState();
+                    assertEqual(state.mode, 'normal', 'Should start in normal mode');
+
+                    // Find a word element (words should be wrapped even in normal mode)
+                    const wordElements = container.querySelectorAll('.flow-word');
+                    assert(wordElements.length > 0, 'Should have wrapped words');
+
+                    // Click the 5th word (index 4)
+                    const wordToClick = wordElements[4];
+                    assertNotNull(wordToClick, 'Word element should exist');
+
+                    // Simulate click
+                    wordToClick.click();
+
+                    // Wait for mode change and flow to start
+                    await wait(500);
+
+                    // Verify we're now in flow mode
+                    state = app.getReaderState();
+                    assertEqual(state.mode, 'flow', 'Should be in flow mode');
+                }
             }
         ]);
 
