@@ -133,8 +133,8 @@
                 this._scrollHandler = () => this._handleScroll();
                 this._systemThemeHandler = (e) => this._handleSystemThemeChange(e);
                 this._wordClickHandler = (e) => this._handleWordClick(e);
-                
-                this._injectStyles();
+
+                // STEP: CSS Separation - styles now loaded via reader-engine.css
                 this._buildDOM();
                 this._attachEventListeners();
                 

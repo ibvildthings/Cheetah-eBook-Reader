@@ -57,80 +57,8 @@
         // PRIVATE METHODS - DOM SETUP
         // ========================================
 
-        _injectStyles() {
-            if (document.getElementById('ebook-reader-styles')) return;
-
-            const style = document.createElement('style');
-            style.id = 'ebook-reader-styles';
-            style.textContent = `
-                .ebook-reader-root {
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    background: #f5f5f5;
-                    overflow: hidden;
-                    touch-action: none;
-                    width: 100%;
-                    height: 100%;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    transition: background 0.3s ease;
-                    contain: layout style;
-                }
-                .ebook-reader-area {
-                    position: relative;
-                    background: #fff;
-                    box-shadow: 0 4px 20px rgba(0,0,0,.1);
-                    overflow-y: auto;
-                    transition: all .3s ease;
-                    max-height: 100vh;
-                    padding: 30px 0;
-                    contain: layout style;
-                }
-                .ebook-text-content {
-                    transition: padding .1s ease-out, opacity .2s ease-in-out, color .3s ease, font-family .2s ease;
-                    position: relative;
-                    min-height: 100%;
-                    padding: 0 60px;
-                    padding-bottom: 60vh;
-                    contain: layout style paint;
-                }
-                .ebook-text-content.transitioning { opacity: .4; }
-                .bionic { 
-                    font-weight: 700;
-                    transition: color 0.3s ease;
-                    contain: style;
-                }
-                .flow-word {
-                    font-weight: 400;
-                    cursor: pointer;
-                    display: inline;
-                    position: relative;
-                    transition: opacity 0.2s ease;
-                    will-change: opacity;
-                    contain: layout style;
-                }
-                .flow-word:hover { opacity: .7; }
-                .flow-word.active {
-                    opacity: 1;
-                }
-                .flow-word.inactive { opacity: .2; }
-                .ebook-focus-indicator {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    pointer-events: none;
-                    z-index: 50;
-                    background: var(--theme-focus, rgba(59,130,246,.08));
-                    display: none;
-                    border-radius: 3px;
-                    transition: background 0.3s ease;
-                    will-change: transform;
-                    contain: layout style paint;
-                }
-                .ebook-focus-indicator.visible { display: block; }
-            `;
-            document.head.appendChild(style);
-        }
+        // STEP: CSS Separation - _injectStyles() removed
+        // Styles now loaded via reader-engine.css in index.html
 
         _buildDOM() {
             this.container.innerHTML = '';
