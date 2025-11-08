@@ -474,15 +474,10 @@ class UIController {
 
         this.app.onMOBI('metadataUpdated', (data) => {
             this._updateMetadataUI(data);
-            // Clear chapters list for MOBI (no chapter support)
-            if (this.elements.chaptersList) {
-                this.elements.chaptersList.innerHTML =
-                    '<div class="chapters-list-empty">No chapters (MOBI format)</div>';
-            }
-            // Hide chapter navigation
-            if (this.elements.chapterNavBar) {
-                this.elements.chapterNavBar.style.display = 'none';
-            }
+        });
+
+        this.app.onMOBI('chaptersExtracted', (data) => {
+            this._renderChaptersList(data);
         });
 
         this.app.onMOBI('mobiError', (data) => {
