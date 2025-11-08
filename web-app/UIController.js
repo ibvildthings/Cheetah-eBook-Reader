@@ -27,9 +27,10 @@ class UIController {
         this._initializeEventListeners();
         this._subscribeToReaderEvents();
 
-        // Wait for services to initialize before subscribing to EPUB events
+        // Wait for services to initialize before subscribing to EPUB/MOBI events
         setTimeout(() => {
             this._subscribeToEPUBEvents();
+            this._subscribeToMOBIEvents();
         }, 200);
 
         // Sync UI with current settings after a delay
@@ -150,7 +151,17 @@ class UIController {
 
         this.elements.epubUpload?.addEventListener('change', (e) => {
             const file = e.target.files[0];
-            if (file) this.app.loadEPUB(file);
+            if (file) {
+                // Determine file type and load accordingly
+                const fileName = file.name.toLowerCase();
+                if (fileName.endsWith('.mobi')) {
+                    this.app.loadMOBI(file);
+                } else if (fileName.endsWith('.epub')) {
+                    this.app.loadEPUB(file);
+                } else {
+                    alert('Unsupported file type. Please upload a .epub or .mobi file.');
+                }
+            }
         });
 
         this.elements.pasteBtn?.addEventListener('click', async () => {
@@ -452,6 +463,42 @@ class UIController {
         });
 
         console.log('✅ EPUB event listeners set up successfully');
+    }
+
+    /**
+     * Subscribe to MOBI events
+     * @private
+     */
+    _subscribeToMOBIEvents() {
+        console.log('🔌 Setting up MOBI event listeners...');
+
+        this.app.onMOBI('metadataUpdated', (data) => {
+            this._updateMetadataUI(data);
+            // Clear chapters list for MOBI (no chapter support)
+            if (this.elements.chaptersList) {
+                this.elements.chaptersList.innerHTML =
+                    '<div class="chapters-list-empty">No chapters (MOBI format)</div>';
+            }
+            // Hide chapter navigation
+            if (this.elements.chapterNavBar) {
+                this.elements.chapterNavBar.style.display = 'none';
+            }
+        });
+
+        this.app.onMOBI('mobiError', (data) => {
+            console.error('❌ MOBI error:', data);
+            alert(data.message);
+        });
+
+        this.app.onMOBI('bookLoadStarted', (data) => {
+            console.log('⏳ Loading MOBI:', data.filename);
+        });
+
+        this.app.onMOBI('bookLoaded', (data) => {
+            console.log('✅ MOBI loaded:', data);
+        });
+
+        console.log('✅ MOBI event listeners set up successfully');
     }
 
     /**

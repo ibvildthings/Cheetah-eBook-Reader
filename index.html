@@ -20,12 +20,12 @@
                 <div class="book-metadata">
                     <div class="book-cover-placeholder">🐆</div>
                     <h2 id="book-title">No Book Loaded</h2>
-                    <p id="book-author">Upload an EPUB to begin</p>
+                    <p id="book-author">Upload an EPUB or MOBI to begin</p>
                 </div>
 
                 <div class="upload-section">
-                    <input type="file" id="epub-upload" accept=".epub" style="display: none;">
-                    <button id="upload-btn" class="upload-btn">Upload EPUB</button>
+                    <input type="file" id="epub-upload" accept=".epub,.mobi" style="display: none;">
+                    <button id="upload-btn" class="upload-btn">Upload eBook</button>
                     <button id="paste-btn" class="upload-btn paste-btn">Paste Text</button>
                 </div>
 
@@ -210,6 +210,11 @@
     <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.3.0/dist/purify.min.js"></script>
 
+    <!-- MOBI Support Libraries -->
+    <script src="lib/vendor/bufferpack.js"></script>
+    <script src="lib/vendor/locmap.js"></script>
+    <script src="lib/vendor/mobiread.js"></script>
+
     <!-- App Scripts - LOAD IN THIS ORDER -->
     <!-- Configuration files -->
     <script src="lib/config/fonts.js"></script>
@@ -222,6 +227,7 @@
     <script src="lib/services/FontService.js"></script>
     <script src="lib/services/ThemeService.js"></script>
     <script src="lib/services/EPUBService.js"></script>
+    <script src="lib/services/MOBIService.js"></script>
 
     <!-- Core Modules -->
     <script src="lib/modules/WordTracker.js"></script>
