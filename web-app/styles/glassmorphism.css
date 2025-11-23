@@ -1,0 +1,622 @@
+/**
+ * Glassmorphism Theme for Cheetah Reader
+ * Inspired by macOS Big Sur/Monterey, iOS, and Windows Vista Aero
+ *
+ * Features:
+ * - Frosted glass with backdrop blur
+ * - Semi-transparent layered panels
+ * - Soft shadows and glows
+ * - Smooth animations
+ * - Modern color palette with vibrancy
+ */
+
+/* ============================================
+   CSS VARIABLES - Glass Design System
+   ============================================ */
+
+:root {
+    /* Glass Materials */
+    --glass-bg-light: rgba(255, 255, 255, 0.7);
+    --glass-bg-dark: rgba(26, 26, 26, 0.7);
+    --glass-bg-sidebar: rgba(20, 20, 30, 0.75);
+    --glass-bg-panel: rgba(255, 255, 255, 0.08);
+    --glass-bg-hover: rgba(255, 255, 255, 0.12);
+    --glass-bg-active: rgba(96, 165, 250, 0.25);
+
+    /* Blur Strength */
+    --glass-blur-heavy: blur(40px);
+    --glass-blur-medium: blur(20px);
+    --glass-blur-light: blur(10px);
+
+    /* Borders - Subtle translucent edges */
+    --glass-border-light: rgba(255, 255, 255, 0.18);
+    --glass-border-dark: rgba(0, 0, 0, 0.1);
+    --glass-border-accent: rgba(96, 165, 250, 0.4);
+
+    /* Shadows - Soft depth */
+    --glass-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --glass-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+    --glass-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
+    --glass-shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.2);
+
+    /* Glows - Vista-inspired */
+    --glass-glow-blue: 0 0 20px rgba(96, 165, 250, 0.3);
+    --glass-glow-accent: 0 0 30px rgba(96, 165, 250, 0.2);
+
+    /* Gradient Overlays */
+    --glass-gradient-top: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.1) 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    --glass-gradient-shine: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.15) 0%,
+        rgba(255, 255, 255, 0.05) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+
+    /* Colors */
+    --glass-text-primary: #e8e8e8;
+    --glass-text-secondary: #a0a0a0;
+    --glass-accent: #60a5fa;
+    --glass-accent-hover: #3b82f6;
+}
+
+/* ============================================
+   BODY & APP CONTAINER
+   ============================================ */
+
+body {
+    background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+    background-attachment: fixed;
+    overflow: hidden;
+}
+
+#app {
+    position: relative;
+}
+
+/* Ambient glow effect behind app */
+#app::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(
+        circle at 30% 50%,
+        rgba(96, 165, 250, 0.08) 0%,
+        transparent 50%
+    );
+    pointer-events: none;
+    z-index: 0;
+    animation: ambientGlow 20s ease-in-out infinite alternate;
+}
+
+@keyframes ambientGlow {
+    0% { transform: translate(0, 0) scale(1); }
+    100% { transform: translate(5%, 5%) scale(1.1); }
+}
+
+/* ============================================
+   SIDEBARS - Frosted Glass Panels
+   ============================================ */
+
+#sidebar,
+#chapters-sidebar {
+    background: var(--glass-bg-sidebar);
+    backdrop-filter: var(--glass-blur-heavy);
+    -webkit-backdrop-filter: var(--glass-blur-heavy);
+    border: 1px solid var(--glass-border-light);
+    box-shadow: var(--glass-shadow-lg);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Glass shine overlay on sidebars */
+#sidebar::before,
+#chapters-sidebar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 200px;
+    background: var(--glass-gradient-shine);
+    pointer-events: none;
+    z-index: 1;
+}
+
+#sidebar::after,
+#chapters-sidebar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 1px;
+    background: linear-gradient(
+        180deg,
+        transparent 0%,
+        var(--glass-border-light) 20%,
+        var(--glass-border-light) 80%,
+        transparent 100%
+    );
+}
+
+#chapters-sidebar {
+    border-right: 1px solid var(--glass-border-light);
+}
+
+.sidebar-content,
+.chapters-content {
+    position: relative;
+    z-index: 2;
+}
+
+/* ============================================
+   SIDEBAR SECTIONS - Glass Cards
+   ============================================ */
+
+.sidebar-section,
+.book-metadata {
+    background: var(--glass-bg-panel);
+    backdrop-filter: var(--glass-blur-light);
+    -webkit-backdrop-filter: var(--glass-blur-light);
+    border: 1px solid var(--glass-border-light);
+    border-radius: 12px;
+    box-shadow: var(--glass-shadow-sm);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.sidebar-section::before,
+.book-metadata::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        var(--glass-border-light) 50%,
+        transparent 100%
+    );
+}
+
+.sidebar-section:hover,
+.book-metadata:hover {
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border-accent);
+    box-shadow: var(--glass-shadow-md), var(--glass-glow-blue);
+    transform: translateY(-2px);
+}
+
+/* Section Headers with glass effect */
+.section-header {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
+    border-bottom: 1px solid transparent;
+}
+
+.section-header:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-bottom-color: var(--glass-border-light);
+}
+
+/* ============================================
+   BUTTONS - Glass Material Design
+   ============================================ */
+
+button {
+    background: var(--glass-bg-panel);
+    backdrop-filter: var(--glass-blur-light);
+    -webkit-backdrop-filter: var(--glass-blur-light);
+    border: 1px solid var(--glass-border-light);
+    border-radius: 8px;
+    box-shadow: var(--glass-shadow-sm);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Glass shine effect on buttons */
+button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.2) 50%,
+        transparent 100%
+    );
+    transition: left 0.5s ease;
+}
+
+button:hover::before {
+    left: 100%;
+}
+
+button:hover {
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border-accent);
+    box-shadow: var(--glass-shadow-md), var(--glass-glow-blue);
+    transform: translateY(-2px);
+}
+
+button:active {
+    transform: translateY(0);
+    box-shadow: var(--glass-shadow-sm);
+}
+
+button.active {
+    background: var(--glass-bg-active);
+    border-color: var(--glass-accent);
+    box-shadow: var(--glass-shadow-md), var(--glass-glow-accent);
+    color: #fff;
+}
+
+/* Upload buttons - Accent glass */
+.upload-btn {
+    background: rgba(96, 165, 250, 0.2);
+    border: 1px solid rgba(96, 165, 250, 0.4);
+    box-shadow: var(--glass-shadow-md), var(--glass-glow-blue);
+}
+
+.upload-btn:hover {
+    background: rgba(96, 165, 250, 0.3);
+    border-color: rgba(96, 165, 250, 0.6);
+    box-shadow: var(--glass-shadow-lg), var(--glass-glow-accent);
+}
+
+.paste-btn {
+    background: rgba(74, 85, 104, 0.2);
+    border: 1px solid rgba(74, 85, 104, 0.4);
+}
+
+.paste-btn:hover {
+    background: rgba(74, 85, 104, 0.3);
+    border-color: rgba(74, 85, 104, 0.6);
+}
+
+/* ============================================
+   INPUTS & CONTROLS - Glass Style
+   ============================================ */
+
+select {
+    background: var(--glass-bg-panel);
+    backdrop-filter: var(--glass-blur-light);
+    -webkit-backdrop-filter: var(--glass-blur-light);
+    border: 1px solid var(--glass-border-light);
+    border-radius: 8px;
+    box-shadow: var(--glass-shadow-sm);
+    transition: all 0.3s ease;
+}
+
+select:hover {
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-border-accent);
+}
+
+select:focus {
+    outline: none;
+    border-color: var(--glass-accent);
+    box-shadow: var(--glass-shadow-md), var(--glass-glow-blue);
+}
+
+/* Range Sliders - Glass Track */
+input[type="range"] {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border-light);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    background: var(--glass-accent);
+    box-shadow: 0 2px 8px rgba(96, 165, 250, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 4px 12px rgba(96, 165, 250, 0.6),
+                0 0 0 2px rgba(255, 255, 255, 0.2),
+                var(--glass-glow-blue);
+}
+
+input[type="range"]::-moz-range-thumb {
+    background: var(--glass-accent);
+    box-shadow: 0 2px 8px rgba(96, 165, 250, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+    transition: all 0.2s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 4px 12px rgba(96, 165, 250, 0.6),
+                0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+
+/* ============================================
+   CHAPTERS LIST - Glass Items
+   ============================================ */
+
+.chapter-item {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(5px);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chapter-item:hover {
+    background: var(--glass-bg-panel);
+    border-color: var(--glass-border-light);
+    box-shadow: var(--glass-shadow-sm);
+    transform: translateX(4px);
+}
+
+.chapter-item.active {
+    background: var(--glass-bg-active);
+    border-color: var(--glass-accent);
+    box-shadow: var(--glass-shadow-md), var(--glass-glow-blue);
+}
+
+/* ============================================
+   READER CONTAINER - Glass Background
+   ============================================ */
+
+#reader-container {
+    background: rgba(245, 245, 245, 0.5);
+    backdrop-filter: var(--glass-blur-light);
+    position: relative;
+}
+
+.ebook-reader-root {
+    background: transparent;
+}
+
+.ebook-reader-area {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: var(--glass-blur-medium);
+    -webkit-backdrop-filter: var(--glass-blur-medium);
+    border: 1px solid var(--glass-border-light);
+    border-radius: 16px;
+    box-shadow: var(--glass-shadow-xl);
+}
+
+/* ============================================
+   CHAPTER NAVIGATION BAR - Glass Bar
+   ============================================ */
+
+.chapter-nav-bar {
+    background: var(--glass-bg-sidebar);
+    backdrop-filter: var(--glass-blur-heavy);
+    -webkit-backdrop-filter: var(--glass-blur-heavy);
+    border-top: 1px solid var(--glass-border-light);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.chapter-nav-btn {
+    background: var(--glass-bg-panel);
+    backdrop-filter: var(--glass-blur-light);
+    border: 1px solid var(--glass-border-light);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.chapter-nav-btn:hover:not(:disabled) {
+    background: var(--glass-bg-hover);
+    border-color: var(--glass-accent);
+    box-shadow: var(--glass-shadow-md), var(--glass-glow-blue);
+    transform: translateY(-2px);
+}
+
+/* ============================================
+   TOGGLES & ICONS - Glass Polish
+   ============================================ */
+
+.sidebar-toggle,
+.chapters-toggle {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border-light);
+    transition: all 0.3s ease;
+}
+
+.sidebar-toggle:hover,
+.chapters-toggle:hover {
+    background: var(--glass-bg-panel);
+    border-color: var(--glass-border-accent);
+    box-shadow: var(--glass-shadow-sm), var(--glass-glow-blue);
+    transform: scale(1.1);
+}
+
+/* ============================================
+   BOOK COVER - Glass Container
+   ============================================ */
+
+.book-cover-placeholder {
+    background: var(--glass-bg-panel);
+    backdrop-filter: var(--glass-blur-light);
+    border: 1px solid var(--glass-border-light);
+    box-shadow: var(--glass-shadow-md);
+    position: relative;
+    overflow: hidden;
+}
+
+.book-cover-placeholder::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: var(--glass-gradient-shine);
+    animation: coverShine 3s ease-in-out infinite;
+}
+
+@keyframes coverShine {
+    0%, 100% { transform: rotate(0deg); opacity: 0.3; }
+    50% { transform: rotate(180deg); opacity: 0.6; }
+}
+
+/* ============================================
+   SCROLLBARS - Glass Style
+   ============================================ */
+
+#sidebar::-webkit-scrollbar,
+#chapters-sidebar::-webkit-scrollbar,
+.chapters-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+#sidebar::-webkit-scrollbar-track,
+#chapters-sidebar::-webkit-scrollbar-track,
+.chapters-list::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+#sidebar::-webkit-scrollbar-thumb,
+#chapters-sidebar::-webkit-scrollbar-thumb,
+.chapters-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+#sidebar::-webkit-scrollbar-thumb:hover,
+#chapters-sidebar::-webkit-scrollbar-thumb:hover,
+.chapters-list::-webkit-scrollbar-thumb:hover {
+    background: rgba(96, 165, 250, 0.3);
+    box-shadow: var(--glass-glow-blue);
+}
+
+/* ============================================
+   DRAG ZONES - Glass Indicators
+   ============================================ */
+
+.margin-drag-zone {
+    border: 1px dashed transparent;
+    transition: all 0.3s ease;
+}
+
+.margin-drag-zone:hover {
+    background: rgba(96, 165, 250, 0.1);
+    backdrop-filter: blur(5px);
+    border-color: rgba(96, 165, 250, 0.3);
+    box-shadow: inset 0 0 20px rgba(96, 165, 250, 0.2);
+}
+
+.margin-drag-zone.dragging {
+    background: rgba(96, 165, 250, 0.15);
+    backdrop-filter: blur(10px);
+    border-color: rgba(96, 165, 250, 0.5);
+    box-shadow: inset 0 0 30px rgba(96, 165, 250, 0.3),
+                var(--glass-glow-blue);
+}
+
+/* ============================================
+   RESET BUTTON - Glass Warning Style
+   ============================================ */
+
+.reset-btn {
+    background: rgba(220, 38, 38, 0.2) !important;
+    border: 1px solid rgba(220, 38, 38, 0.4) !important;
+    box-shadow: 0 2px 8px rgba(220, 38, 38, 0.2);
+}
+
+.reset-btn:hover {
+    background: rgba(220, 38, 38, 0.3) !important;
+    border-color: rgba(220, 38, 38, 0.6) !important;
+    box-shadow: 0 4px 16px rgba(220, 38, 38, 0.4);
+}
+
+/* ============================================
+   ANIMATIONS - Smooth Transitions
+   ============================================ */
+
+/* Fade in animation for sidebar sections */
+.sidebar-section,
+.chapter-item {
+    animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Stagger animation for chapter items */
+.chapter-item:nth-child(1) { animation-delay: 0.05s; }
+.chapter-item:nth-child(2) { animation-delay: 0.1s; }
+.chapter-item:nth-child(3) { animation-delay: 0.15s; }
+.chapter-item:nth-child(4) { animation-delay: 0.2s; }
+.chapter-item:nth-child(5) { animation-delay: 0.25s; }
+
+/* Pulse animation for active elements */
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: var(--glass-shadow-md), 0 0 0 0 rgba(96, 165, 250, 0.4);
+    }
+    50% {
+        box-shadow: var(--glass-shadow-md), 0 0 0 8px rgba(96, 165, 250, 0);
+    }
+}
+
+button.active {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
+@media (max-width: 768px) {
+    #sidebar,
+    #chapters-sidebar {
+        backdrop-filter: var(--glass-blur-medium);
+    }
+
+    .sidebar-section,
+    .book-metadata {
+        backdrop-filter: blur(5px);
+    }
+}
+
+/* ============================================
+   ACCESSIBILITY - Reduced Motion
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    #app::before {
+        animation: none;
+    }
+
+    .book-cover-placeholder::before {
+        animation: none;
+    }
+}

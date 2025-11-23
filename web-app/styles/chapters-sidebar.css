@@ -4,7 +4,7 @@
 
 #chapters-sidebar {
     width: 280px;
-    background: #1a1a1a;
+    /* background and border set by glassmorphism.css */
     color: #e8e8e8;
     overflow-y: auto;
     display: flex;
@@ -12,7 +12,6 @@
     transition: width 0.3s ease;
     position: relative;
     flex-shrink: 0;
-    border-right: 1px solid #2a2a2a;
 }
 
 #chapters-sidebar.collapsed {
@@ -70,7 +69,7 @@
     align-items: center;
     gap: 12px;
     padding: 20px 10px;
-    background: #242424;
+    /* background set by glassmorphism.css */
     border-radius: 8px;
 }
 

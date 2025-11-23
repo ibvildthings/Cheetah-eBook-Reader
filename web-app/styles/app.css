@@ -9,6 +9,7 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow: hidden;
     height: 100vh;
+    /* Background is set by glassmorphism.css */
 }
 
 #app {
@@ -25,7 +26,7 @@ body {
 
 #sidebar {
     width: 320px;
-    background: #1a1a1a;
+    /* background set by glassmorphism.css */
     color: #e8e8e8;
     overflow-y: auto;
     display: flex;
@@ -85,8 +86,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    background: #242424;
-    border: 1px solid #2a2a2a;
+    /* background and border set by glassmorphism.css */
     border-radius: 8px;
     padding: 16px;
     transition: all 0.2s ease;
@@ -217,8 +217,7 @@ input[type="range"]::-moz-range-thumb {
 button {
     flex: 1;
     padding: 10px 16px;
-    border: 1px solid #2a2a2a;
-    background: #2a2a2a;
+    /* background and border set by glassmorphism.css */
     color: #e8e8e8;
     border-radius: 6px;
     cursor: pointer;
@@ -241,8 +240,7 @@ button.active {
 select {
     width: 100%;
     padding: 10px 12px;
-    border: 1px solid #2a2a2a;
-    background: #2a2a2a;
+    /* background and border set by glassmorphism.css */
     color: #e8e8e8;
     border-radius: 6px;
     cursor: pointer;
@@ -278,16 +276,7 @@ select {
     border-color: rgba(59, 130, 246, 0.4);
 }
 
-select {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #2a2a2a;
-    background: #2a2a2a;
-    color: #e8e8e8;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-}
+/* select styles moved above, removed duplicate */
 
 select:disabled {
     opacity: 0.5;
