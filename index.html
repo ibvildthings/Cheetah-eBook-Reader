@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1e1e2e">
     <title>🐆 Cheetah Reader v3.0</title>
 
     <!-- Reader Engine CSS (framework-agnostic bubble) -->
@@ -12,23 +13,24 @@
     <link rel="stylesheet" href="web-app/styles/chapters-sidebar.css">
     <!-- Glassmorphism Theme -->
     <link rel="stylesheet" href="web-app/styles/glassmorphism.css">
+    <!-- Responsive overrides (must load last) -->
+    <link rel="stylesheet" href="web-app/styles/responsive.css">
 </head>
 <body>
     <div id="app">
         <!-- Left Sidebar: Chapters Navigation -->
-        <div id="chapters-sidebar">
-            <button id="chapters-toggle" class="chapters-toggle">☰</button>
+        <div id="chapters-sidebar" aria-label="Book and chapters">
             <div class="chapters-content">
                 <div class="book-metadata">
-                    <div class="book-cover-placeholder">🐆</div>
-                    <h2 id="book-title">No Book Loaded</h2>
-                    <p id="book-author">Upload an EPUB to begin</p>
+                    <div class="book-cover-placeholder" aria-hidden="true">🐆</div>
+                    <h2 id="book-title">No book loaded</h2>
+                    <p id="book-author">Drag an EPUB anywhere to begin</p>
                 </div>
 
                 <div class="upload-section">
-                    <input type="file" id="epub-upload" accept=".epub" style="display: none;">
+                    <input type="file" id="epub-upload" accept=".epub" hidden>
                     <button id="upload-btn" class="upload-btn">Upload EPUB</button>
-                    <button id="paste-btn" class="upload-btn paste-btn">Paste Text</button>
+                    <button id="paste-btn" class="upload-btn paste-btn">Paste text</button>
                 </div>
 
                 <div class="chapters-list" id="chapters-list">
@@ -39,115 +41,66 @@
 
         <!-- Center: Reader Content -->
         <div id="reader-container">
+            <div id="reading-progress" class="reading-progress" hidden>
+                <div class="reading-progress-track">
+                    <div id="reading-progress-fill" class="reading-progress-fill"></div>
+                </div>
+                <div class="reading-progress-label"><span id="progress-label">&mdash;</span></div>
+            </div>
+
             <div class="margin-drag-zone margin-drag-zone-left" id="drag-left"></div>
             <div class="margin-drag-zone margin-drag-zone-right" id="drag-right"></div>
             <div id="reader"></div>
-            
+
             <!-- Chapter Navigation Bar -->
             <div id="chapter-nav-bar" class="chapter-nav-bar" style="display: none;">
-                <button id="prev-chapter-btn" class="chapter-nav-btn">← Previous</button>
-                <button id="next-chapter-btn" class="chapter-nav-btn">Next →</button>
+                <button id="prev-chapter-btn" class="chapter-nav-btn">&larr; Previous</button>
+                <span id="chapter-nav-status" class="chapter-nav-status" aria-live="polite"></span>
+                <button id="next-chapter-btn" class="chapter-nav-btn">Next &rarr;</button>
+            </div>
+
+            <!-- Drag-and-drop overlay -->
+            <div id="drop-overlay" class="drop-overlay" hidden>
+                <div class="drop-overlay-inner">
+                    <div class="drop-overlay-icon" aria-hidden="true">📖</div>
+                    <p>Drop your EPUB to start reading</p>
+                </div>
             </div>
         </div>
 
         <!-- Right Sidebar: Settings -->
-        <div id="sidebar">
-            <button id="sidebar-toggle" class="sidebar-toggle">⚙️</button>
+        <div id="sidebar" aria-label="Reading settings">
             <div class="sidebar-content">
                 <div class="sidebar-section collapsible">
                     <h3 class="section-header" data-section="reading-mode">
-                        <span class="section-icon">📖</span>
-                        <span>Reading Mode</span>
-                        <span class="collapse-arrow">▼</span>
+                        <span class="section-icon" aria-hidden="true">📖</span>
+                        <span>Reading</span>
+                        <span class="collapse-arrow" aria-hidden="true">▼</span>
                     </h3>
                     <div class="section-content" data-content="reading-mode">
                         <div class="btn-group">
-                            <button id="btn-flow">▶ Start Flow</button>
+                            <button id="btn-flow" title="Auto-scroll and highlight words at your reading pace (Space)">▶ Start Flow</button>
                         </div>
                         <div class="btn-group">
-                            <button id="btn-bionic">🐆 BioVision</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="sidebar-section collapsible">
-                    <h3 class="section-header" data-section="flow-controls">
-                        <span class="section-icon">⚡</span>
-                        <span>Flow Controls</span>
-                        <span class="collapse-arrow">▼</span>
-                    </h3>
-                    <div class="section-content collapsed" data-content="flow-controls">
-                        <div class="control-group">
-                            <label>Speed <span class="control-value" id="speed-value">400 WPM</span></label>
-                            <input type="range" id="speed-slider" min="100" max="650" value="400">
+                            <button id="btn-bionic" title="Bold the first part of each word to pull your eye along the line">🐆 BioVision</button>
                         </div>
                         <div class="control-group">
-                            <label>Focus Width <span class="control-value" id="focus-value">2</span></label>
-                            <input type="range" id="focus-slider" min="1" max="5" value="2">
-                        </div>
-                        <div class="control-group">
-                            <label>Scroll Level <span class="control-value" id="scroll-value">1</span></label>
-                            <input type="range" id="scroll-slider" min="1" max="5" value="1">
-                        </div>
-                        <div class="control-group">
-                            <label>Bionic Strength <span class="control-value" id="bionic-strength-value">50%</span></label>
-                            <input type="range" id="bionic-strength-slider" min="20" max="70" value="50">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="sidebar-section collapsible">
-                    <h3 class="section-header" data-section="theme">
-                        <span class="section-icon">🎨</span>
-                        <span>Theme</span>
-                        <span class="collapse-arrow">▼</span>
-                    </h3>
-                    <div class="section-content collapsed" data-content="theme">
-                        <div class="control-group">
-                            <label>Color Scheme</label>
-                            <select id="theme-select">
-                                <optgroup label="Light Themes">
-                                    <option value="light">Light</option>
-                                    <option value="sepia" selected>Sepia</option>
-                                    <option value="gray">Gray</option>
-                                    <option value="parchment">Parchment</option>
-                                </optgroup>
-                                <optgroup label="Dark Themes">
-                                    <option value="dark">Dark</option>
-                                    <option value="nord">Nord</option>
-                                    <option value="dracula">Dracula</option>
-                                    <option value="solarized">Solarized Dark</option>
-                                    <option value="monokai">Monokai</option>
-                                    <option value="ocean">Ocean Blue</option>
-                                    <option value="forest">Forest</option>
-                                </optgroup>
-                                <optgroup label="Special">
-                                    <option value="matrix">Matrix</option>
-                                    <option value="terminal">Terminal Green</option>
-                                </optgroup>
-                            </select>
-                        </div>
-                        <div class="control-group">
-                            <label style="display: flex; align-items: center; gap: 8px;">
-                                <input type="checkbox" id="theme-auto">
-                                <span>Auto (System)</span>
-                            </label>
-                        </div>
-                        <div class="btn-group">
-                            <button id="reset-settings-btn" class="reset-btn" title="Reset all settings to defaults">🔄 Reset Settings</button>
+                            <label for="speed-slider">Flow speed <span class="control-value" id="speed-value">400 WPM</span></label>
+                            <input type="range" id="speed-slider" min="100" max="650" value="400" step="10">
+                            <div class="slider-scale" aria-hidden="true"><span>Slower</span><span>Faster</span></div>
                         </div>
                     </div>
                 </div>
 
                 <div class="sidebar-section collapsible">
                     <h3 class="section-header" data-section="typography">
-                        <span class="section-icon">🔤</span>
+                        <span class="section-icon" aria-hidden="true">🔤</span>
                         <span>Typography</span>
-                        <span class="collapse-arrow">▼</span>
+                        <span class="collapse-arrow" aria-hidden="true">▼</span>
                     </h3>
-                    <div class="section-content collapsed" data-content="typography">
+                    <div class="section-content" data-content="typography">
                         <div class="control-group">
-                            <label>Font Family</label>
+                            <label for="font-select">Font family</label>
                             <select id="font-select">
                                 <optgroup label="Serif">
                                     <option value="georgia">Georgia</option>
@@ -176,35 +129,82 @@
                             </select>
                         </div>
                         <div class="control-group">
-                            <label>Font Size <span class="control-value" id="fontsize-value">18px</span></label>
+                            <label for="fontsize-slider">Font size <span class="control-value" id="fontsize-value">18px</span></label>
                             <input type="range" id="fontsize-slider" min="12" max="48" value="18">
-                        </div>
-                        <div class="control-group">
-                            <label>Line Height <span class="control-value" id="lineheight-value">1.7</span></label>
-                            <input type="range" id="lineheight-slider" min="1.0" max="3.0" step="0.1" value="1.7">
+                            <div class="slider-scale" aria-hidden="true"><span>12</span><span>48</span></div>
                         </div>
                     </div>
                 </div>
 
                 <div class="sidebar-section collapsible">
-                    <h3 class="section-header" data-section="layout">
-                        <span class="section-icon">📐</span>
-                        <span>Layout</span>
-                        <span class="collapse-arrow">▼</span>
+                    <h3 class="section-header" data-section="theme">
+                        <span class="section-icon" aria-hidden="true">🎨</span>
+                        <span>Theme</span>
+                        <span class="collapse-arrow" aria-hidden="true">▼</span>
                     </h3>
-                    <div class="section-content collapsed" data-content="layout">
+                    <div class="section-content" data-content="theme">
                         <div class="control-group">
-                            <label>Left Margin <span class="control-value" id="margin-left-value">60px</span></label>
+                            <span class="control-label" id="theme-picker-label">Color scheme</span>
+                            <div id="theme-picker" class="theme-picker" role="radiogroup" aria-labelledby="theme-picker-label">
+                                <!-- Swatches are built from the THEMES registry by UIController -->
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="theme-auto">
+                                <span>Match system light / dark</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section collapsible">
+                    <h3 class="section-header collapsed" data-section="advanced">
+                        <span class="section-icon" aria-hidden="true">⚙️</span>
+                        <span>Advanced</span>
+                        <span class="collapse-arrow" aria-hidden="true">▼</span>
+                    </h3>
+                    <div class="section-content collapsed" data-content="advanced">
+                        <div class="control-group">
+                            <label for="focus-slider">Focus width <span class="control-value" id="focus-value">2</span></label>
+                            <input type="range" id="focus-slider" min="1" max="5" value="2">
+                            <p class="hint">How many words light up at once during Flow.</p>
+                        </div>
+                        <div class="control-group">
+                            <label for="scroll-slider">Scroll pacing <span class="control-value" id="scroll-value">1</span></label>
+                            <input type="range" id="scroll-slider" min="1" max="5" value="1">
+                            <p class="hint">How eagerly the page follows the current line.</p>
+                        </div>
+                        <div class="control-group">
+                            <label for="bionic-strength-slider">BioVision strength <span class="control-value" id="bionic-strength-value">50%</span></label>
+                            <input type="range" id="bionic-strength-slider" min="20" max="70" value="50">
+                            <p class="hint">Fraction of each word that gets bolded.</p>
+                        </div>
+                        <div class="control-group">
+                            <label for="lineheight-slider">Line height <span class="control-value" id="lineheight-value">1.7</span></label>
+                            <input type="range" id="lineheight-slider" min="1.0" max="3.0" step="0.1" value="1.7">
+                        </div>
+                        <div class="control-group">
+                            <label for="margin-left-slider">Left margin <span class="control-value" id="margin-left-value">60px</span></label>
                             <input type="range" id="margin-left-slider" min="10" max="400" value="60">
                         </div>
                         <div class="control-group">
-                            <label>Right Margin <span class="control-value" id="margin-right-value">60px</span></label>
+                            <label for="margin-right-slider">Right margin <span class="control-value" id="margin-right-value">60px</span></label>
                             <input type="range" id="margin-right-slider" min="10" max="400" value="60">
                         </div>
                     </div>
                 </div>
+
+                <div class="sidebar-footer">
+                    <p class="keyboard-hint">Space play / pause &middot; &larr; &rarr; chapters &middot; Esc exit Flow</p>
+                    <button id="reset-settings-btn" class="reset-link" title="Restore every setting to its default">Reset all settings</button>
+                </div>
             </div>
         </div>
+
+        <div id="drawer-scrim" class="drawer-scrim" hidden></div>
+        <button id="chapters-toggle" class="chapters-toggle" aria-label="Toggle chapters panel" aria-expanded="true">☰</button>
+        <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle settings panel" aria-expanded="true">⚙️</button>
     </div>
 
     <!-- External Libraries -->

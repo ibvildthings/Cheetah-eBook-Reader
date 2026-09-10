@@ -1,58 +1,32 @@
 /* ============================================
-   CHAPTERS SIDEBAR - Left Navigation
+   CHAPTERS SIDEBAR - Left Navigation (layout only;
+   surface styling lives in glassmorphism.css)
    ============================================ */
 
 #chapters-sidebar {
-    width: 280px;
-    /* background and border set by glassmorphism.css */
-    color: #e8e8e8;
+    width: var(--chapters-w, 288px);
+    min-width: 0;          /* let the flex item actually collapse */
+    color: var(--ui-text, #ececf1);
+    overflow-x: hidden;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    transition: width 0.3s ease;
+    transition: width 0.3s ease, transform 0.3s ease;
     position: relative;
     flex-shrink: 0;
 }
 
 #chapters-sidebar.collapsed {
-    width: 48px;
-}
-
-/* Toggle Button */
-.chapters-toggle {
-    position: absolute;
-    top: 16px;
-    left: 12px;
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    background: transparent;
-    color: #e8e8e8;
+    width: 0;
     border: none;
-    cursor: pointer;
-    font-size: 18px;
-    z-index: 10;
-    transition: background 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
 }
 
-.chapters-toggle:hover {
-    background: #2a2a2a;
-}
-
-#chapters-sidebar.collapsed .chapters-toggle {
-    left: 8px;
-}
-
-/* Chapters Content Container */
 .chapters-content {
-    padding: 64px 20px 20px 20px;
+    padding: 60px 18px 20px 18px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
+    min-width: var(--chapters-w, 288px);
     opacity: 1;
     transition: opacity 0.2s ease;
 }
@@ -62,40 +36,38 @@
     pointer-events: none;
 }
 
-/* Book Metadata Section */
+/* Book Metadata */
 .book-metadata {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
-    padding: 20px 10px;
-    /* background set by glassmorphism.css */
-    border-radius: 8px;
+    gap: 10px;
+    padding: 18px 12px;
+    border-radius: 12px;
 }
 
 .book-cover-placeholder {
-    width: 80px;
-    height: 80px;
-    background: #2a2a2a;
-    border-radius: 8px;
+    width: 72px;
+    height: 72px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 40px;
+    font-size: 36px;
 }
 
 #book-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #e8e8e8;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ui-text, #ececf1);
     text-align: center;
     margin: 0;
-    line-height: 1.4;
+    line-height: 1.35;
 }
 
 #book-author {
-    font-size: 13px;
-    color: #a0a0a0;
+    font-size: 12.5px;
+    color: var(--ui-text-secondary, #c2c2cc);
     text-align: center;
     margin: 0;
 }
@@ -109,19 +81,12 @@
 
 .upload-btn {
     width: 100%;
-    padding: 12px 16px;
-    background: #60a5fa;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
+    padding: 11px 16px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 700;
     cursor: pointer;
-    transition: background 0.2s;
-}
-
-.upload-btn:hover {
-    background: #3b82f6;
+    min-height: 44px;
 }
 
 /* Chapters List */
@@ -130,81 +95,46 @@
     flex-direction: column;
     gap: 4px;
     overflow-y: auto;
-    max-height: calc(100vh - 400px);
+    flex: 1;
+    min-height: 0;
 }
 
 .chapter-item {
-    padding: 12px 12px;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 6px;
+    padding: 11px 12px;
     cursor: pointer;
-    transition: all 0.2s;
     display: flex;
     align-items: flex-start;
     gap: 10px;
-}
-
-.chapter-item:hover {
-    background: #2a2a2a;
-    border-color: #3a3a3a;
-}
-
-.chapter-item.active {
-    background: #2a2a2a;
-    border-color: #60a5fa;
+    min-height: 44px;
 }
 
 .chapter-number {
     font-size: 12px;
-    color: #60a5fa;
-    font-weight: 600;
+    color: var(--ui-accent, #60a5fa);
+    font-weight: 700;
     flex-shrink: 0;
-    min-width: 24px;
+    min-width: 22px;
+    font-variant-numeric: tabular-nums;
 }
 
 .chapter-title {
     font-size: 13px;
-    color: #e8e8e8;
+    color: var(--ui-text, #ececf1);
     line-height: 1.4;
     flex: 1;
     word-wrap: break-word;
 }
 
 .chapter-item.active .chapter-title {
-    font-weight: 600;
+    font-weight: 700;
 }
 
-/* Empty State */
 .chapters-list-empty {
-    padding: 40px 20px;
+    padding: 32px 16px;
     text-align: center;
-    color: #666;
+    color: var(--ui-text-muted, #9a9aa6);
     font-size: 13px;
 }
 
-/* Scrollbar Styling */
-.chapters-list::-webkit-scrollbar {
-    width: 6px;
-}
-
-.chapters-list::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.chapters-list::-webkit-scrollbar-thumb {
-    background: #3a3a3a;
-    border-radius: 3px;
-}
-
-.chapters-list::-webkit-scrollbar-thumb:hover {
-    background: #4a4a4a;
-}
-
-.paste-btn {
-    background: #4a5568;
-}
-
-.paste-btn:hover {
-    background: #2d3748;
-}
+.chapters-list::-webkit-scrollbar { width: 6px; }
+.chapters-list::-webkit-scrollbar-track { background: transparent; }

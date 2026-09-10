@@ -23,9 +23,31 @@ class UIController {
         // Initialize margin drag state
         this.marginState = { dragging: false, side: null, initX: 0, initMargin: 0 };
 
+        // Reading-progress state
+        this.PROGRESS_KEY = 'cheetah-reader-progress';
+        this._bookId = null;
+        this._pendingRestore = null;
+        this._progressSaveTimer = null;
+        this._labelTimer = null;
+
         // Setup (order matters - sync after listeners are attached)
+        this._buildThemePicker();
         this._initializeEventListeners();
         this._subscribeToReaderEvents();
+        this._setupKeyboardShortcuts();
+
+        // Keep the picker highlight in sync if the theme changes elsewhere
+        // (settings import, reset, etc.)
+        this.app.onSettingChange('theme', (value) => this._setActiveSwatch(value));
+        this.app.onSettingChange('autoTheme', () => {
+            if (this.elements.themeAuto) {
+                this.elements.themeAuto.checked = !!this.app.getCurrentSettings().autoTheme;
+            }
+            this._updateThemeAutoState();
+        });
+        this._setupDragAndDrop();
+        this._setupResponsive();
+        this._setupProgressTracking();
 
         // Wait for services to initialize before subscribing to EPUB events
         setTimeout(() => {
@@ -65,12 +87,21 @@ class UIController {
             chapterNavBar: document.getElementById('chapter-nav-bar'),
             prevChapterBtn: document.getElementById('prev-chapter-btn'),
             nextChapterBtn: document.getElementById('next-chapter-btn'),
+            chapterNavStatus: document.getElementById('chapter-nav-status'),
 
             // Sidebar toggles
             chaptersToggle: document.getElementById('chapters-toggle'),
             chaptersSidebar: document.getElementById('chapters-sidebar'),
             sidebarToggle: document.getElementById('sidebar-toggle'),
             sidebar: document.getElementById('sidebar'),
+            drawerScrim: document.getElementById('drawer-scrim'),
+
+            // Reader + progress + drop
+            readerContainer: document.getElementById('reader-container'),
+            readingProgress: document.getElementById('reading-progress'),
+            progressFill: document.getElementById('reading-progress-fill'),
+            progressLabel: document.getElementById('progress-label'),
+            dropOverlay: document.getElementById('drop-overlay'),
 
             // Reading modes
             flowBtn: document.getElementById('btn-flow'),
@@ -100,7 +131,7 @@ class UIController {
 
             // Font and theme
             fontSelect: document.getElementById('font-select'),
-            themeSelect: document.getElementById('theme-select'),
+            themePicker: document.getElementById('theme-picker'),
             themeAuto: document.getElementById('theme-auto'),
 
             // Reset
@@ -163,6 +194,9 @@ class UIController {
                 }
 
                 this.app.loadPastedText(text);
+                this._bookId = null;
+                this._pendingRestore = null;
+                setTimeout(() => this._updateProgress(), 400);
 
                 // Update UI
                 if (this.elements.bookTitle) {
@@ -189,23 +223,97 @@ class UIController {
      */
     _setupUIToggleListeners() {
         this.elements.chaptersToggle?.addEventListener('click', () => {
-            this.elements.chaptersSidebar?.classList.toggle('collapsed');
+            this._togglePanel('chapters');
         });
 
         this.elements.sidebarToggle?.addEventListener('click', () => {
-            this.elements.sidebar?.classList.toggle('collapsed');
+            this._togglePanel('settings');
         });
 
-        // Collapsible sections
+        this.elements.drawerScrim?.addEventListener('click', () => this._closeDrawers());
+
+        // Collapsible sections (make the header keyboard-operable)
         document.querySelectorAll('.section-header').forEach(header => {
-            header.addEventListener('click', () => {
+            header.setAttribute('tabindex', '0');
+            header.setAttribute('role', 'button');
+            const toggle = () => {
                 const section = header.dataset.section;
                 const content = document.querySelector(`[data-content="${section}"]`);
                 if (content) {
                     content.classList.toggle('collapsed');
                     header.classList.toggle('collapsed');
+                    header.setAttribute('aria-expanded', String(!header.classList.contains('collapsed')));
                 }
+            };
+            header.setAttribute('aria-expanded', String(!header.classList.contains('collapsed')));
+            header.addEventListener('click', toggle);
+            header.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
             });
+        });
+    }
+
+    // ========================================
+    // PANEL / DRAWER MANAGEMENT
+    // ========================================
+
+    /** @private */
+    _isMobile() {
+        return window.matchMedia('(max-width: 900px)').matches;
+    }
+
+    /** @private */
+    _togglePanel(which) {
+        const sidebar = which === 'chapters' ? this.elements.chaptersSidebar : this.elements.sidebar;
+        const toggleBtn = which === 'chapters' ? this.elements.chaptersToggle : this.elements.sidebarToggle;
+        if (!sidebar) return;
+
+        if (this._isMobile()) {
+            const willOpen = !sidebar.classList.contains('drawer-open');
+            // Only one drawer at a time
+            this.elements.chaptersSidebar?.classList.remove('drawer-open');
+            this.elements.sidebar?.classList.remove('drawer-open');
+            if (willOpen) sidebar.classList.add('drawer-open');
+            toggleBtn?.setAttribute('aria-expanded', String(willOpen));
+            this._updateScrim();
+        } else {
+            sidebar.classList.toggle('collapsed');
+            toggleBtn?.setAttribute('aria-expanded', String(!sidebar.classList.contains('collapsed')));
+        }
+    }
+
+    /** @private */
+    _closeDrawers() {
+        this.elements.chaptersSidebar?.classList.remove('drawer-open');
+        this.elements.sidebar?.classList.remove('drawer-open');
+        this.elements.chaptersToggle?.setAttribute('aria-expanded', 'false');
+        this.elements.sidebarToggle?.setAttribute('aria-expanded', 'false');
+        this._updateScrim();
+    }
+
+    /** @private */
+    _updateScrim() {
+        const anyOpen = this.elements.chaptersSidebar?.classList.contains('drawer-open')
+            || this.elements.sidebar?.classList.contains('drawer-open');
+        if (this.elements.drawerScrim) {
+            this.elements.drawerScrim.hidden = !(this._isMobile() && anyOpen);
+        }
+    }
+
+    /** @private */
+    _setupResponsive() {
+        let wasMobile = this._isMobile();
+        window.addEventListener('resize', () => {
+            const isMobile = this._isMobile();
+            if (isMobile === wasMobile) return;
+            wasMobile = isMobile;
+            // Only when growing to desktop: drop drawer state + scrim.
+            // (Shrinking to mobile must NOT close a drawer the user just opened.)
+            if (!isMobile) {
+                this.elements.chaptersSidebar?.classList.remove('drawer-open');
+                this.elements.sidebar?.classList.remove('drawer-open');
+                this._updateScrim();
+            }
         });
     }
 
@@ -343,21 +451,156 @@ class UIController {
             this.app.setFont(e.target.value);
         });
 
-        // Theme selector
-        this.elements.themeSelect?.addEventListener('change', (e) => {
-            if (this.elements.themeAuto) {
-                this.elements.themeAuto.checked = false;
-            }
-            this.app.setTheme(e.target.value);
-        });
+        // Theme picker (built dynamically in _buildThemePicker)
 
         // Auto theme checkbox
         this.elements.themeAuto?.addEventListener('change', (e) => {
             this.app.setAutoTheme(e.target.checked);
-            if (this.elements.themeSelect) {
-                this.elements.themeSelect.disabled = e.target.checked;
-            }
+            this._updateThemeAutoState();
         });
+    }
+
+    // ========================================
+    // THEME PICKER
+    // ========================================
+
+    /**
+     * Build the visual theme picker from the THEMES registry.
+     * @private
+     */
+    _buildThemePicker() {
+        const picker = this.elements.themePicker;
+        const THEMES = (typeof window !== 'undefined' && window.THEMES) || {};
+        if (!picker || !Object.keys(THEMES).length) return;
+
+        picker.replaceChildren();
+        this._swatches = [];
+
+        const groups = [
+            { key: 'light', label: 'Light' },
+            { key: 'dark', label: 'Dark' },
+            { key: 'terminal', label: 'Terminal' }
+        ];
+
+        groups.forEach((group) => {
+            const entries = Object.entries(THEMES)
+                .filter(([, t]) => (t.group || 'dark') === group.key);
+            if (!entries.length) return;
+
+            const label = document.createElement('div');
+            label.className = 'theme-group-label';
+            label.textContent = group.label;
+            picker.appendChild(label);
+
+            entries.forEach(([key, theme]) => {
+                picker.appendChild(this._makeSwatch(key, theme));
+            });
+        });
+
+        // Keyboard: arrow keys roam and select within the radiogroup
+        picker.addEventListener('keydown', (e) => this._onSwatchKeydown(e));
+    }
+
+    /** @private */
+    _makeSwatch(key, theme) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'theme-swatch';
+        btn.dataset.theme = key;
+        btn.setAttribute('role', 'radio');
+        btn.setAttribute('aria-checked', 'false');
+        btn.setAttribute('tabindex', '-1');
+        btn.setAttribute('aria-label', theme.name || key);
+        btn.style.setProperty('--sw-paper', theme.contentBg);
+        btn.style.setProperty('--sw-ink', theme.text);
+        btn.style.setProperty('--sw-accent', theme.accent);
+
+        const preview = document.createElement('span');
+        preview.className = 'tsw-preview';
+
+        const top = document.createElement('span');
+        top.className = 'tsw-top';
+        top.textContent = 'Aa';
+
+        const palette = document.createElement('span');
+        palette.className = 'tsw-palette';
+        (theme.palette && theme.palette.length ? theme.palette : [theme.accent])
+            .slice(0, 6)
+            .forEach((color) => {
+                const band = document.createElement('i');
+                band.style.background = color;
+                palette.appendChild(band);
+            });
+
+        preview.append(top, palette);
+
+        const name = document.createElement('span');
+        name.className = 'tsw-name';
+        name.textContent = theme.name || key;
+
+        btn.append(preview, name);
+        btn.addEventListener('click', () => this._selectTheme(key));
+
+        this._swatches.push(btn);
+        return btn;
+    }
+
+    /** @private */
+    _selectTheme(key) {
+        if (this.elements.themeAuto && this.elements.themeAuto.checked) {
+            this.elements.themeAuto.checked = false;
+            this.app.setAutoTheme(false);
+        }
+        this.app.setTheme(key);
+        this._setActiveSwatch(key);
+        this._updateThemeAutoState();
+    }
+
+    /** @private */
+    _setActiveSwatch(key) {
+        if (!this._swatches || !this._swatches.length) return;
+        let matched = false;
+        this._swatches.forEach((btn) => {
+            const on = btn.dataset.theme === key;
+            if (on) matched = true;
+            btn.setAttribute('aria-checked', on ? 'true' : 'false');
+            btn.setAttribute('tabindex', on ? '0' : '-1');
+        });
+        if (!matched) this._swatches[0].setAttribute('tabindex', '0');
+    }
+
+    /** @private */
+    _onSwatchKeydown(e) {
+        const list = this._swatches || [];
+        const current = e.target.closest('.theme-swatch');
+        if (!current) return;
+        const idx = list.indexOf(current);
+        if (idx === -1) return;
+
+        let nextIdx = -1;
+        switch (e.key) {
+            case 'ArrowRight':
+            case 'ArrowDown': nextIdx = (idx + 1) % list.length; break;
+            case 'ArrowLeft':
+            case 'ArrowUp': nextIdx = (idx - 1 + list.length) % list.length; break;
+            case 'Home': nextIdx = 0; break;
+            case 'End': nextIdx = list.length - 1; break;
+            case ' ':
+            case 'Enter':
+                e.preventDefault();
+                this._selectTheme(current.dataset.theme);
+                return;
+            default: return;
+        }
+        e.preventDefault();
+        list[nextIdx].focus();
+        this._selectTheme(list[nextIdx].dataset.theme);
+    }
+
+    /** @private */
+    _updateThemeAutoState() {
+        const auto = !!(this.elements.themeAuto && this.elements.themeAuto.checked);
+        this.elements.themePicker?.classList.toggle('is-auto', auto);
     }
 
     /**
@@ -424,6 +667,8 @@ class UIController {
 
         this.app.onEPUB('metadataUpdated', (data) => {
             this._updateMetadataUI(data);
+            this._bookId = this._makeBookId(data);
+            this._pendingRestore = this._loadProgress(this._bookId);
         });
 
         this.app.onEPUB('chaptersExtracted', (data) => {
@@ -432,6 +677,7 @@ class UIController {
 
         this.app.onEPUB('chapterChanged', (data) => {
             this._updateActiveChapter(data);
+            this._onChapterChanged(data);
         });
 
         this.app.onEPUB('navigationStateChanged', (data) => {
@@ -486,20 +732,32 @@ class UIController {
             return;
         }
 
-        this.elements.chaptersList.innerHTML = '';
+        this.elements.chaptersList.replaceChildren();
 
         data.chapters.forEach((chapter) => {
             const div = document.createElement('div');
             div.className = 'chapter-item';
             div.dataset.index = chapter.index;
+            div.setAttribute('role', 'button');
+            div.setAttribute('tabindex', '0');
 
-            div.innerHTML = `
-                <span class="chapter-number">${chapter.index + 1}</span>
-                <span class="chapter-title">${this._truncateText(chapter.label, 60)}</span>
-            `;
+            const num = document.createElement('span');
+            num.className = 'chapter-number';
+            num.textContent = chapter.index + 1;
 
-            div.addEventListener('click', () => {
+            const title = document.createElement('span');
+            title.className = 'chapter-title';
+            title.textContent = this._truncateText(chapter.label, 60);
+
+            div.append(num, title);
+
+            const go = () => {
                 this.app.loadChapter(chapter.index);
+                if (this._isMobile()) this._closeDrawers();
+            };
+            div.addEventListener('click', go);
+            div.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
             });
 
             this.elements.chaptersList.appendChild(div);
@@ -554,6 +812,14 @@ class UIController {
         // Update button states
         this.elements.prevChapterBtn.disabled = !data.hasPrev;
         this.elements.nextChapterBtn.disabled = !data.hasNext;
+
+        // "3 / 12" position readout
+        if (this.elements.chapterNavStatus) {
+            this.elements.chapterNavStatus.textContent =
+                data.totalChapters && data.currentIndex >= 0
+                    ? `${data.currentIndex + 1} / ${data.totalChapters}`
+                    : '';
+        }
         console.log(`🧭 Prev button: ${!data.hasPrev ? 'disabled' : 'enabled'}, Next button: ${!data.hasNext ? 'disabled' : 'enabled'}`);
     }
 
@@ -590,16 +856,11 @@ class UIController {
         }
 
         // Theme
-        if (this.elements.themeSelect) {
-            this.elements.themeSelect.value = settings.theme;
-        }
-
+        this._setActiveSwatch(settings.theme);
         if (this.elements.themeAuto) {
             this.elements.themeAuto.checked = settings.autoTheme;
-            if (this.elements.themeSelect) {
-                this.elements.themeSelect.disabled = settings.autoTheme;
-            }
         }
+        this._updateThemeAutoState();
 
         // Margins
         if (this.elements.marginLeftSlider) {
@@ -681,11 +942,15 @@ class UIController {
         const left = settings.marginL;
         const right = settings.marginR;
 
-        // Update content padding
+        // Update content padding. On narrow screens the stored margin (up to
+        // 400px) would swallow the reading column, so cap what actually gets
+        // applied while keeping the user's setting intact.
         const content = document.querySelector('.ebook-text-content');
         if (content) {
-            content.style.paddingLeft = `${left}px`;
-            content.style.paddingRight = `${right}px`;
+            const vw = window.innerWidth || 1280;
+            const cap = vw <= 768 ? 24 : Math.max(24, (vw - 320) / 2);
+            content.style.paddingLeft = `${Math.min(left, cap)}px`;
+            content.style.paddingRight = `${Math.min(right, cap)}px`;
         }
 
         // Update drag zones
@@ -752,6 +1017,292 @@ class UIController {
         if (this.marginState.dragging) {
             document.getElementById(`drag-${this.marginState.side}`)?.classList.remove('dragging');
             this.marginState.dragging = false;
+        }
+    }
+
+    // ========================================
+    // KEYBOARD SHORTCUTS
+    // ========================================
+
+    /** @private */
+    _setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            const tag = (e.target.tagName || '').toLowerCase();
+            if (tag === 'input' || tag === 'select' || tag === 'textarea' || e.target.isContentEditable) return;
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+            const area = document.querySelector('.ebook-reader-area');
+
+            switch (e.key) {
+                case ' ':
+                case 'k':
+                    e.preventDefault();
+                    this._toggleFlowOrPlay();
+                    break;
+                case 'ArrowRight':
+                case 'n':
+                    e.preventDefault();
+                    this.app.nextChapter();
+                    break;
+                case 'ArrowLeft':
+                case 'p':
+                    e.preventDefault();
+                    this.app.previousChapter();
+                    break;
+                case 'ArrowDown':
+                    if (area) { e.preventDefault(); area.scrollBy({ top: 120, behavior: 'smooth' }); }
+                    break;
+                case 'ArrowUp':
+                    if (area) { e.preventDefault(); area.scrollBy({ top: -120, behavior: 'smooth' }); }
+                    break;
+                case 'PageDown':
+                    if (area) { e.preventDefault(); area.scrollBy({ top: area.clientHeight * 0.9, behavior: 'smooth' }); }
+                    break;
+                case 'PageUp':
+                    if (area) { e.preventDefault(); area.scrollBy({ top: -area.clientHeight * 0.9, behavior: 'smooth' }); }
+                    break;
+                case 'Escape':
+                    if (this.app.getReaderState()?.mode === 'flow') {
+                        e.preventDefault();
+                        this.app.stopFlow();
+                    } else {
+                        this._closeDrawers();
+                    }
+                    break;
+                case '+':
+                case '=': {
+                    const s = this.app.getCurrentSettings();
+                    this.app.setFontSize(Math.min(48, (s.fontSize || 18) + 1));
+                    setTimeout(() => this._syncUIWithSettings(), 0);
+                    break;
+                }
+                case '-':
+                case '_': {
+                    const s = this.app.getCurrentSettings();
+                    this.app.setFontSize(Math.max(12, (s.fontSize || 18) - 1));
+                    setTimeout(() => this._syncUIWithSettings(), 0);
+                    break;
+                }
+            }
+        });
+    }
+
+    /** @private */
+    _toggleFlowOrPlay() {
+        const st = this.app.getReaderState();
+        if (!st) return;
+        if (st.mode === 'flow') {
+            this.app.togglePlay();
+        } else {
+            this.app.startFlow();
+        }
+    }
+
+    // ========================================
+    // DRAG & DROP
+    // ========================================
+
+    /** @private */
+    _setupDragAndDrop() {
+        const overlay = this.elements.dropOverlay;
+        if (!overlay) return;
+
+        const hasFiles = (e) => {
+            const t = e.dataTransfer && e.dataTransfer.types;
+            return !!t && Array.prototype.indexOf.call(t, 'Files') !== -1;
+        };
+
+        let depth = 0;
+
+        window.addEventListener('dragenter', (e) => {
+            if (!hasFiles(e)) return;
+            e.preventDefault();
+            depth++;
+            overlay.hidden = false;
+        });
+
+        window.addEventListener('dragover', (e) => {
+            if (hasFiles(e)) e.preventDefault();
+        });
+
+        window.addEventListener('dragleave', (e) => {
+            if (!hasFiles(e)) return;
+            depth = Math.max(0, depth - 1);
+            if (depth === 0) overlay.hidden = true;
+        });
+
+        window.addEventListener('drop', (e) => {
+            if (!hasFiles(e)) return;
+            e.preventDefault();
+            depth = 0;
+            overlay.hidden = true;
+
+            const files = Array.from(e.dataTransfer.files || []);
+            const epub = files.find(f => /\.epub$/i.test(f.name));
+            if (epub) {
+                this.app.loadEPUB(epub);
+            } else if (files.length) {
+                alert('Cheetah Reader opens .epub files. Use "Paste text" for anything else.');
+            }
+        });
+    }
+
+    // ========================================
+    // READING PROGRESS
+    // ========================================
+
+    /** @private */
+    _setupProgressTracking() {
+        const attach = () => {
+            const area = document.querySelector('.ebook-reader-area');
+            if (!area) { setTimeout(attach, 200); return; }
+
+            area.addEventListener('scroll', () => {
+                this._updateProgress();
+                this._flashLabel();
+                if (!this._pendingRestore) this._saveProgressDebounced();
+            }, { passive: true });
+
+            window.addEventListener('resize', () => {
+                this._updateProgress();
+                this._updateMarginsUI();
+            });
+        };
+        attach();
+    }
+
+    /** @private */
+    _flashLabel() {
+        const el = this.elements.readingProgress;
+        if (!el) return;
+        el.classList.add('show-label');
+        clearTimeout(this._labelTimer);
+        this._labelTimer = setTimeout(() => el.classList.remove('show-label'), 1400);
+    }
+
+    /** @private */
+    _updateProgress() {
+        const area = document.querySelector('.ebook-reader-area');
+        const wrap = this.elements.readingProgress;
+        if (!area || !wrap) return;
+
+        const max = area.scrollHeight - area.clientHeight;
+        const ratio = max > 0 ? Math.min(1, Math.max(0, area.scrollTop / max)) : 0;
+
+        const chapters = (this.app.getChapters && this.app.getChapters()) || [];
+        const idx = this.app.getCurrentChapterIndex ? this.app.getCurrentChapterIndex() : -1;
+
+        let overall = ratio;
+        let label = `${Math.round(ratio * 100)}%`;
+        if (chapters.length > 0 && idx >= 0) {
+            overall = (idx + ratio) / chapters.length;
+            label = `Chapter ${idx + 1} of ${chapters.length} · ${Math.round(overall * 100)}%`;
+        }
+
+        if (this.elements.progressFill) {
+            this.elements.progressFill.style.width = (overall * 100).toFixed(1) + '%';
+        }
+        if (this.elements.progressLabel) {
+            this.elements.progressLabel.textContent = label;
+        }
+
+        // Reveal the bar once there is something to scroll or chapters exist
+        if (max > 24 || chapters.length > 0) wrap.hidden = false;
+    }
+
+    /** @private */
+    _onChapterChanged(data) {
+        const idx = data.index;
+
+        if (this._pendingRestore && this._pendingRestore.chapterIndex !== idx && idx === 0) {
+            // First chapter auto-loaded, but the reader has saved progress elsewhere.
+            this.app.loadChapter(this._pendingRestore.chapterIndex);
+            return;
+        }
+
+        if (this._pendingRestore && this._pendingRestore.chapterIndex === idx) {
+            const ratio = this._pendingRestore.scrollRatio || 0;
+            this._pendingRestore = null;
+            this._restoreScroll(ratio);
+        } else {
+            // Genuine navigation - land at the top and record it
+            this._restoreScroll(0, false);
+            this._saveProgressNow(idx, 0);
+        }
+
+        setTimeout(() => this._updateProgress(), 350);
+    }
+
+    /** @private */
+    _restoreScroll(ratio, smooth) {
+        const apply = () => {
+            const area = document.querySelector('.ebook-reader-area');
+            if (!area) return;
+            const max = area.scrollHeight - area.clientHeight;
+            area.scrollTo({ top: ratio * max, behavior: smooth ? 'smooth' : 'auto' });
+            this._updateProgress();
+        };
+        setTimeout(apply, 350);
+        setTimeout(apply, 750); // fonts / images may reflow after first paint
+    }
+
+    /** @private */
+    _makeBookId(meta) {
+        const t = (meta && meta.title) || 'Unknown';
+        const a = (meta && meta.author) || '';
+        return `${t}|${a}`.slice(0, 200);
+    }
+
+    /** @private */
+    _progressStore() {
+        try {
+            return JSON.parse(localStorage.getItem(this.PROGRESS_KEY)) || {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    /** @private */
+    _loadProgress(bookId) {
+        if (!bookId) return null;
+        const rec = this._progressStore()[bookId];
+        if (!rec || typeof rec.chapterIndex !== 'number') return null;
+        return { chapterIndex: rec.chapterIndex, scrollRatio: rec.scrollRatio || 0 };
+    }
+
+    /** @private */
+    _saveProgressDebounced() {
+        clearTimeout(this._progressSaveTimer);
+        this._progressSaveTimer = setTimeout(() => {
+            const area = document.querySelector('.ebook-reader-area');
+            if (!area) return;
+            const max = area.scrollHeight - area.clientHeight;
+            const ratio = max > 0 ? area.scrollTop / max : 0;
+            const idx = this.app.getCurrentChapterIndex ? this.app.getCurrentChapterIndex() : -1;
+            this._saveProgressNow(idx, ratio);
+        }, 500);
+    }
+
+    /** @private */
+    _saveProgressNow(chapterIndex, scrollRatio) {
+        if (!this._bookId || chapterIndex < 0) return;
+        try {
+            const store = this._progressStore();
+            store[this._bookId] = {
+                chapterIndex,
+                scrollRatio: Math.min(1, Math.max(0, scrollRatio || 0)),
+                updatedAt: Date.now()
+            };
+            // Cap the store so it can't grow forever
+            const keys = Object.keys(store);
+            if (keys.length > 40) {
+                keys.sort((a, b) => (store[a].updatedAt || 0) - (store[b].updatedAt || 0))
+                    .slice(0, keys.length - 40)
+                    .forEach(k => delete store[k]);
+            }
+            localStorage.setItem(this.PROGRESS_KEY, JSON.stringify(store));
+        } catch (e) {
+            /* storage full / disabled - progress is best-effort */
         }
     }
 

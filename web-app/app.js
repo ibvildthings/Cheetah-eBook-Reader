@@ -10,7 +10,8 @@
 // ============================================================================
 // SAMPLE CONTENT
 // ============================================================================
-const sampleText = `<h1>Tap text to get started</h1>
+const sampleText = `<h1>Welcome to Cheetah Reader</h1>
+    <p><strong>Drag an EPUB anywhere on this window</strong> to start reading — or press <strong>Space</strong> to try Flow Mode on this sample. Single tap pauses; double-tap a word to jump there. Everything stays on your device.</p>
     <p>In the heart of Silicon Valley, where innovation breathed life into dreams and ambition fueled the relentless pursuit of progress, there existed a small startup that dared to challenge the giants. The morning sun cast long shadows through the floor-to-ceiling windows of their modest office, illuminating screens filled with code and whiteboards covered in sketches of impossible ideas.</p>
     <p>Sarah had always believed that the best products were born from frustration. It was a Tuesday afternoon when she threw her e-reader across the room—not hard enough to break it, but with enough force to express her complete dissatisfaction with the experience. "Why," she asked her co-founder Marcus, "does every reading app feel like it was designed in 2010?"</p>
     <p>Marcus looked up from his laptop, his fingers still hovering over the keyboard. He'd been wrestling with the same question for months. The reading experience hadn't evolved. Sure, screens got sharper and devices got thinner, but the fundamental interaction between human and text remained stubbornly unchanged.</p>
