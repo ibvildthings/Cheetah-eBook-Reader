@@ -4,8 +4,8 @@
     {
       "name": "cheetah-reader",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "4173"],
-      "port": 4173
+      "runtimeArgs": ["scripts/dev-server.py", "4174"],
+      "port": 4174
     }
   ]
 }

@@ -48,6 +48,7 @@ class UIController {
         this._setupDragAndDrop();
         this._setupResponsive();
         this._setupProgressTracking();
+        this._setupSpeedControls();
 
         // Wait for services to initialize before subscribing to EPUB events
         setTimeout(() => {
@@ -102,6 +103,14 @@ class UIController {
             progressFill: document.getElementById('reading-progress-fill'),
             progressLabel: document.getElementById('progress-label'),
             dropOverlay: document.getElementById('drop-overlay'),
+
+            // Flow speed control
+            speedHud: document.getElementById('speed-hud'),
+            speedHudNum: document.getElementById('speed-hud-num'),
+            speedHudFill: document.getElementById('speed-hud-fill'),
+            speedPill: document.getElementById('speed-pill'),
+            speedPillNum: document.getElementById('speed-pill-num'),
+            speedCoach: document.getElementById('speed-coach'),
 
             // Reading modes
             flowBtn: document.getElementById('btn-flow'),
@@ -629,6 +638,139 @@ class UIController {
     }
 
     // ========================================
+    // FLOW SPEED CONTROL  (surface drag + wheel + HUD + pill)
+    // ========================================
+
+    /** @private */
+    _setupSpeedControls() {
+        this.SPEED_MIN = 100;
+        this.SPEED_MAX = 650;
+        this.COACH_KEY = 'cheetah-coach-speed';
+
+        // React to speed changes from ANY source (surface drag, wheel, arrows,
+        // the panel slider) - keep the slider, pill and HUD all in sync.
+        this.app.onSettingChange('flow.speed', (wpm) => this._onSpeedChanged(wpm));
+
+        // The pill is a discoverable drag handle for the same gesture.
+        const pill = this.elements.speedPill;
+        if (pill) {
+            let drag = null;
+            pill.addEventListener('pointerdown', (e) => {
+                if (e.button > 0) return;
+                drag = { id: e.pointerId, x: e.clientX, start: this._currentSpeed() };
+                pill.setPointerCapture(e.pointerId);
+                pill.classList.add('dragging');
+            });
+            pill.addEventListener('pointermove', (e) => {
+                if (!drag || e.pointerId !== drag.id) return;
+                e.preventDefault();
+                this.app.setSpeed(drag.start + (e.clientX - drag.x) * 1.6);
+            });
+            const end = (e) => {
+                if (!drag || (e && e.pointerId !== drag.id)) return;
+                try { pill.releasePointerCapture(drag.id); } catch (err) {}
+                pill.classList.remove('dragging');
+                drag = null;
+            };
+            pill.addEventListener('pointerup', end);
+            pill.addEventListener('pointercancel', end);
+            // Tap (no drag) or double-click: open the full control in the panel
+            pill.addEventListener('dblclick', () => this._openSpeedInPanel());
+        }
+
+        // Prime the readouts with the current value
+        this._onSpeedChanged(this._currentSpeed(), true);
+    }
+
+    /** @private */
+    _currentSpeed() {
+        const s = this.app.getCurrentSettings();
+        return (s && s.flow && s.flow.speed) || 400;
+    }
+
+    /** @private */
+    _onSpeedChanged(wpm, silent) {
+        wpm = Math.round(wpm);
+
+        // Panel slider + its label
+        if (this.elements.speedSlider) this.elements.speedSlider.value = wpm;
+        if (this.elements.speedValue) this.elements.speedValue.textContent = `${wpm} WPM`;
+
+        // Pill
+        if (this.elements.speedPillNum) this.elements.speedPillNum.textContent = wpm;
+
+        // HUD (skip the flash on the initial priming call)
+        if (!silent) this._flashSpeedHud(wpm);
+
+        // First real adjustment retires the coach mark
+        if (!silent) this._hideSpeedCoach(true);
+    }
+
+    /** @private */
+    _flashSpeedHud(wpm) {
+        const hud = this.elements.speedHud;
+        if (!hud) return;
+        if (this.elements.speedHudNum) this.elements.speedHudNum.textContent = wpm;
+        if (this.elements.speedHudFill) {
+            const pct = ((wpm - this.SPEED_MIN) / (this.SPEED_MAX - this.SPEED_MIN)) * 100;
+            this.elements.speedHudFill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+        }
+        hud.hidden = false;
+        hud.classList.add('visible');
+        clearTimeout(this._speedHudTimer);
+        this._speedHudTimer = setTimeout(() => {
+            hud.classList.remove('visible');
+            setTimeout(() => { if (!hud.classList.contains('visible')) hud.hidden = true; }, 250);
+        }, 850);
+    }
+
+    /** @private */
+    _setSpeedPillVisible(show) {
+        if (this.elements.speedPill) this.elements.speedPill.hidden = !show;
+    }
+
+    /** @private */
+    _maybeShowSpeedCoach() {
+        const coach = this.elements.speedCoach;
+        if (!coach) return;
+        let seen = false;
+        try { seen = localStorage.getItem(this.COACH_KEY) === '1'; } catch (e) {}
+        if (seen) return;
+        coach.hidden = false;
+        requestAnimationFrame(() => coach.classList.add('visible'));
+        coach.addEventListener('click', () => this._hideSpeedCoach(true), { once: true });
+        clearTimeout(this._coachTimer);
+        this._coachTimer = setTimeout(() => this._hideSpeedCoach(), 6000);
+    }
+
+    /** @private */
+    _hideSpeedCoach(remember) {
+        const coach = this.elements.speedCoach;
+        if (!coach) return;
+        coach.classList.remove('visible');
+        setTimeout(() => { coach.hidden = true; }, 250);
+        if (remember) {
+            try { localStorage.setItem(this.COACH_KEY, '1'); } catch (e) {}
+        }
+    }
+
+    /** @private */
+    _openSpeedInPanel() {
+        // Un-collapse the settings sidebar / Reading section and focus the slider
+        if (this._isMobile()) {
+            this.elements.sidebar?.classList.add('drawer-open');
+            this._updateScrim();
+        } else {
+            this.elements.sidebar?.classList.remove('collapsed');
+        }
+        const header = document.querySelector('.section-header[data-section="reading-mode"]');
+        const content = document.querySelector('[data-content="reading-mode"]');
+        header?.classList.remove('collapsed');
+        content?.classList.remove('collapsed');
+        setTimeout(() => this.elements.speedSlider?.focus(), 60);
+    }
+
+    // ========================================
     // READER EVENTS (App → UI)
     // ========================================
 
@@ -640,6 +782,9 @@ class UIController {
         // Mode changes (flow/normal)
         this.app.on('onModeChange', (mode) => {
             this._updateFlowButton(mode);
+            this._setSpeedPillVisible(mode === 'flow');
+            if (mode === 'flow') this._maybeShowSpeedCoach();
+            else this._hideSpeedCoach();
         });
     }
 
@@ -1050,10 +1195,23 @@ class UIController {
                     this.app.previousChapter();
                     break;
                 case 'ArrowDown':
-                    if (area) { e.preventDefault(); area.scrollBy({ top: 120, behavior: 'smooth' }); }
+                    // In Flow the page scrolls itself, so ↑/↓ tune speed instead.
+                    if (this.app.getReaderState()?.mode === 'flow') {
+                        e.preventDefault();
+                        this.app.setSpeed((this.app.getReaderState().speed || 400) - 10);
+                    } else if (area) {
+                        e.preventDefault();
+                        area.scrollBy({ top: 120, behavior: 'smooth' });
+                    }
                     break;
                 case 'ArrowUp':
-                    if (area) { e.preventDefault(); area.scrollBy({ top: -120, behavior: 'smooth' }); }
+                    if (this.app.getReaderState()?.mode === 'flow') {
+                        e.preventDefault();
+                        this.app.setSpeed((this.app.getReaderState().speed || 400) + 10);
+                    } else if (area) {
+                        e.preventDefault();
+                        area.scrollBy({ top: -120, behavior: 'smooth' });
+                    }
                     break;
                 case 'PageDown':
                     if (area) { e.preventDefault(); area.scrollBy({ top: area.clientHeight * 0.9, behavior: 'smooth' }); }
