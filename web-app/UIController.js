@@ -638,7 +638,7 @@ class UIController {
     }
 
     // ========================================
-    // FLOW SPEED CONTROL  (surface drag + wheel + HUD + pill)
+    // FLOW SPEED CONTROL  (surface drag + Alt+wheel + HUD + pill)
     // ========================================
 
     /** @private */
@@ -647,7 +647,7 @@ class UIController {
         this.SPEED_MAX = 650;
         this.COACH_KEY = 'cheetah-coach-speed';
 
-        // React to speed changes from ANY source (surface drag, wheel, arrows,
+        // React to speed changes from ANY source (surface drag, Alt+wheel, arrows,
         // the panel slider) - keep the slider, pill and HUD all in sync.
         this.app.onSettingChange('flow.speed', (wpm) => this._onSpeedChanged(wpm));
 

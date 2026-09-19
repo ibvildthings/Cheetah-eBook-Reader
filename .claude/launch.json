@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["scripts/dev-server.py", "4174"],
       "port": 4174
+    },
+    {
+      "name": "cheetah-reader-alt",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["scripts/dev-server.py", "4175"],
+      "port": 4175
     }
   ]
 }
