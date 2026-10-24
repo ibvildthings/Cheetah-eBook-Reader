@@ -31,7 +31,11 @@ const app = new CheetahReaderApp('#reader');
 // Initialize the UI controller (handles all UI interactions)
 const ui = new UIController(app);
 
-// Load initial content
+// Load initial content (the welcome screen sits over it until a book is chosen)
 app.loadContent(sampleText);
+
+// The shelf: books kept between visits, and the screen that shows them
+const library = new LibraryStore();
+const welcome = new WelcomeScreen({ app, ui, library, sampleHtml: sampleText });
 
 console.log('🐆 Cheetah Reader initialized');

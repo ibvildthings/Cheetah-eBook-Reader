@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="web-app/styles/glassmorphism.css">
     <!-- The iOS look: themed chrome, Flow dial, book arc -->
     <link rel="stylesheet" href="web-app/styles/ios-look.css">
+    <link rel="stylesheet" href="web-app/styles/welcome.css">
     <!-- Responsive overrides (must load last) -->
     <link rel="stylesheet" href="web-app/styles/responsive.css">
 </head>
@@ -23,10 +24,13 @@
         <!-- Left Sidebar: Chapters Navigation -->
         <div id="chapters-sidebar" aria-label="Book and chapters">
             <div class="chapters-content">
+                <button id="library-btn" class="library-btn" type="button">&lsaquo; Library</button>
                 <div class="book-metadata">
-                    <div class="book-cover-placeholder" aria-hidden="true">🐆</div>
+                    <div class="book-cover-placeholder" id="book-cover" aria-hidden="true">🐆</div>
                     <h2 id="book-title">No book loaded</h2>
                     <p id="book-author">Drag an EPUB anywhere to begin</p>
+                    <button id="edit-details-btn" class="edit-details-btn" type="button" hidden
+                            aria-label="Edit title, author and cover" title="Edit title, author and cover">&#9998;</button>
                 </div>
 
                 <div class="upload-section">
@@ -272,6 +276,30 @@
                     </div>
                 </div>
 
+                <div class="sidebar-section collapsible">
+                    <h3 class="section-header collapsed" data-section="library">
+                        <span class="section-icon" aria-hidden="true">📚</span>
+                        <span>Library</span>
+                        <span class="collapse-arrow" aria-hidden="true">▼</span>
+                    </h3>
+                    <div class="section-content collapsed" data-content="library">
+                        <div class="control-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="set-limitShelf" data-setting="limitShelf" data-method="setLimitShelf">
+                                <span>Three book limit</span>
+                            </label>
+                            <p class="hint">Cheetah Reader is for finishing books, not collecting them. Adding a fourth replaces the one you opened longest ago, after asking.</p>
+                        </div>
+                        <div class="control-group">
+                            <label for="set-homeStyle">Home screen</label>
+                            <select id="set-homeStyle" data-setting="homeStyle" data-method="setHomeStyle">
+                                <option value="editorial">List</option>
+                                <option value="shelf">Shelf</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="sidebar-footer">
                     <p class="keyboard-hint">Space play / pause &middot; &larr; &rarr; chapters &middot; [ ] speed &middot; B BioVision &middot; + &minus; size &middot; R restart chapter &middot; Esc exit Flow</p>
                     <button id="reset-settings-btn" class="reset-link" title="Restore every setting to its default">Reset all settings</button>
@@ -280,6 +308,31 @@
         </div>
 
         <div id="drawer-scrim" class="drawer-scrim" hidden></div>
+
+        <!-- Welcome / library (built by WelcomeScreen.js) -->
+        <div id="welcome" class="welcome" aria-label="Library"></div>
+
+        <dialog id="details-dialog" class="details-dialog">
+            <form method="dialog" id="details-form">
+                <h2>Book details</h2>
+                <label for="details-title">Title</label>
+                <input id="details-title" type="text" autocomplete="off">
+                <label for="details-author">Author</label>
+                <input id="details-author" type="text" autocomplete="off">
+                <div class="details-cover">
+                    <div id="details-cover-preview" class="details-cover-preview"></div>
+                    <div>
+                        <input type="file" id="details-cover-file" accept="image/*" hidden>
+                        <button type="button" id="details-cover-pick">Choose cover&hellip;</button>
+                        <button type="button" id="details-cover-reset">Use the book&rsquo;s own</button>
+                    </div>
+                </div>
+                <div class="details-actions">
+                    <button type="button" id="details-cancel">Cancel</button>
+                    <button type="submit" id="details-save" class="upload-btn">Save</button>
+                </div>
+            </form>
+        </dialog>
         <button id="chapters-toggle" class="chapters-toggle" aria-label="Toggle chapters panel" aria-expanded="true">☰</button>
         <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle settings panel" aria-expanded="true">⚙️</button>
     </div>
@@ -301,6 +354,7 @@
     <script src="lib/services/FontService.js"></script>
     <script src="lib/services/ThemeService.js"></script>
     <script src="lib/services/EPUBService.js"></script>
+    <script src="lib/services/LibraryStore.js"></script>
 
     <!-- Core Modules -->
     <script src="lib/modules/SpeedScrub.js"></script>
@@ -318,6 +372,7 @@
     <script src="web-app/FlowDial.js"></script>
     <script src="web-app/BookArc.js"></script>
     <script src="web-app/UIController.js"></script>
+    <script src="web-app/WelcomeScreen.js"></script>
     <script src="web-app/app.js"></script>
 </body>
 </html>

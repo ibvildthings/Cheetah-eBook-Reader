@@ -1271,6 +1271,7 @@ class UIController {
             const tag = (e.target.tagName || '').toLowerCase();
             if (tag === 'input' || tag === 'select' || tag === 'textarea' || e.target.isContentEditable) return;
             if (e.metaKey || e.ctrlKey || e.altKey) return;
+            if (document.getElementById('app')?.classList.contains('welcome-open')) return;
 
             const area = document.querySelector('.ebook-reader-area');
 
@@ -1540,6 +1541,15 @@ class UIController {
         }
     }
 
+    /** Put a reading place into the progress store, ahead of opening that book. */
+    seedProgress(bookId, chapterIndex, scrollRatio) {
+        try {
+            const store = this._progressStore();
+            store[bookId] = { chapterIndex, scrollRatio: scrollRatio || 0, updatedAt: Date.now() };
+            localStorage.setItem(this.PROGRESS_KEY, JSON.stringify(store));
+        } catch (e) { /* best effort */ }
+    }
+
     /** @private */
     _loadProgress(bookId) {
         if (!bookId) return null;
@@ -1564,6 +1574,9 @@ class UIController {
     /** @private */
     _saveProgressNow(chapterIndex, scrollRatio) {
         if (!this._bookId || chapterIndex < 0) return;
+        if (this.onProgress) {
+            this.onProgress({ bookId: this._bookId, chapterIndex, scrollRatio });
+        }
         try {
             const store = this._progressStore();
             store[this._bookId] = {
