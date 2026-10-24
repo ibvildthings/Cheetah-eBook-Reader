@@ -52,6 +52,7 @@ class UIController {
         this._setupResponsive();
         this._setupProgressTracking();
         this._setupSpeedControls();
+        this._setupFlowChrome();
 
         // Wait for services to initialize before subscribing to EPUB events
         setTimeout(() => {
@@ -111,8 +112,7 @@ class UIController {
             speedHud: document.getElementById('speed-hud'),
             speedHudNum: document.getElementById('speed-hud-num'),
             speedHudFill: document.getElementById('speed-hud-fill'),
-            speedPill: document.getElementById('speed-pill'),
-            speedPillNum: document.getElementById('speed-pill-num'),
+            flowDial: document.getElementById('flow-dial'),
             speedCoach: document.getElementById('speed-coach'),
 
             // Reading modes
@@ -585,6 +585,26 @@ class UIController {
     }
 
     // ========================================
+    // FLOW DIAL, BOOK ARC, DIMMING
+    // ========================================
+
+    /** @private */
+    _setupFlowChrome() {
+        if (this.elements.flowDial && window.FlowDial && window.SpeedScrub) {
+            this.dial = new FlowDial(this.elements.flowDial, this.app);
+        }
+        if (this.elements.readingProgress && window.BookArc) {
+            this.arc = new BookArc(this.elements.readingProgress);
+        }
+        // While Flow plays the chrome steps back, like house lights: it fades
+        // over a second and returns as soon as Flow pauses.
+        const app = document.getElementById('app');
+        const dim = (playing) => app?.classList.toggle('flow-playing', !!playing);
+        this.app.on('onPlayChange', dim);
+        this.app.on('onModeChange', (m) => { if (m !== 'flow') dim(false); });
+    }
+
+    // ========================================
     // THEME PICKER
     // ========================================
 
@@ -765,33 +785,6 @@ class UIController {
         // the panel slider) - keep the slider, pill and HUD all in sync.
         this.app.onSettingChange('flow.speed', (wpm) => this._onSpeedChanged(wpm));
 
-        // The pill is a discoverable drag handle for the same gesture.
-        const pill = this.elements.speedPill;
-        if (pill) {
-            let drag = null;
-            pill.addEventListener('pointerdown', (e) => {
-                if (e.button > 0) return;
-                drag = { id: e.pointerId, x: e.clientX, start: this._currentSpeed() };
-                pill.setPointerCapture(e.pointerId);
-                pill.classList.add('dragging');
-            });
-            pill.addEventListener('pointermove', (e) => {
-                if (!drag || e.pointerId !== drag.id) return;
-                e.preventDefault();
-                this.app.setSpeed(drag.start + (e.clientX - drag.x) * 1.6);
-            });
-            const end = (e) => {
-                if (!drag || (e && e.pointerId !== drag.id)) return;
-                try { pill.releasePointerCapture(drag.id); } catch (err) {}
-                pill.classList.remove('dragging');
-                drag = null;
-            };
-            pill.addEventListener('pointerup', end);
-            pill.addEventListener('pointercancel', end);
-            // Tap (no drag) or double-click: open the full control in the panel
-            pill.addEventListener('dblclick', () => this._openSpeedInPanel());
-        }
-
         // Prime the readouts with the current value
         this._onSpeedChanged(this._currentSpeed(), true);
     }
@@ -809,9 +802,6 @@ class UIController {
         // Panel slider + its label
         if (this.elements.speedSlider) this.elements.speedSlider.value = wpm;
         if (this.elements.speedValue) this.elements.speedValue.textContent = `${wpm} WPM`;
-
-        // Pill
-        if (this.elements.speedPillNum) this.elements.speedPillNum.textContent = wpm;
 
         // HUD (skip the flash on the initial priming call)
         if (!silent) this._flashSpeedHud(wpm);
@@ -840,9 +830,7 @@ class UIController {
     }
 
     /** @private */
-    _setSpeedPillVisible(show) {
-        if (this.elements.speedPill) this.elements.speedPill.hidden = !show;
-    }
+    _setSpeedPillVisible() { /* the Flow dial is always on screen */ }
 
     /** @private */
     _maybeShowSpeedCoach() {
@@ -1064,8 +1052,9 @@ class UIController {
             return;
         }
 
-        // Show/hide navigation bar
-        const shouldShow = data.visible;
+        this.dial?.setNavigation(data);
+        // Show/hide navigation bar (the dial's ears do this job now)
+        const shouldShow = false;
         console.log(`🧭 Setting nav bar display to: ${shouldShow ? 'flex' : 'none'}`);
         this.elements.chapterNavBar.style.display = shouldShow ? 'flex' : 'none';
 
@@ -1485,8 +1474,11 @@ class UIController {
             label = `Chapter ${idx + 1} of ${chapters.length} · ${Math.round(overall * 100)}%`;
         }
 
-        if (this.elements.progressFill) {
-            this.elements.progressFill.style.width = (overall * 100).toFixed(1) + '%';
+        if (this.arc) {
+            if (chapters.length !== this.arc.weights.length && (chapters.length || this.arc.weights.length !== 1)) {
+                this.arc.setChapters(chapters.length ? chapters.map(() => 1) : [1]);
+            }
+            this.arc.update(chapters.length && idx >= 0 ? idx : 0, ratio);
         }
         if (this.elements.progressLabel) {
             this.elements.progressLabel.textContent = label;

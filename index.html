@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="web-app/styles/chapters-sidebar.css">
     <!-- Glassmorphism Theme -->
     <link rel="stylesheet" href="web-app/styles/glassmorphism.css">
+    <!-- The iOS look: themed chrome, Flow dial, book arc -->
+    <link rel="stylesheet" href="web-app/styles/ios-look.css">
     <!-- Responsive overrides (must load last) -->
     <link rel="stylesheet" href="web-app/styles/responsive.css">
 </head>
@@ -42,9 +44,7 @@
         <!-- Center: Reader Content -->
         <div id="reader-container">
             <div id="reading-progress" class="reading-progress" hidden>
-                <div class="reading-progress-track">
-                    <div id="reading-progress-fill" class="reading-progress-fill"></div>
-                </div>
+                <!-- BookArc draws the segmented chapter arc here -->
                 <div class="reading-progress-label"><span id="progress-label">&mdash;</span></div>
             </div>
 
@@ -73,12 +73,7 @@
                 <div class="speed-hud-track"><div id="speed-hud-fill" class="speed-hud-fill"></div></div>
             </div>
 
-            <button id="speed-pill" class="speed-pill" hidden
-                    aria-label="Flow speed, drag left or right to adjust" aria-live="off">
-                <span class="speed-pill-icon" aria-hidden="true">▸</span>
-                <span id="speed-pill-num">400</span>
-                <span class="speed-pill-unit">wpm</span>
-            </button>
+            <div id="flow-dial" class="flow-dial"></div>
 
             <div id="speed-coach" class="speed-coach" hidden>
                 <span>Drag <span aria-hidden="true">←→</span> anywhere on the page to fine-tune speed</span>
@@ -308,6 +303,7 @@
     <script src="lib/services/EPUBService.js"></script>
 
     <!-- Core Modules -->
+    <script src="lib/modules/SpeedScrub.js"></script>
     <script src="lib/modules/WordTracker.js"></script>
     <script src="lib/modules/Renderer.js"></script>
     <script src="lib/modules/Animator.js"></script>
@@ -319,6 +315,8 @@
     <script src="lib/CheetahReaderApp.js"></script>
 
     <!-- Web App (Vanilla JS) -->
+    <script src="web-app/FlowDial.js"></script>
+    <script src="web-app/BookArc.js"></script>
     <script src="web-app/UIController.js"></script>
     <script src="web-app/app.js"></script>
 </body>
