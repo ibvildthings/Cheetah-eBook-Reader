@@ -113,3 +113,12 @@
 .ebook-focus-indicator.visible {
     display: block;
 }
+
+/* Focus band options (see ThemeService) */
+.ebook-reader-root.focus-no-underline .ebook-focus-indicator { border-bottom-color: transparent; }
+.ebook-reader-root.focus-no-background .ebook-focus-indicator { background: transparent; }
+
+/* Diagrams drawn black on white, turned light on dark themes */
+.ebook-reader-root.invert-line-art .ebook-text-content img {
+    filter: invert(1) hue-rotate(180deg);
+}

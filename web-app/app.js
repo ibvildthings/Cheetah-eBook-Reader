@@ -26,20 +26,7 @@ const sampleText = `<h1>Welcome to Cheetah Reader</h1>
 // ============================================================================
 
 // Initialize the reader app with default settings
-const app = new CheetahReaderApp('#reader', {
-    fontSize: 18,
-    font: 'opendyslexic',
-    lineHeight: 1.8,
-    theme: 'sepia',
-    autoTheme: false,
-    marginL: 60,
-    marginR: 60,
-    bionic: false,
-    bionicStrength: 0.5,
-    speed: 400,
-    focusWidth: 2,
-    scrollLevel: 1
-});
+const app = new CheetahReaderApp('#reader');
 
 // Initialize the UI controller (handles all UI interactions)
 const ui = new UIController(app);
