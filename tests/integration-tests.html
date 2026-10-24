@@ -104,9 +104,11 @@
     <!-- Load dependencies -->
     <script src="../lib/config/fonts.js"></script>
     <script src="../lib/config/themes.js"></script>
+    <script src="../lib/config/defaults.js"></script>
     <script src="../lib/ebook-reader-core.js"></script>
     <script src="../lib/modules/Renderer.js"></script>
     <script src="../lib/modules/Animator.js"></script>
+    <script src="../lib/modules/SpeedScrub.js"></script>
     <script src="../lib/modules/WordTracker.js"></script>
     <script src="../lib/ebook-reader-engine.js"></script>
     <script src="../lib/ebook-reader-api.js"></script>
@@ -436,11 +438,13 @@
                     app.loadContent('<p>Bionic test content</p>');
                     await wait(200);
 
+                    // BioVision is on by default now; toggling flips whichever it is.
+                    const before = app.getState().bionic;
                     app.toggleBionic();
                     await wait(100);
 
                     const state = app.getState();
-                    assertEqual(state.bionic, true, 'Bionic should be enabled');
+                    assertEqual(state.bionic, !before, 'Bionic should flip');
                 }
             }
         ]);

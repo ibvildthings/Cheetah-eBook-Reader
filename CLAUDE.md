@@ -66,6 +66,19 @@ Extracted for single-responsibility:
 - **Animator.js** - Flow mode animation loop with newline pause logic
 - **WordTracker.js** - Word position tracking and focus indicator
 
+### iOS parity layer
+
+The web reader follows the native app (`Cheetah-Reader`, SwiftUI) feature for feature:
+
+- **config/defaults.js** — `DEFAULT_CONFIG`, the single source of defaults *and* slider ranges (mirrors `Defaults.swift`). Don't hard-code defaults elsewhere.
+- **SpeedScrub.js** — velocity-sensitive drag-to-speed gain, shared by the page gesture (engine) and the dial.
+- **LibraryStore.js** — IndexedDB shelf (books, covers, reading place), three-book limit.
+- **web-app/FlowDial.js** — SVG Flow control: play/pause, speed dial, chapter ears.
+- **web-app/BookArc.js** — segmented whole-book progress arc.
+- **web-app/WelcomeScreen.js** — welcome screen (list / shelf styles), library upkeep, book-details editor.
+- **ThemeService** also dresses the app chrome in the reading theme (`--ui-*`, `--glass-*`, `--chrome-*` on `:root`).
+- Settings controls in `index.html` marked `data-setting` + `data-method` are wired generically by `UIController._setupSettingBindings()`.
+
 ### Application Layer
 
 **CheetahReaderApp.js** coordinates everything:

@@ -17,7 +17,7 @@ Most ebook readers are built for machines. Cheetah is built for your brain.
 - **Flow Mode** – Your eyes follow the text. Adjustable speed (100-650 WPM).
 - **ADHD-Friendly** – Fonts designed for focus: OpenDyslexic, Lexend, and more.
 - **Zero Friction** – No accounts. No cloud. Just drag, drop, and read.
-- **13 Themes** – From Sepia to Matrix Green. Dark mode that doesn't hurt.
+- **29 Themes** – From Sepia to Matrix Green, plus classic editor schemes. Match-system picks your own light and dark pair.
 
 ## Features
 
@@ -28,7 +28,11 @@ Most ebook readers are built for machines. Cheetah is built for your brain.
 📖 **Chapter Navigation** – Jump between chapters seamlessly  
 🖼️ **Image Support** – Embedded images render perfectly  
 📱 **Touch Gestures** – Pinch to zoom, tap to play/pause  
-🎯 **Focus Control** – Highlight 1-5 words at a time  
+🎯 **Focus Control** – Highlight 1-5 words; tune the band's strength, tint and underline  
+🎚️ **Flow Dial** – Drag to scrub speed (fine at a crawl, fast at a flick); set your own slowest and fastest  
+📚 **Shelf** – A few books in rotation, remembered with covers and your place; list or shelf home screen  
+✍️ **Page Typography** – Letter and word spacing, justify, invert diagrams on dark themes  
+⌨️ **Shortcuts** – Space play/pause · [ ] speed · B BioVision · + − size · R restart chapter  
 
 ## Usage
 

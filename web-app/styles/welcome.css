@@ -350,3 +350,8 @@
 .welcome .wl-open { min-height: 84px; width: 220px; padding: 0; }
 .welcome .wl-tile { min-height: 0; }
 .details-dialog button { flex: none; }
+
+@media (max-width: 600px) {
+    .wl-masthead { padding-top: 62px; }
+    .wl-hero { padding-top: 96px; }
+}
