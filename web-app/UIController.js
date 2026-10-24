@@ -32,7 +32,10 @@ class UIController {
 
         // Setup (order matters - sync after listeners are attached)
         this._buildThemePicker();
+        this._buildAutoThemeSelects();
         this._initializeEventListeners();
+        this._setupSettingBindings();
+        this._setupSpeedRange();
         this._subscribeToReaderEvents();
         this._setupKeyboardShortcuts();
 
@@ -119,8 +122,6 @@ class UIController {
             // Sliders
             speedSlider: document.getElementById('speed-slider'),
             speedValue: document.getElementById('speed-value'),
-            focusSlider: document.getElementById('focus-slider'),
-            focusValue: document.getElementById('focus-value'),
             scrollSlider: document.getElementById('scroll-slider'),
             scrollValue: document.getElementById('scroll-value'),
             fontsizeSlider: document.getElementById('fontsize-slider'),
@@ -422,12 +423,6 @@ class UIController {
                 label: v => `${v} WPM`
             },
             {
-                slider: this.elements.focusSlider,
-                value: this.elements.focusValue,
-                action: v => this.app.setFocusWidth(v),
-                label: v => v
-            },
-            {
                 slider: this.elements.scrollSlider,
                 value: this.elements.scrollValue,
                 action: v => this.app.setScrollLevel(v),
@@ -467,6 +462,126 @@ class UIController {
             this.app.setAutoTheme(e.target.checked);
             this._updateThemeAutoState();
         });
+    }
+
+    // ========================================
+    // DATA-DRIVEN SETTING CONTROLS
+    // ========================================
+
+    /**
+     * Controls marked up with data-setting="<state path>" and
+     * data-method="<app method>" (sliders, checkboxes, selects) are wired
+     * generically: input calls the app method, and any change to the state
+     * path - from here, import, reset or a gesture - refreshes the control.
+     * @private
+     */
+    _setupSettingBindings() {
+        const controls = document.querySelectorAll('[data-setting]');
+        controls.forEach((el) => {
+            const path = el.dataset.setting;
+            const isCheck = el.type === 'checkbox';
+            const isRange = el.type === 'range';
+            const method = el.dataset.method ||
+                (path === 'autoLightTheme' ? 'autoLight' : path === 'autoDarkTheme' ? 'autoDark' : null);
+            const valueEl = document.querySelector(`[data-value-for="${path}"]`);
+            const fmt = (v) => this._formatSetting(v, el.dataset.format);
+
+            const refresh = () => {
+                const v = this._readSetting(path);
+                if (v === undefined) return;
+                if (isCheck) el.checked = !!v;
+                else el.value = v;
+                if (valueEl) valueEl.textContent = fmt(v);
+            };
+
+            el.addEventListener(isRange ? 'input' : 'change', () => {
+                const raw = isCheck ? el.checked : (isRange ? parseFloat(el.value) : el.value);
+                if (path === 'autoLightTheme') this.app.setAutoThemes(raw, null);
+                else if (path === 'autoDarkTheme') this.app.setAutoThemes(null, raw);
+                else if (method && typeof this.app[method] === 'function') this.app[method](raw);
+                if (valueEl && !isCheck) valueEl.textContent = fmt(raw);
+            });
+
+            this.app.onSettingChange(path, refresh);
+            el._refresh = refresh;
+            refresh();
+        });
+        // Presets that rewrite many keys at once (reset) re-sync everything.
+        this._refreshBindings = () => controls.forEach((el) => el._refresh && el._refresh());
+    }
+
+    /** @private */
+    _readSetting(path) {
+        let v = this.app.getCurrentSettings();
+        for (const k of path.split('.')) v = v == null ? undefined : v[k];
+        return v;
+    }
+
+    /** @private */
+    _formatSetting(v, format) {
+        if (typeof v !== 'number') return v;
+        switch (format) {
+            case 'em': return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(2)} em`;
+            case 'x': return `${Math.round(v * 100)}%`;
+            case 'int': return String(Math.round(v));
+            default: return String(v);
+        }
+    }
+
+    /** Fill the "match system" light/dark theme dropdowns from the registry. @private */
+    _buildAutoThemeSelects() {
+        const THEMES = (typeof window !== 'undefined' && window.THEMES) || {};
+        document.querySelectorAll('[data-theme-select]').forEach((sel) => {
+            const want = sel.dataset.themeSelect; // 'light' | 'dark'
+            const keys = Object.keys(THEMES);
+            // The light picker offers light themes first, the dark one dark + terminal.
+            const preferred = keys.filter((k) => (THEMES[k].group === 'light') === (want === 'light'));
+            const rest = keys.filter((k) => !preferred.includes(k));
+            const addGroup = (label, list) => {
+                if (!list.length) return;
+                const og = document.createElement('optgroup');
+                og.label = label;
+                list.forEach((k) => {
+                    const o = document.createElement('option');
+                    o.value = k;
+                    o.textContent = THEMES[k].name || k;
+                    og.appendChild(o);
+                });
+                sel.appendChild(og);
+            };
+            addGroup(want === 'light' ? 'Light themes' : 'Dark themes', preferred);
+            addGroup('Other themes', rest);
+        });
+    }
+
+    /** The slowest / fastest the dial goes. @private */
+    _setupSpeedRange() {
+        const minEl = document.getElementById('speed-min-input');
+        const maxEl = document.getElementById('speed-max-input');
+        if (!minEl || !maxEl) return;
+
+        const sync = () => {
+            const f = this.app.getCurrentSettings().flow;
+            minEl.value = f.speedMin;
+            maxEl.value = f.speedMax;
+            if (this.elements.speedSlider) {
+                this.elements.speedSlider.min = f.speedMin;
+                this.elements.speedSlider.max = f.speedMax;
+                this.elements.speedSlider.value = f.speed;
+            }
+            const scale = this.elements.speedSlider?.parentElement?.querySelector('.slider-scale');
+            if (scale) scale.innerHTML = `<span>${f.speedMin}</span><span>${f.speedMax}</span>`;
+        };
+        const commit = () => {
+            const ok = this.app.setSpeedRange(parseInt(minEl.value, 10), parseInt(maxEl.value, 10));
+            minEl.classList.toggle('invalid', !ok);
+            maxEl.classList.toggle('invalid', !ok);
+            if (ok) sync();
+        };
+        minEl.addEventListener('change', commit);
+        maxEl.addEventListener('change', commit);
+        this.app.onSettingChange(['flow.speedMin', 'flow.speedMax'], sync);
+        sync();
     }
 
     // ========================================
@@ -610,6 +725,7 @@ class UIController {
     _updateThemeAutoState() {
         const auto = !!(this.elements.themeAuto && this.elements.themeAuto.checked);
         this.elements.themePicker?.classList.toggle('is-auto', auto);
+        document.getElementById('auto-themes')?.toggleAttribute('hidden', !auto);
     }
 
     /**
@@ -643,8 +759,6 @@ class UIController {
 
     /** @private */
     _setupSpeedControls() {
-        this.SPEED_MIN = 100;
-        this.SPEED_MAX = 650;
         this.COACH_KEY = 'cheetah-coach-speed';
 
         // React to speed changes from ANY source (surface drag, Alt+wheel, arrows,
@@ -712,7 +826,8 @@ class UIController {
         if (!hud) return;
         if (this.elements.speedHudNum) this.elements.speedHudNum.textContent = wpm;
         if (this.elements.speedHudFill) {
-            const pct = ((wpm - this.SPEED_MIN) / (this.SPEED_MAX - this.SPEED_MIN)) * 100;
+            const f = this.app.getCurrentSettings().flow;
+            const pct = ((wpm - f.speedMin) / (f.speedMax - f.speedMin)) * 100;
             this.elements.speedHudFill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
         }
         hud.hidden = false;
@@ -1044,14 +1159,6 @@ class UIController {
             }
         }
 
-        // Flow focus width
-        if (this.elements.focusSlider) {
-            this.elements.focusSlider.value = settings.flow.focusWidth;
-            if (this.elements.focusValue) {
-                this.elements.focusValue.textContent = settings.flow.focusWidth;
-            }
-        }
-
         // Flow scroll level
         if (this.elements.scrollSlider) {
             this.elements.scrollSlider.value = settings.flow.scrollLevel;
@@ -1198,7 +1305,7 @@ class UIController {
                     // In Flow the page scrolls itself, so ↑/↓ tune speed instead.
                     if (this.app.getReaderState()?.mode === 'flow') {
                         e.preventDefault();
-                        this.app.setSpeed((this.app.getReaderState().speed || 400) - 10);
+                        this.app.setSpeed(this._currentSpeed() - 10);
                     } else if (area) {
                         e.preventDefault();
                         area.scrollBy({ top: 120, behavior: 'smooth' });
@@ -1207,7 +1314,7 @@ class UIController {
                 case 'ArrowUp':
                     if (this.app.getReaderState()?.mode === 'flow') {
                         e.preventDefault();
-                        this.app.setSpeed((this.app.getReaderState().speed || 400) + 10);
+                        this.app.setSpeed(this._currentSpeed() + 10);
                     } else if (area) {
                         e.preventDefault();
                         area.scrollBy({ top: -120, behavior: 'smooth' });
@@ -1227,6 +1334,27 @@ class UIController {
                         this._closeDrawers();
                     }
                     break;
+                case '[':
+                    e.preventDefault();
+                    this.app.setSpeed(this._currentSpeed() - 10);
+                    break;
+                case ']':
+                    e.preventDefault();
+                    this.app.setSpeed(this._currentSpeed() + 10);
+                    break;
+                case 'b':
+                case 'B':
+                    e.preventDefault();
+                    this.app.toggleBionic();
+                    this.elements.bionicBtn?.classList.toggle('active', !!this.app.getCurrentSettings().bionic);
+                    this._updateBionicSliderState();
+                    break;
+                case 'r':
+                case 'R': {
+                    const idx = this.app.getCurrentChapterIndex();
+                    if (idx >= 0) { e.preventDefault(); this.app.loadChapter(idx); }
+                    break;
+                }
                 case '+':
                 case '=': {
                     const s = this.app.getCurrentSettings();

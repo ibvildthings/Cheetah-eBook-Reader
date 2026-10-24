@@ -102,8 +102,8 @@
                             <button id="btn-bionic" title="Bold the first part of each word to pull your eye along the line">🐆 BioVision</button>
                         </div>
                         <div class="control-group">
-                            <label for="speed-slider">Flow speed <span class="control-value" id="speed-value">400 WPM</span></label>
-                            <input type="range" id="speed-slider" min="100" max="650" value="400" step="1">
+                            <label for="speed-slider">Flow speed <span class="control-value" id="speed-value">300 WPM</span></label>
+                            <input type="range" id="speed-slider" min="100" max="650" value="300" step="1">
                             <div class="slider-scale" aria-hidden="true"><span>Slower</span><span>Faster</span></div>
                         </div>
                     </div>
@@ -150,6 +150,27 @@
                             <input type="range" id="fontsize-slider" min="12" max="48" value="18">
                             <div class="slider-scale" aria-hidden="true"><span>12</span><span>48</span></div>
                         </div>
+                        <div class="control-group">
+                            <label for="set-letterSpacing">Letter spacing <span class="control-value" data-value-for="letterSpacing"></span></label>
+                            <input type="range" id="set-letterSpacing" data-setting="letterSpacing" data-method="setLetterSpacing" data-format="em" min="-0.05" max="0.25" step="0.01">
+                        </div>
+                        <div class="control-group">
+                            <label for="set-wordSpacing">Word spacing <span class="control-value" data-value-for="wordSpacing"></span></label>
+                            <input type="range" id="set-wordSpacing" data-setting="wordSpacing" data-method="setWordSpacing" data-format="em" min="-0.15" max="0.5" step="0.01">
+                        </div>
+                        <div class="control-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="set-justify" data-setting="justify" data-method="setJustify">
+                                <span>Justify text</span>
+                            </label>
+                        </div>
+                        <div class="control-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="set-invertLineArt" data-setting="invertLineArt" data-method="setInvertLineArt">
+                                <span>Invert diagrams</span>
+                            </label>
+                            <p class="hint">Turns black-on-white diagrams light on dark themes.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -172,6 +193,45 @@
                                 <span>Match system light / dark</span>
                             </label>
                         </div>
+                        <div class="control-group auto-themes" id="auto-themes">
+                            <label for="auto-light-select">Light appearance</label>
+                            <select id="auto-light-select" data-setting="autoLightTheme" data-theme-select="light"></select>
+                            <label for="auto-dark-select">Dark appearance</label>
+                            <select id="auto-dark-select" data-setting="autoDarkTheme" data-theme-select="dark"></select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sidebar-section collapsible">
+                    <h3 class="section-header" data-section="focus">
+                        <span class="section-icon" aria-hidden="true">🎯</span>
+                        <span>Focus band</span>
+                        <span class="collapse-arrow" aria-hidden="true">▼</span>
+                    </h3>
+                    <div class="section-content" data-content="focus">
+                        <div class="control-group">
+                            <label for="set-flow.focusWidth">Focus width <span class="control-value" data-value-for="flow.focusWidth"></span></label>
+                            <input type="range" id="set-flow.focusWidth" data-setting="flow.focusWidth" data-method="setFocusWidth" data-format="int" min="1" max="5" step="1">
+                            <p class="hint">How many words light up at once during Flow.</p>
+                        </div>
+                        <div class="control-group">
+                            <label for="set-flow.focusStrength">Highlight <span class="control-value" data-value-for="flow.focusStrength"></span></label>
+                            <input type="range" id="set-flow.focusStrength" data-setting="flow.focusStrength" data-method="setFocusStrength" data-format="x" min="0.1" max="2.5" step="0.1">
+                            <p class="hint">How strongly the band is lit.</p>
+                        </div>
+                        <div class="control-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="set-flow.focusBackground" data-setting="flow.focusBackground" data-method="setFocusBackground">
+                                <span>Background</span>
+                            </label>
+                            <p class="hint">The tint behind the lit words.</p>
+                        </div>
+                        <div class="control-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="set-flow.focusUnderline" data-setting="flow.focusUnderline" data-method="setFocusUnderline">
+                                <span>Underline</span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
@@ -182,10 +242,15 @@
                         <span class="collapse-arrow" aria-hidden="true">▼</span>
                     </h3>
                     <div class="section-content collapsed" data-content="advanced">
-                        <div class="control-group">
-                            <label for="focus-slider">Focus width <span class="control-value" id="focus-value">2</span></label>
-                            <input type="range" id="focus-slider" min="1" max="5" value="2">
-                            <p class="hint">How many words light up at once during Flow.</p>
+                        <div class="control-group speed-range">
+                            <span class="control-label">Speed range (WPM)</span>
+                            <div class="range-pair">
+                                <label for="speed-min-input">Slowest</label>
+                                <input type="number" id="speed-min-input" min="20" max="1450" step="10" inputmode="numeric">
+                                <label for="speed-max-input">Fastest</label>
+                                <input type="number" id="speed-max-input" min="70" max="1500" step="10" inputmode="numeric">
+                            </div>
+                            <p class="hint">The dial goes between these. Anywhere from 20 to 1500, at least 50 apart.</p>
                         </div>
                         <div class="control-group">
                             <label for="scroll-slider">Scroll pacing <span class="control-value" id="scroll-value">1</span></label>
@@ -213,7 +278,7 @@
                 </div>
 
                 <div class="sidebar-footer">
-                    <p class="keyboard-hint">Space play / pause &middot; &larr; &rarr; chapters &middot; Esc exit Flow</p>
+                    <p class="keyboard-hint">Space play / pause &middot; &larr; &rarr; chapters &middot; [ ] speed &middot; B BioVision &middot; + &minus; size &middot; R restart chapter &middot; Esc exit Flow</p>
                     <button id="reset-settings-btn" class="reset-link" title="Restore every setting to its default">Reset all settings</button>
                 </div>
             </div>
