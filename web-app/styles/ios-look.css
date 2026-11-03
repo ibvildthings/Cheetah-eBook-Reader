@@ -110,16 +110,45 @@ body {
 .fd-ear { cursor: pointer; outline: none; }
 .fd-ear-shape {
     fill: var(--ui-text);
-    fill-opacity: 0.12;
+    fill-opacity: 0.16;
     stroke: var(--ui-text);
-    stroke-opacity: 0.12;
-    stroke-width: 8;
+    stroke-opacity: 0.16;
+    stroke-width: 12;
     stroke-linejoin: round;
     transition: fill-opacity 0.15s ease;
 }
-.fd-ear:hover .fd-ear-shape { fill-opacity: 0.22; }
+.fd-ear-chevron {
+    fill: none;
+    stroke: var(--ui-text);
+    stroke-opacity: 0.85;
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+.fd-ear:hover .fd-ear-shape { fill-opacity: 0.28; }
 .fd-ear.disabled { opacity: 0.25; cursor: default; }
-.fd-ear.disabled:hover .fd-ear-shape { fill-opacity: 0.12; }
+.fd-ear.disabled:hover .fd-ear-shape { fill-opacity: 0.16; }
+
+/* ---------- Panel toggles: round, roomy, line icons ---------- */
+
+.chapters-toggle,
+.sidebar-toggle {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+}
+.chapters-toggle svg,
+.sidebar-toggle svg {
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
 
 .fd-readout {
     fill: var(--ui-text-muted);

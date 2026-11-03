@@ -52,11 +52,16 @@ class FlowDial {
             const g = this._el('g', { class: `fd-ear fd-ear-${side}`, role: 'button', tabindex: '0',
                 'aria-label': side === 'prev' ? 'Previous chapter' : 'Next chapter' }, svg);
             this._el('path', {
-                d: `M${x(104)} ${CY - 4} L${x(144)} ${CY - 4} L${x(156)} ${CY - 52} Z`,
+                d: `M${x(100)} ${CY - 4} L${x(146)} ${CY - 4} L${x(160)} ${CY - 62} Z`,
                 class: 'fd-ear-shape'
             }, g);
+            // The chevron sits toward the screen edge, where a thumb lands.
+            this._el('path', {
+                d: `M${x(124)} ${CY - 40} L${x(137)} ${CY - 27} L${x(124)} ${CY - 14}`,
+                class: 'fd-ear-chevron'
+            }, g);
             // Generous invisible target
-            this._el('rect', { x: dir < 0 ? x(170) : x(86), y: CY - 70, width: 84, height: 70, fill: 'transparent' }, g);
+            this._el('rect', { x: dir < 0 ? x(174) : x(86), y: CY - 76, width: 88, height: 76, fill: 'transparent' }, g);
             return g;
         };
         this.earPrev = ear('prev');
